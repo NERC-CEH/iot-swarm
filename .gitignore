@@ -1,0 +1,10 @@
+.python/*
+.vscode/*
+**/__pycache__/*
+*.docx
+build/*
+dist/*
+*.egg*
+.coverage
+config.cfg
+aws-auth

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools >= 61.0", "autosemver"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iot-device-simulator"
+version = "0.0.0"
+# dynamic = ["version"]
+dependencies = ["boto3", "autosemver", "config", "awscli"]
+authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
+description = "Package for simulating a net of IoT devices for stress testing."
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov", "parameterized"]
+# [tool.setuptools.dynamic]
+# version = { attr = "iotdevicesimulator.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["iotdevicesimulator"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:autosemver.*:",
+    "ignore::DeprecationWarning:pkg_resources.*:",
+]
+addopts = "--cov=iotdevicesimulator"
