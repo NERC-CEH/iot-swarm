@@ -1,5 +1,6 @@
 import asyncio
-
+import logging
+logger = logging.getLogger(__name__)
 
 class SensorSite:
     """Digital representation of a site used in FDRI
@@ -31,11 +32,13 @@ class SensorSite:
         self.max_cycles = max_cycles
         self.cycle = 0
 
+        logger.info(f"Initialised Site: {repr(self)}")
+
     def __repr__(self):
-        return f"SensorSite({self.site_id}, sleep_time={self.sleep_time}, max_cycles={self.max_cycles})"
+        return f"SensorSite(\"{self.site_id}\", sleep_time={self.sleep_time}, max_cycles={self.max_cycles})"
 
     def __str__(self):
-        return f"Site ID: {self.site_id}, Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}"
+        return f"Site ID: \"{self.site_id}\", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}"
 
     async def run(self, query_function: callable):
         """The main invocation of the method. Expects a query function from
@@ -48,7 +51,7 @@ class SensorSite:
 
             await asyncio.sleep(self.sleep_time)
 
-            print(f"{str(self)} Site: {row["SITE_ID"]}, WD: {row["WD"]}")
+            logging.debug(f"{str(self)} Site: {row["SITE_ID"]}, Record Time: {row["DATE_TIME"]}")
             self.cycle += 1
 
             if self.cycle >= self.max_cycles:

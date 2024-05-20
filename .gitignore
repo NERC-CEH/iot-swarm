@@ -8,3 +8,4 @@ dist/*
 .coverage
 config.cfg
 aws-auth
+*.log

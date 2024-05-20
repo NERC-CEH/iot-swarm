@@ -1,5 +1,8 @@
 import oracledb
 import getpass
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Oracle:
@@ -26,6 +29,8 @@ class Oracle:
             dsn=dsn, user=user, password=password
         )
 
+        logging.info("Initialized Oracle connection.")
+
         return self
 
     async def query_latest_COSMOS_level1_soilmet_30min(self, site_id: str) -> dict:
@@ -42,8 +47,7 @@ class Oracle:
             await cursor.execute(
                 "SELECT * FROM COSMOS.level1_soilmet_30min "
                 "WHERE site_id = :mysite "
-                "ORDER BY date_time "
-                "OFFSET 2 ROWS "
+                "ORDER BY date_time DESC "
                 "FETCH NEXT 1 ROWS ONLY",
                 mysite=site_id,
             )

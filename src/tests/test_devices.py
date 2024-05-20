@@ -26,7 +26,7 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 
         self.assertEqual(
             repr(site),
-            f"SensorSite({site.site_id}, sleep_time={site.sleep_time}, max_cycles={site.max_cycles})",
+            f'SensorSite("{site.site_id}", sleep_time={site.sleep_time}, max_cycles={site.max_cycles})',
         )
 
     @parameterized.expand(["ABCDE", "testsite", 12345])
@@ -37,7 +37,7 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 
         self.assertEqual(
             str(site),
-            f"Site ID: {site.site_id}, Sleep Time: {site.sleep_time}, Max Cycles: {site.max_cycles}, Cycle: {site.cycle}",
+            f'Site ID: "{site.site_id}", Sleep Time: {site.sleep_time}, Max Cycles: {site.max_cycles}, Cycle: {site.cycle}',
         )
 
     @parameterized.expand([-1, 7.9, 1, 5, 10, "10"])
