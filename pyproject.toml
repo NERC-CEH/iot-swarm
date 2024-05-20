@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "iot-device-simulator"
 dynamic = ["version"]
-dependencies = ["boto3", "autosemver", "config", "awscli"]
+dependencies = ["boto3", "autosemver", "config", "awscli", "oracledb"]
 authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
 description = "Package for simulating a net of IoT devices for stress testing."
 
@@ -26,4 +26,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pkg_resources.*:",
 ]
 addopts = "--cov=iotdevicesimulator"
-markers = ["asyncio"]
+markers = [
+    "asyncio: Tests asynchronous functions.",
+    "oracle: Requires oracle connection and required config credentials",
+]

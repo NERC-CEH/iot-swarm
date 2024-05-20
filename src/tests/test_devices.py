@@ -2,7 +2,9 @@ import unittest
 import asyncio
 import pytest
 from iotdevicesimulator.devices import SensorSite
+from iotdevicesimulator.db import Oracle
 from parameterized import parameterized
+import pathlib, config
 
 
 class TestSensorSiteInstantiation(unittest.TestCase):
@@ -22,7 +24,10 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 
         site = SensorSite(site_id)
 
-        self.assertEqual(repr(site), f"SensorSite({site.site_id}, {site.max_cycles})")
+        self.assertEqual(
+            repr(site),
+            f"SensorSite({site.site_id}, sleep_time={site.sleep_time}, max_cycles={site.max_cycles})",
+        )
 
     @parameterized.expand(["ABCDE", "testsite", 12345])
     def test__str__(self, site_id):
@@ -32,50 +37,88 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 
         self.assertEqual(
             str(site),
-            f"Site ID: {site.site_id}, Max Cycles: {site.max_cycles}, Cycle: {site.cycle}",
+            f"Site ID: {site.site_id}, Sleep Time: {site.sleep_time}, Max Cycles: {site.max_cycles}, Cycle: {site.cycle}",
         )
 
-    @parameterized.expand([0, 5, 10, "10"])
-    def test_max_cycle_argument(self, max_count):
+    @parameterized.expand([-1, 7.9, 1, 5, 10, "10"])
+    def test_max_cycle_argument(self, max_cycles):
         """Tests that the max argument is set"""
 
-        site = SensorSite("SITE_ID", max_count)
-        self.assertEqual(site.max_cycles, int(max_count))
+        site = SensorSite("SITE_ID", max_cycles=max_cycles)
+        self.assertEqual(site.max_cycles, int(max_cycles))
 
-    def test_max_cycle_negative_gives_error(self):
-        """Tests that negative max_count gives ValueError"""
+    @parameterized.expand(["four", "TEN", -10, 0])
+    def test_max_cycle_bad_value_gives_error(self, max_cycles):
+        """Tests that negative max_cycles gives ValueError"""
 
-        with self.assertRaises(ValueError) as E:
-            SensorSite("SITE_ID", -10)
+        with self.assertRaises(ValueError):
+            SensorSite("SITE_ID", max_cycles=max_cycles)
 
-    def test_max_cycle_non_numeric_gives_error(self):
-        """Tests that non-numeric max_cycle gives ValueError"""
+    @parameterized.expand([0, 7.6, 1, 5, 10, "10"])
+    def test_sleep_time_argument(self, sleep_time):
+        """Tests that the sleep_time is set"""
 
-        with self.assertRaises(ValueError) as E:
-            SensorSite("SITE_ID", "ONE")
+        site = SensorSite("SITE_ID", sleep_time=sleep_time)
+        self.assertEqual(site.sleep_time, int(sleep_time))
+
+    @parameterized.expand(["four", "TEN", -10, -1.2])
+    def test_sleep_time_bad_value_gives_error(self, sleep_time):
+        """Tests that bad `sleep_time` values gives ValueError"""
+
+        with self.assertRaises(ValueError):
+            SensorSite("SITE_ID", sleep_time=sleep_time)
+
+
+CONFIG_PATH = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
+
+
+config_exists = pytest.mark.skipif(
+    not CONFIG_PATH.exists(),
+    reason="Config file `config.cfg` not found in root directory.",
+)
 
 
 class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
     """Tests the active behaviour of SensorSite objects."""
 
+    async def asyncSetUp(self):
+        cred_path = str(CONFIG_PATH)
+        creds = config.Config(cred_path)["oracle"]
+
+        self.oracle = await Oracle.create(
+            creds["dsn"],
+            creds["user"],
+            password=creds["password"],
+        )
+
+    async def asyncTearDown(self) -> None:
+        await self.oracle.connection.close()
+
     @pytest.mark.asyncio
+    @pytest.mark.oracle
     async def test_run_stops_after_max_cycles(self):
         """Ensures .run() method breaks after max_cycles"""
 
-        site = SensorSite("TestSite", 5)
-        await site.run()
+        query = self.oracle.query_latest_COSMOS_level1_soilmet_30min
+
+        site = SensorSite("MORLY", max_cycles=5)
+        await site.run(query)
 
         self.assertEqual(site.cycle, site.max_cycles)
 
     @pytest.mark.asyncio
+    @pytest.mark.oracle
     async def test_multi_instances_stop_at_max_cycles(self):
         """Ensures .run() method breaks after max_cycles for multiple instances"""
 
-        max_cycles = [5, 6, 7]
+        query = self.oracle.query_latest_COSMOS_level1_soilmet_30min
 
-        sites = [SensorSite(f"Site {i}", max_cycles[i]) for i in range(len(max_cycles))]
+        max_cycles = [1, 2, 3]
+        site_ids = ["BALRD", "GLENW", "COCHN"]
 
-        await asyncio.gather(*[x.run() for x in sites])
+        sites = [SensorSite(s, max_cycles=i) for (s, i) in zip(site_ids, max_cycles)]
+
+        await asyncio.gather(*[x.run(query) for x in sites])
 
         for i, site in enumerate(sites):
             self.assertEqual(site.cycle, max_cycles[i])
