@@ -2,6 +2,7 @@ import asyncio
 import logging
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.db import Oracle
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,8 @@ class SensorSite:
         site_id (str): ID of site.
         sleep_time (int | float): Time to sleep between requests (seconds).
         max_cycles (int): Maximum number of cycles before shutdown.
+        inherit_logger (logging.Logger): Override for the module logger.
+        delay_first_cycle (bool|None): Adds a random delay to first invocation from 0 - `sleep_time`.
     
     Attributes:
         site_id (str): ID of site.
@@ -19,7 +22,7 @@ class SensorSite:
         max_cycles (int): Maximum number of cycles before shutdown.
         cycle (int): The current cycle."""
 
-    def __init__(self, site_id: str,*, sleep_time: int | float = 0, max_cycles: int = 1, inherit_logger:logging.Logger|None=None) -> None:
+    def __init__(self, site_id: str,*, sleep_time: int | float = 0, max_cycles: int = 1, inherit_logger:logging.Logger|None=None, delay_first_cycle:bool=False) -> None:
         self.site_id = str(site_id)
 
         if inherit_logger:
@@ -29,6 +32,13 @@ class SensorSite:
 
         max_cycles = int(max_cycles)
         sleep_time = int(sleep_time)
+
+        if not isinstance(delay_first_cycle, bool):
+            raise TypeError(
+                f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
+            )
+
+        self.delay_first_cycle = delay_first_cycle
 
         if max_cycles <= 0 and max_cycles != -1:
             raise ValueError(f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}")
@@ -56,6 +66,12 @@ class SensorSite:
             oracle (Oracle): The oracle database.
             query (CosmosQuery): Query to process by database."""
         while True:
+
+            if self.delay_first_cycle and self.cycle == 0:
+                delay = random.randint(0, self.sleep_time)
+                self._instance_logger.debug(f"Delaying first cycle for: {delay}s")
+                await asyncio.sleep(delay)
+
             row = await oracle.query_latest_from_site(self.site_id, query)
 
             if not row:

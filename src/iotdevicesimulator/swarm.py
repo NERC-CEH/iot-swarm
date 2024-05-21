@@ -11,7 +11,6 @@ import random
 import uuid
 
 # TODO: Implement messaging logic
-# TODO: Implement delay in first message
 
 config_path = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
 
@@ -34,6 +33,7 @@ class CosmosSwarm:
         max_cycles: int = 3,
         max_sites: int = -1,
         swarm_name: str | None = None,
+        delay_first_cycle: bool = False,
     ) -> None:
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `CosmosSwarm.create(...)`.
@@ -45,6 +45,7 @@ class CosmosSwarm:
             max_cycles (int): Maximum number of data sending cycles.
             max_sites (int): Maximum number of sites to initialise.
             swarm_name (str|None): Name / ID given to swarm.
+            delay_first_cycle (bool): Adds a random delay to first invocation from 0 - `sleep_time`.
         """
         self = cls()
 
@@ -59,6 +60,13 @@ class CosmosSwarm:
         max_cycles = int(max_cycles)
         sleep_time = int(sleep_time)
         max_sites = int(max_sites)
+
+        if not isinstance(delay_first_cycle, bool):
+            raise TypeError(
+                f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
+            )
+
+        self.delay_first_cycle = delay_first_cycle
 
         if max_cycles <= 0 and max_cycles != -1:
             raise ValueError(
@@ -87,6 +95,7 @@ class CosmosSwarm:
                 max_cycles=max_cycles,
                 max_sites=max_sites,
                 swarm_logger=self._instance_logger,
+                delay_first_cycle=delay_first_cycle,
             )
         else:
             self.sites = await self._init_sites_from_db(
@@ -95,6 +104,7 @@ class CosmosSwarm:
                 max_cycles=max_cycles,
                 max_sites=max_sites,
                 swarm_logger=self._instance_logger,
+                delay_first_cycle=delay_first_cycle,
             )
 
         self._instance_logger.debug("Swarm Ready")
@@ -146,6 +156,7 @@ class CosmosSwarm:
         max_cycles: int = 3,
         max_sites: int = -1,
         swarm_logger: logging.Logger | None = None,
+        delay_first_cycle: bool = False,
     ):
         """Initialises a list of SensorSites.
 
@@ -154,6 +165,8 @@ class CosmosSwarm:
             sleep_time (int): Length of time to sleep after sending data in seconds.
             max_cycles (int): Maximum number of data sending cycles.
             max_sites (int): Maximum number of sites to initialise.
+            swarm_logger (logging.Logger): Passes the instance logger to sites
+            delay_first_cycle (bool|None): Adds a random delay to first invocation from 0 - `sleep_time`.
 
         Returns:
             List[SensorSite]: A list of sensor sites.
@@ -167,6 +180,7 @@ class CosmosSwarm:
                 sleep_time=sleep_time,
                 max_cycles=max_cycles,
                 inherit_logger=swarm_logger,
+                delay_first_cycle=delay_first_cycle,
             )
             for site_id in site_ids
         ]
@@ -178,6 +192,7 @@ class CosmosSwarm:
         max_cycles: int = 3,
         max_sites=-1,
         swarm_logger: logging.Logger | None = None,
+        delay_first_cycle: bool = False,
     ) -> List[SensorSite]:
         """Initialised sensor sites from the COSMOS DB.
 
@@ -186,6 +201,8 @@ class CosmosSwarm:
             sleep_time (int): Length of time to sleep after sending data in seconds.
             max_cycles (int): Maximum number of data sending cycles.
             max_sites (int): Maximum number of sites to initialise.
+            swarm_logger (logging.Logger): Passes the instance logger to sites
+            delay_first_cycle (bool|None): Adds a random delay to first invocation from 0 - `sleep_time`.
         Returns:
             List[SensorSite]: A list of sensor sites.
         """
@@ -204,6 +221,7 @@ class CosmosSwarm:
                     sleep_time=sleep_time,
                     max_cycles=max_cycles,
                     inherit_logger=swarm_logger,
+                    delay_first_cycle=delay_first_cycle,
                 )
                 for site_id in site_ids
             ]
@@ -239,7 +257,9 @@ class CosmosSwarm:
 
 async def main():
     swarm = await CosmosSwarm.create(
-        queries.CosmosQuery.LEVEL_1_SOILMET_30MIN, swarm_name="soilmet"
+        queries.CosmosQuery.LEVEL_1_SOILMET_30MIN,
+        swarm_name="soilmet",
+        delay_first_cycle=True,
     )
     await swarm.run()
 

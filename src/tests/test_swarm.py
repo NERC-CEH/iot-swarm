@@ -37,6 +37,22 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(swarm.sleep_time, int(sleep_time))
         self.assertEqual(swarm.max_sites, max_sites)
 
+    async def test_delay_set(self):
+        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
+        swarm = await CosmosSwarm.create(query, "MORLY", delay_first_cycle=True)
+
+        self.assertTrue(swarm.delay_first_cycle)
+
+        swarm = await CosmosSwarm.create(query, "MORLY", delay_first_cycle=False)
+
+        self.assertFalse(swarm.delay_first_cycle)
+
+    async def test_error_if_delay_set_not_bool(self):
+        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
+
+        with self.assertRaises(TypeError):
+            await CosmosSwarm.create(query, "MORLY", delay_first_cycle=4)
+
     @pytest.mark.asyncio
     async def test_swarm_name_given(self):
         query = CosmosQuery.LEVEL_1_SOILMET_30MIN
