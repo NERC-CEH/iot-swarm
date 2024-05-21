@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 logger = logging.getLogger(__name__)
 
 class SensorSite:
@@ -51,7 +52,7 @@ class SensorSite:
 
             await asyncio.sleep(self.sleep_time)
 
-            logging.debug(f"{str(self)} Site: {row["SITE_ID"]}, Record Time: {row["DATE_TIME"]}")
+            logger.debug(f"{str(self)} Site: {row["SITE_ID"]}, Record Time: {row["DATE_TIME"]}")
             self.cycle += 1
 
             if self.cycle >= self.max_cycles:

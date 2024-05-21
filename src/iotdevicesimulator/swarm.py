@@ -1,51 +1,23 @@
-import logging
-import logging.handlers
-
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
+import logging
+
 from typing import List
 import pathlib
 import asyncio
 import config
 import random
-import platformdirs
-import os
+
+# TODO: Rewrite as a class
+# TODO: Implement messaging logic
+# TODO: Implement delay in first message
 
 CONFIG_PATH = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
-LOGFILE = pathlib.Path(
-    platformdirs.site_data_dir("iot_device_simulator"),
-    "swarm.log",
-)
 
-
-def get_logger():
-
-    if not LOGFILE.parent.exists():
-        os.makedirs(LOGFILE.parent)
-
-    # rotating_handler = logging.handlers.RotatingFileHandler(
-    #     LOGFILE, maxBytes=(1048576 * 5), backupCount=7
-    # )
-
-    rotating_handler = logging.handlers.TimedRotatingFileHandler(
-        LOGFILE, when="W0", backupCount=7
-    )
-
-    stream_handler = logging.StreamHandler()
-
-    logging.basicConfig(
-        handlers=[stream_handler, rotating_handler],
-        level=logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%d/%m/%Y %H:%M:%S",
-    )
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-
-    get_logger()
-
-    logging.info(f"Started. Writing to logfile: {LOGFILE}")
 
     oracle = await get_oracle()
     query = oracle.query_latest_COSMOS_level1_soilmet_30min
@@ -61,7 +33,7 @@ async def main() -> None:
 
     await asyncio.gather(*[site.run(query) for site in sites])
 
-    logging.info("Finished")
+    logger.info("Finished")
 
 
 async def get_oracle() -> Oracle:

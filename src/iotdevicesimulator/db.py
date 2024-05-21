@@ -29,7 +29,7 @@ class Oracle:
             dsn=dsn, user=user, password=password
         )
 
-        logging.info("Initialized Oracle connection.")
+        logger.info("Initialized Oracle connection.")
 
         return self
 
