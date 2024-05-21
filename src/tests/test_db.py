@@ -6,6 +6,7 @@ import threading
 from typing import Awaitable
 import asyncio
 from iotdevicesimulator import db
+from iotdevicesimulator.queries import CosmosQuery
 import oracledb
 
 CONFIG_PATH = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
@@ -45,10 +46,21 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
     async def test_query(self):
 
         site_id = "MORLY"
+        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
 
-        row = await self.oracle.query_latest_COSMOS_level1_soilmet_30min(site_id)
+        row = await self.oracle.query_latest_from_site(site_id, query)
 
         self.assertEqual(row["SITE_ID"], site_id)
+
+    @pytest.mark.asyncio
+    @config_exists
+    async def test_bad_query_type(self):
+
+        site_id = "MORLY"
+        query = "sql injection goes brr"
+
+        with self.assertRaises(TypeError):
+            await self.oracle.query_latest_from_site(site_id, query)
 
 
 if __name__ == "__main__":

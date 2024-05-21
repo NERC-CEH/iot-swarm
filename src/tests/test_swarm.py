@@ -4,6 +4,7 @@ from parameterized import parameterized
 from iotdevicesimulator.swarm import CosmosSwarm
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.devices import SensorSite
+from iotdevicesimulator.queries import CosmosQuery
 
 
 class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
@@ -36,6 +37,20 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(swarm.sleep_time, int(sleep_time))
         self.assertEqual(swarm.max_sites, max_sites)
 
+    @pytest.mark.asyncio
+    async def test_swarm_name_given(self):
+        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
+        swarm = await CosmosSwarm.create(query, "MORLY", swarm_name="myswarm")
+
+        self.assertEqual(swarm.swarm_name, "myswarm")
+
+    @pytest.mark.asyncio
+    async def test_swarm_name_not_given(self):
+        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
+        swarm = await CosmosSwarm.create(query, "MORLY")
+
+        self.assertIsInstance(swarm.swarm_name, str)
+
     @parameterized.expand([-1, 1, 10, 35.52])
     @pytest.mark.asyncio
     @pytest.mark.oracle
@@ -52,7 +67,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         if expected_length > len(sites):
             expected_length = len(sites)
 
-        self.assertEqual(len(swarm.sites), expected_length)
+        self.assertEqual(len(swarm), expected_length)
 
     @parameterized.expand(["Four", -3, 0])
     @pytest.mark.asyncio

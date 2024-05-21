@@ -1,5 +1,6 @@
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
+from iotdevicesimulator import queries
 import logging
 
 from typing import List
@@ -7,6 +8,7 @@ import pathlib
 import asyncio
 import config
 import random
+import uuid
 
 # TODO: Implement messaging logic
 # TODO: Implement delay in first message
@@ -18,26 +20,41 @@ logger = logging.getLogger(__name__)
 
 class CosmosSwarm:
 
+    def __len__(self):
+        """Returns number of sites"""
+
+        return len(self.sites)
+
     @classmethod
     async def create(
         cls,
-        queries: List[str],
+        query: str,
         site_ids: List[str] = None,
         sleep_time: int = 5,
         max_cycles: int = 3,
         max_sites: int = -1,
+        swarm_name: str | None = None,
     ) -> None:
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `CosmosSwarm.create(...)`.
 
         Args:
-            queries (List[str]): A list of data queries to submit.
+            query (List[str]): A list of data query to submit.
             site_ids (List[str]): A list of site ID strings.
             sleep_time (int): Length of time to sleep after sending data in seconds.
             max_cycles (int): Maximum number of data sending cycles.
             max_sites (int): Maximum number of sites to initialise.
+            swarm_name (str|None): Name / ID given to swarm.
         """
         self = cls()
+
+        if not swarm_name:
+            swarm_name = f"swarm-{uuid.uuid4()}"
+
+        self.swarm_name = swarm_name
+
+        self._instance_logger = logger.getChild(self.swarm_name)
+        self._instance_logger.debug("Initialising swarm")
 
         max_cycles = int(max_cycles)
         sleep_time = int(sleep_time)
@@ -59,9 +76,9 @@ class CosmosSwarm:
         self.sleep_time = sleep_time
         self.max_cycles = max_cycles
         self.max_sites = max_sites
-        self.queries = queries
+        self.query = query
 
-        self.oracle = await self._get_oracle()
+        self.oracle = await self._get_oracle(inherit_logger=self._instance_logger)
 
         if site_ids:
             self.sites = self._init_sites(
@@ -69,6 +86,7 @@ class CosmosSwarm:
                 sleep_time=sleep_time,
                 max_cycles=max_cycles,
                 max_sites=max_sites,
+                swarm_logger=self._instance_logger,
             )
         else:
             self.sites = await self._init_sites_from_db(
@@ -76,21 +94,27 @@ class CosmosSwarm:
                 sleep_time=sleep_time,
                 max_cycles=max_cycles,
                 max_sites=max_sites,
+                swarm_logger=self._instance_logger,
             )
+
+        self._instance_logger.debug("Swarm Ready")
 
         return self
 
     async def run(self):
         """Main function for running the swarm."""
+        self._instance_logger.debug("Running main loop")
+        await asyncio.gather(
+            *[site.run(self.oracle, self.query) for site in self.sites]
+        )
 
-        query = self.oracle.query_latest_COSMOS_level1_soilmet_30min
-
-        await asyncio.gather(*[site.run(query) for site in self.sites])
-
-        logger.info("Finished")
+        self._instance_logger.info("Finished")
 
     @staticmethod
-    async def _get_oracle(cred_path: pathlib.Path | str | None = None) -> Oracle:
+    async def _get_oracle(
+        cred_path: pathlib.Path | str | None = None,
+        inherit_logger: logging.Logger | None = None,
+    ) -> Oracle:
         """Reads Oracle credentials from `config_path` and returns an asynchronous
         connection to Oracle.
 
@@ -110,6 +134,7 @@ class CosmosSwarm:
             creds["dsn"],
             creds["user"],
             password=creds["password"],
+            inherit_logger=inherit_logger,
         )
 
         return oracle
@@ -120,6 +145,7 @@ class CosmosSwarm:
         sleep_time: int = 10,
         max_cycles: int = 3,
         max_sites: int = -1,
+        swarm_logger: logging.Logger | None = None,
     ):
         """Initialises a list of SensorSites.
 
@@ -136,13 +162,22 @@ class CosmosSwarm:
             site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
         return [
-            SensorSite(site_id, sleep_time=sleep_time, max_cycles=max_cycles)
+            SensorSite(
+                site_id,
+                sleep_time=sleep_time,
+                max_cycles=max_cycles,
+                inherit_logger=swarm_logger,
+            )
             for site_id in site_ids
         ]
 
     @staticmethod
     async def _init_sites_from_db(
-        oracle: Oracle, sleep_time: int = 10, max_cycles: int = 3, max_sites=-1
+        oracle: Oracle,
+        sleep_time: int = 10,
+        max_cycles: int = 3,
+        max_sites=-1,
+        swarm_logger: logging.Logger | None = None,
     ) -> List[SensorSite]:
         """Initialised sensor sites from the COSMOS DB.
 
@@ -164,7 +199,12 @@ class CosmosSwarm:
                 site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
             return [
-                SensorSite(site_id[0], sleep_time=sleep_time, max_cycles=max_cycles)
+                SensorSite(
+                    site_id[0],
+                    sleep_time=sleep_time,
+                    max_cycles=max_cycles,
+                    inherit_logger=swarm_logger,
+                )
                 for site_id in site_ids
             ]
 
@@ -198,7 +238,9 @@ class CosmosSwarm:
 
 
 async def main():
-    swarm = await CosmosSwarm.create("")
+    swarm = await CosmosSwarm.create(
+        queries.CosmosQuery.LEVEL_1_SOILMET_30MIN, swarm_name="soilmet"
+    )
     await swarm.run()
 
 

@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
+from iotdevicesimulator.queries import CosmosQuery
 from parameterized import parameterized
 import pathlib, config
 
@@ -16,7 +17,7 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 
         site = SensorSite(site_id)
 
-        self.assertEqual(site.site_id, site_id)
+        self.assertEqual(site.site_id, str(site_id))
 
     @parameterized.expand(["ABCDE", "testsite", 12345])
     def test__repr__(self, site_id):
@@ -99,10 +100,10 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
     async def test_run_stops_after_max_cycles(self):
         """Ensures .run() method breaks after max_cycles"""
 
-        query = self.oracle.query_latest_COSMOS_level1_soilmet_30min
+        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
 
-        site = SensorSite("MORLY", max_cycles=5)
-        await site.run(query)
+        site = SensorSite("MORLY", max_cycles=5, sleep_time=0)
+        await site.run(self.oracle, query)
 
         self.assertEqual(site.cycle, site.max_cycles)
 
@@ -111,14 +112,17 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
     async def test_multi_instances_stop_at_max_cycles(self):
         """Ensures .run() method breaks after max_cycles for multiple instances"""
 
-        query = self.oracle.query_latest_COSMOS_level1_soilmet_30min
+        query = CosmosQuery.LEVEL_1_PRECIP_1MIN
 
         max_cycles = [1, 2, 3]
-        site_ids = ["BALRD", "GLENW", "COCHN"]
+        site_ids = ["BALRD", "GLENW", "SPENF"]
 
-        sites = [SensorSite(s, max_cycles=i) for (s, i) in zip(site_ids, max_cycles)]
+        sites = [
+            SensorSite(s, max_cycles=i, sleep_time=0)
+            for (s, i) in zip(site_ids, max_cycles)
+        ]
 
-        await asyncio.gather(*[x.run(query) for x in sites])
+        await asyncio.gather(*[x.run(self.oracle, query) for x in sites])
 
         for i, site in enumerate(sites):
             self.assertEqual(site.cycle, max_cycles[i])

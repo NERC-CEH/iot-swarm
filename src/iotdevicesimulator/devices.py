@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from iotdevicesimulator.queries import CosmosQuery
+from iotdevicesimulator.db import Oracle
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +19,13 @@ class SensorSite:
         max_cycles (int): Maximum number of cycles before shutdown.
         cycle (int): The current cycle."""
 
-    def __init__(self, site_id: str,*, sleep_time: int | float = 0, max_cycles: int = 1) -> None:
-        self.site_id = site_id
+    def __init__(self, site_id: str,*, sleep_time: int | float = 0, max_cycles: int = 1, inherit_logger:logging.Logger|None=None) -> None:
+        self.site_id = str(site_id)
+
+        if inherit_logger:
+            self._instance_logger = inherit_logger.getChild(f"site-{self.site_id}")
+        else:
+            self._instance_logger = logger.getChild(self.site_id)
 
         max_cycles = int(max_cycles)
         sleep_time = int(sleep_time)
@@ -33,7 +40,7 @@ class SensorSite:
         self.max_cycles = max_cycles
         self.cycle = 0
 
-        logger.info(f"Initialised Site: {repr(self)}")
+        self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
         return f"SensorSite(\"{self.site_id}\", sleep_time={self.sleep_time}, max_cycles={self.max_cycles})"
@@ -41,19 +48,20 @@ class SensorSite:
     def __str__(self):
         return f"Site ID: \"{self.site_id}\", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}"
 
-    async def run(self, query_function: callable):
+    async def run(self, oracle: Oracle, query: CosmosQuery):
         """The main invocation of the method. Expects a query function from
             iotthingsimulator.db.Oracle to be injected for the work.
         
         Args:
-            query_function (callable): Query callable from database class."""
+            oracle (Oracle): The oracle database.
+            query (CosmosQuery): Query to process by database."""
         while True:
-            row = await query_function(self.site_id)
+            row = await oracle.query_latest_from_site(self.site_id, query)
 
             if not row:
-                logger.warn(f"{str(self)} No data found.")
+                self._instance_logger.warn(f"No data found.")
             else:
-                logger.debug(f"{str(self)} Read data from: {row["DATE_TIME"]}")
+                self._instance_logger.debug(f"Cycle {self.cycle+1}/{self.max_cycles} Read data from: {row["DATE_TIME"]}")
             
             self.cycle += 1
             if self.cycle >= self.max_cycles:
