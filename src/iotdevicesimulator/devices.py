@@ -50,10 +50,13 @@ class SensorSite:
         while True:
             row = await query_function(self.site_id)
 
-            await asyncio.sleep(self.sleep_time)
-
-            logger.debug(f"{str(self)} Site: {row["SITE_ID"]}, Record Time: {row["DATE_TIME"]}")
+            if not row:
+                logger.warn(f"{str(self)} No data found.")
+            else:
+                logger.debug(f"{str(self)} Read data from: {row["DATE_TIME"]}")
+            
             self.cycle += 1
-
             if self.cycle >= self.max_cycles:
                 break
+
+            await asyncio.sleep(self.sleep_time)

@@ -18,4 +18,4 @@ class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
         if not os.path.exists(logpath.parent):
             os.makedirs(logpath.parent)
 
-        super().__init__("path", *args, **kwargs)
+        super().__init__("NUL", *args, **kwargs)

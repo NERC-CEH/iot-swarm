@@ -53,4 +53,9 @@ class Oracle:
             )
 
             columns = [i[0] for i in cursor.description]
-            return dict(zip(columns, await cursor.fetchone()))
+            data = await cursor.fetchone()
+
+            if not data:
+                return None
+
+            return dict(zip(columns, data))
