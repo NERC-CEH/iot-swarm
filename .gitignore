@@ -9,3 +9,4 @@ dist/*
 config.cfg
 aws-auth
 *.log
+*.certs
