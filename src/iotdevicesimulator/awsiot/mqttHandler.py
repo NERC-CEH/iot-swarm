@@ -6,6 +6,7 @@ import time
 import json
 import config
 from pathlib import Path
+from awscrt.exceptions import AwsCrtError
 
 
 class IotCoreMQTTConnection:
@@ -21,8 +22,11 @@ class IotCoreMQTTConnection:
         port: int | None = None,
         clean_session: bool = False,
         keep_alive_secs: int = 1200,
-        **kwargs
+        topic_prefix: str = "",
+        **kwargs,
     ) -> None:
+
+        self.topic_prefix = topic_prefix
 
         tls_ctx_options = awscrt.io.TlsContextOptions.create_client_with_mtls_from_path(
             cert_path, key_path
@@ -131,10 +135,23 @@ class IotCoreMQTTConnection:
         print("Connection closed")
 
     def send_message(self, message: str, topic: str, count: int = 1):
-        connect_future = self.connection.connect()
 
-        # Future.result() waits until a result is available
-        connect_future.result()
+        if self.topic_prefix != "":
+            topic = f"{self.topic_prefix}/{topic}"
+        retry_count = 0
+
+        while retry_count < 10:
+            connect_future = self.connection.connect()
+
+            # Future.result() waits until a result is available
+            try:
+                connect_future.result()
+                break
+            except AwsCrtError:
+                print(f"Could not connect. Attempt {retry_count+1}/10")
+                retry_count += 1
+                time.sleep(2 * retry_count)
+
         print("Connected!")
 
         # Publish message to server desired number of times.

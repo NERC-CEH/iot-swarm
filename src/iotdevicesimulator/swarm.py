@@ -1,10 +1,11 @@
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator import queries
+from iotdevicesimulator.awsiot.mqttHandler import IotCoreMQTTConnection
 import logging
 
 from typing import List
-import pathlib
+from pathlib import Path
 import asyncio
 import config
 import random
@@ -12,7 +13,7 @@ import uuid
 
 # TODO: Implement messaging logic
 
-config_path = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
+config_path = Path(Path(__file__).parents[2], "config.cfg")
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class CosmosSwarm:
     async def create(
         cls,
         query: str,
+        message_connection: IotCoreMQTTConnection,
         site_ids: List[str] = None,
         sleep_time: int = 5,
         max_cycles: int = 3,
@@ -40,6 +42,7 @@ class CosmosSwarm:
 
         Args:
             query (List[str]): A list of data query to submit.
+            message_connection (IotCoreMQTTConnection): Object used to send data.
             site_ids (List[str]): A list of site ID strings.
             sleep_time (int): Length of time to sleep after sending data in seconds.
             max_cycles (int): Maximum number of data sending cycles.
@@ -48,6 +51,12 @@ class CosmosSwarm:
             delay_first_cycle (bool): Adds a random delay to first invocation from 0 - `sleep_time`.
         """
         self = cls()
+
+        if not isinstance(message_connection, IotCoreMQTTConnection):
+            raise TypeError(
+                f"`message_connection` must be a `IotCoreMQTTConnection`. Received: {type(message_connection)}"
+            )
+        self.message_connection = message_connection
 
         if not swarm_name:
             swarm_name = f"swarm-{uuid.uuid4()}"
@@ -115,21 +124,24 @@ class CosmosSwarm:
         """Main function for running the swarm."""
         self._instance_logger.debug("Running main loop")
         await asyncio.gather(
-            *[site.run(self.oracle, self.query) for site in self.sites]
+            *[
+                site.run(self.oracle, self.query, self.message_connection)
+                for site in self.sites
+            ]
         )
 
         self._instance_logger.info("Finished")
 
     @staticmethod
     async def _get_oracle(
-        cred_path: pathlib.Path | str | None = None,
+        cred_path: Path | str | None = None,
         inherit_logger: logging.Logger | None = None,
     ) -> Oracle:
         """Reads Oracle credentials from `config_path` and returns an asynchronous
         connection to Oracle.
 
         Args:
-            cred_path (pathlib.Path|str|None): Path to a config file containing an \"oracle\" section.
+            cred_path (Path|str|None): Path to a config file containing an \"oracle\" section.
 
         Returns:
             Oracle: An oracle object.
@@ -256,10 +268,26 @@ class CosmosSwarm:
 
 
 async def main():
+    iot_config = config.Config(str(Path(Path(__file__).parents[2], "config.cfg")))[
+        "iot_core"
+    ]
+
+    mqtt_connection = IotCoreMQTTConnection(
+        endpoint=iot_config["endpoint"],
+        cert_path=iot_config["cert_path"],
+        key_path=iot_config["pri_key_path"],
+        ca_cert_path=iot_config["aws_ca_cert_path"],
+        client_id="fdri_swarm",
+        topic_prefix="$aws/rules/cosmos_site_republish",
+    )
     swarm = await CosmosSwarm.create(
         queries.CosmosQuery.LEVEL_1_SOILMET_30MIN,
+        mqtt_connection,
         swarm_name="soilmet",
         delay_first_cycle=True,
+        max_cycles=5,
+        max_sites=5,
+        sleep_time=30,
     )
     await swarm.run()
 

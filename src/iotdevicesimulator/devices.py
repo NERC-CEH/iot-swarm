@@ -2,6 +2,7 @@ import asyncio
 import logging
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.db import Oracle
+from iotdevicesimulator.awsiot.mqttHandler import IotCoreMQTTConnection
 import random
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ class SensorSite:
     def __str__(self):
         return f"Site ID: \"{self.site_id}\", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}"
 
-    async def run(self, oracle: Oracle, query: CosmosQuery):
+    async def run(self, oracle: Oracle, query: CosmosQuery, message_connection: IotCoreMQTTConnection):
         """The main invocation of the method. Expects a query function from
             iotthingsimulator.db.Oracle to be injected for the work.
         
@@ -78,6 +79,8 @@ class SensorSite:
                 self._instance_logger.warn(f"No data found.")
             else:
                 self._instance_logger.debug(f"Cycle {self.cycle+1}/{self.max_cycles} Read data from: {row["DATE_TIME"]}")
+                mqtt_topic = f"fdri/cosmos_site/{self.site_id}/{query.name}"
+                message_connection.send_message(str(row), mqtt_topic)
             
             self.cycle += 1
             if self.cycle >= self.max_cycles:
