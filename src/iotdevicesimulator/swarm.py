@@ -11,8 +11,6 @@ import config
 import random
 import uuid
 
-# TODO: Implement messaging logic
-
 config_path = Path(Path(__file__).parents[2], "config.cfg")
 
 logger = logging.getLogger(__name__)
