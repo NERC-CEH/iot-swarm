@@ -4,22 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 dependencies = [
+    "platformdirs",
     "boto3",
     "autosemver",
     "config",
+    "docutils<0.17",
     "awscli",
     "awscrt",
-    "awsiot",
     "oracledb",
-    "platformdirs",
 ]
 name = "iot-device-simulator"
 dynamic = ["version"]
+# version = "0.0.0"
 authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
 description = "Package for simulating a net of IoT devices for stress testing."
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized"]
+docs = ["sphinx", "sphinx-copybutton"]
 
 [tool.setuptools.dynamic]
 version = { attr = "iotdevicesimulator.__version__" }

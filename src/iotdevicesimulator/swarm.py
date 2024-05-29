@@ -13,6 +13,10 @@ import uuid
 
 config_path = Path(Path(__file__).parents[2], "config.cfg")
 
+log_config = Path(Path(__file__).parents[2], "loggers.ini")
+
+logging.config.fileConfig(fname=log_config)
+
 logger = logging.getLogger(__name__)
 
 

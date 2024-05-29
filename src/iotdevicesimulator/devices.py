@@ -4,6 +4,7 @@ from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.awsiot.mqttHandler import IotCoreMQTTConnection
 import random
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +19,19 @@ class SensorSite:
         delay_first_cycle (bool|None): Adds a random delay to first invocation from 0 - `sleep_time`.
     
     Attributes:
-        site_id (str): ID of site.
+        site_id: ID of site.
         sleep_time (int | float): Time to sleep between requests (seconds).
         max_cycles (int): Maximum number of cycles before shutdown.
-        cycle (int): The current cycle."""
+        """
 
+    class_var: str
+    """A class attribute"""
+    cycle: int | None   = 0
+    """Current cycle"""
+    
     def __init__(self, site_id: str,*, sleep_time: int | float = 0, max_cycles: int = 1, inherit_logger:logging.Logger|None=None, delay_first_cycle:bool=False) -> None:
-        self.site_id = str(site_id)
-
+        self.site_id: str = str(site_id)
+        
         if inherit_logger:
             self._instance_logger = inherit_logger.getChild(f"site-{self.site_id}")
         else:
@@ -87,3 +93,18 @@ class SensorSite:
                 break
 
             await asyncio.sleep(self.sleep_time)
+
+if __name__ == "__main__":
+    site1 = SensorSite("site1")
+
+    site2 = SensorSite("site2")
+
+    site1.class_var = 4
+
+    SensorSite.class_var = 1
+
+    print([site1.instance_var, site2.instance_var])
+
+    SensorSite.instance_var = 10
+
+    print([site1.instance_var, site2.instance_var])

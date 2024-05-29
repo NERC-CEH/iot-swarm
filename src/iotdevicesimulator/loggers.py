@@ -3,7 +3,7 @@ import logging.handlers
 import logging.config
 import os
 from pathlib import Path
-from platformdirs import site_data_dir
+import platformdirs
 
 
 class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
@@ -11,7 +11,7 @@ class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     def __init__(self, *args, **kwargs):
 
         logpath = Path(
-            site_data_dir("iot_device_simulator"),
+            platformdirs.site_data_dir("iot_device_simulator"),
             "log.log",
         )
 
