@@ -28,12 +28,16 @@ napoleon_google_docstring = True
 napoleon_use_param = False
 napoleon_attr_attributes = True
 
-intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "oracledb": ("https://python-oracledb.readthedocs.io/en/latest", None),
+}
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 pygments_style = "sphinx"
+autodoc_member_order = "bysource"
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

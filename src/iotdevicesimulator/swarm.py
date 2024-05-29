@@ -1,19 +1,17 @@
+"""This is the core module for orchestrating swarms of IoT devices. One swarm defined currently for using COSMOS data."""
+
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
-from iotdevicesimulator import queries
-from iotdevicesimulator.awsiot.mqttHandler import IotCoreMQTTConnection
-import logging
-
+from iotdevicesimulator.queries import CosmosQuery
+from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
+import logging.config
 from typing import List
 from pathlib import Path
 import asyncio
-import config
 import random
 import uuid
 
-config_path = Path(Path(__file__).parents[2], "config.cfg")
-
-log_config = Path(Path(__file__).parents[2], "loggers.ini")
+log_config = Path(Path(__file__).parent, "__assets__", "loggers.ini")
 
 logging.config.fileConfig(fname=log_config)
 
@@ -21,10 +19,47 @@ logger = logging.getLogger(__name__)
 
 
 class CosmosSwarm:
+    """Object for creating a swarm of COSMOS site devices.
+    This object instantiates a group of sensor devices that submit data from the
+    COSMOS database and then wait for a specified time. When run unrestricted, this
+    can simulate the full COSMOS network in real time.
+
+    Instantiation is handled by factory method `CosmosSwarm.Create()` due to
+    async nature of database implementation.
+    """
+
+    message_connection: IotCoreMQTTConnection
+    """Messaging object to submit data to."""
+
+    swarm_name: str
+    """Name of swarm applied in logs."""
+
+    _instance_logger: logging.Logger
+    """Logger handle used by instance."""
+
+    max_cycles: int = 1
+    """Maximum number of data transfer cycles before shutting down."""
+
+    max_sites: int = 5
+    """Maximum number of sites allowed to be instantiated."""
+
+    sleep_time: int = 30
+    """Time to sleep for each time data is sent."""
+
+    sites: List[SensorSite]
+    """List of site objects."""
+
+    delay_first_cycle: bool = False
+    """Adds a random delay to first invocation from 0 - `sleep_time`."""
+
+    oracle: Oracle
+    """Oracle database object"""
+
+    query: CosmosQuery
+    """Query run in database."""
 
     def __len__(self):
         """Returns number of sites"""
-
         return len(self.sites)
 
     @classmethod
@@ -32,98 +67,114 @@ class CosmosSwarm:
         cls,
         query: str,
         message_connection: IotCoreMQTTConnection,
-        site_ids: List[str] = None,
-        sleep_time: int = 5,
-        max_cycles: int = 3,
-        max_sites: int = -1,
+        site_ids: List[str] | None = None,
+        sleep_time: int | None = None,
+        max_cycles: int | None = None,
+        max_sites: int | None = None,
         swarm_name: str | None = None,
-        delay_first_cycle: bool = False,
+        delay_first_cycle: bool | None = None,
+        credentials: str | None = None,
     ) -> None:
         """Factory method for initialising the class.
-            Initialization is done through the `create() method`: `CosmosSwarm.create(...)`.
 
         Args:
-            query (List[str]): A list of data query to submit.
-            message_connection (IotCoreMQTTConnection): Object used to send data.
-            site_ids (List[str]): A list of site ID strings.
-            sleep_time (int): Length of time to sleep after sending data in seconds.
-            max_cycles (int): Maximum number of data sending cycles.
-            max_sites (int): Maximum number of sites to initialise.
-            swarm_name (str|None): Name / ID given to swarm.
-            delay_first_cycle (bool): Adds a random delay to first invocation from 0 - `sleep_time`.
+            query: A query retrieve from the database.
+            message_connection: Object used to send data.
+            site_ids: A list of site ID strings.
+            sleep_time: Length of time to sleep after sending data in seconds.
+            max_cycles: Maximum number of data sending cycles.
+            max_sites: Maximum number of sites to initialise.
+            swarm_name: Name / ID given to swarm.
+            delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+            credentials: A path to database credentials.
         """
         self = cls()
 
         if not isinstance(message_connection, IotCoreMQTTConnection):
             raise TypeError(
-                f"`message_connection` must be a `IotCoreMQTTConnection`. Received: {type(message_connection)}"
+                f"`message_connection` must be a `IotCoreMQTTConnection`. Received: {type(message_connection)}."
             )
         self.message_connection = message_connection
 
-        if not swarm_name:
-            swarm_name = f"swarm-{uuid.uuid4()}"
+        if not isinstance(query, CosmosQuery):
+            raise TypeError(
+                f"`query` must be a `CosmosQuery`. Received: {type(query)}."
+            )
+        self.query = query
 
-        self.swarm_name = swarm_name
+        if swarm_name:
+            self.swarm_name = str(swarm_name)
+        else:
+            self.swarm_name = f"swarm-{uuid.uuid4()}"
 
         self._instance_logger = logger.getChild(self.swarm_name)
         self._instance_logger.debug("Initialising swarm")
 
-        max_cycles = int(max_cycles)
-        sleep_time = int(sleep_time)
-        max_sites = int(max_sites)
+        if max_cycles:
+            max_cycles = int(max_cycles)
+            if max_cycles <= 0 and max_cycles != -1:
+                raise ValueError(
+                    f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}"
+                )
 
-        if not isinstance(delay_first_cycle, bool):
-            raise TypeError(
-                f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
-            )
+            self.max_cycles = max_cycles
 
-        self.delay_first_cycle = delay_first_cycle
+        if sleep_time:
+            sleep_time = int(sleep_time)
+            if sleep_time < 0:
+                raise ValueError(
+                    f"`sleep_time` must be 0 or more. Received: {sleep_time}"
+                )
+            self.sleep_time = sleep_time
 
-        if max_cycles <= 0 and max_cycles != -1:
-            raise ValueError(
-                f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}"
-            )
+        if max_sites:
+            max_sites = int(max_sites)
+            if max_sites <= 0 and max_sites != -1:
+                raise ValueError(
+                    f"`max_sites` must be 1 or more, or -1 for no maximum. Received: {max_sites}"
+                )
+            self.max_sites = max_sites
 
-        if max_sites <= 0 and max_sites != -1:
-            raise ValueError(
-                f"`max_sites` must be 1 or more, or -1 for no maximum. Received: {max_sites}"
-            )
+        if delay_first_cycle:
+            if not isinstance(delay_first_cycle, bool):
+                raise TypeError(
+                    f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
+                )
+            self.delay_first_cycle = delay_first_cycle
 
-        if sleep_time < 0:
-            raise ValueError(f"`sleep_time` must be 0 or more. Received: {sleep_time}")
-
-        self.sleep_time = sleep_time
-        self.max_cycles = max_cycles
-        self.max_sites = max_sites
-        self.query = query
-
-        self.oracle = await self._get_oracle(inherit_logger=self._instance_logger)
+        self.oracle = await self._get_oracle(
+            credentials=credentials, inherit_logger=self._instance_logger
+        )
 
         if site_ids:
             self.sites = self._init_sites(
                 site_ids,
-                sleep_time=sleep_time,
-                max_cycles=max_cycles,
-                max_sites=max_sites,
+                sleep_time=self.sleep_time,
+                max_cycles=self.max_cycles,
+                max_sites=self.max_sites,
                 swarm_logger=self._instance_logger,
-                delay_first_cycle=delay_first_cycle,
+                delay_first_cycle=self.delay_first_cycle,
             )
         else:
             self.sites = await self._init_sites_from_db(
                 self.oracle,
-                sleep_time=sleep_time,
-                max_cycles=max_cycles,
-                max_sites=max_sites,
+                sleep_time=self.sleep_time,
+                max_cycles=self.max_cycles,
+                max_sites=self.max_sites,
                 swarm_logger=self._instance_logger,
-                delay_first_cycle=delay_first_cycle,
+                delay_first_cycle=self.delay_first_cycle,
             )
 
         self._instance_logger.debug("Swarm Ready")
 
         return self
 
-    async def run(self):
-        """Main function for running the swarm."""
+    async def run(self) -> None:
+        """Main function for running the swarm. Sends the query
+        and message connection object. Runs until all sites reach
+        their maximum cycle. If no maximum, it runs forever.
+        """
+
         self._instance_logger.debug("Running main loop")
         await asyncio.gather(
             *[
@@ -136,28 +187,35 @@ class CosmosSwarm:
 
     @staticmethod
     async def _get_oracle(
-        cred_path: Path | str | None = None,
+        credentials: dict,
         inherit_logger: logging.Logger | None = None,
     ) -> Oracle:
-        """Reads Oracle credentials from `config_path` and returns an asynchronous
+        """Receives a dict of credentials and returns an asynchronous
         connection to Oracle.
 
+        The expected source of credentials is the config file, but this
+        can be provided manually with a dict:
+
+        .. code-block:: python
+
+            credentials = {
+                "dsn": "xxxxx",
+                "user": "xxxxxx",
+                "password": "xxxxxx"
+            }
+
         Args:
-            cred_path (Path|str|None): Path to a config file containing an \"oracle\" section.
+            credentials: A dict of credentials.
+            inherit_logger: Inherits the module logger if true.
 
         Returns:
-            Oracle: An oracle object.
+            Oracle: An oracle database.
         """
 
-        if not cred_path:
-            cred_path = config_path
-
-        creds = config.Config(str(cred_path))["oracle"]
-
         oracle = await Oracle.create(
-            creds["dsn"],
-            creds["user"],
-            password=creds["password"],
+            credentials["dsn"],
+            credentials["user"],
+            password=credentials["password"],
             inherit_logger=inherit_logger,
         )
 
@@ -175,12 +233,12 @@ class CosmosSwarm:
         """Initialises a list of SensorSites.
 
         Args:
-            site_ids (List[str]): A list of site ID strings.
-            sleep_time (int): Length of time to sleep after sending data in seconds.
-            max_cycles (int): Maximum number of data sending cycles.
-            max_sites (int): Maximum number of sites to initialise.
-            swarm_logger (logging.Logger): Passes the instance logger to sites
-            delay_first_cycle (bool|None): Adds a random delay to first invocation from 0 - `sleep_time`.
+            site_ids: A list of site ID strings.
+            sleep_time: Length of time to sleep after sending data in seconds.
+            max_cycles: Maximum number of data sending cycles.
+            max_sites: Maximum number of sites to initialise. Picks randomly from list if given
+            swarm_logger: Passes the instance logger to sites
+            delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
 
         Returns:
             List[SensorSite]: A list of sensor sites.
@@ -211,14 +269,17 @@ class CosmosSwarm:
         """Initialised sensor sites from the COSMOS DB.
 
         Args:
-            oracle (Oracle): Oracle DB to query
-            sleep_time (int): Length of time to sleep after sending data in seconds.
-            max_cycles (int): Maximum number of data sending cycles.
-            max_sites (int): Maximum number of sites to initialise.
-            swarm_logger (logging.Logger): Passes the instance logger to sites
-            delay_first_cycle (bool|None): Adds a random delay to first invocation from 0 - `sleep_time`.
+            oracle: Oracle DB to query
+            sleep_time: Length of time to sleep after sending data in seconds.
+            max_cycles: Maximum number of data sending cycles.
+            max_sites: Maximum number of sites to initialise. Picks randomly from list if less than number of sites found
+            swarm_logger: Passes the instance logger to sites
+            delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+
         Returns:
             List[SensorSite]: A list of sensor sites.
+
+        TODO: Update to grab sites from unique items in DB tables.
         """
 
         async with oracle.connection.cursor() as cursor:
@@ -245,8 +306,8 @@ class CosmosSwarm:
         """Restricts the number of items in a list by picked randomly
 
         Args:
-            list_in (List[str]): The list to process.
-            max_count (int): Maximum number of items in list.
+            list_in: The list to process.
+            max_count: Maximum number of items in list.
         Returns:
             List[object]: A list of randomly selected items or the original list.
         """
@@ -267,33 +328,3 @@ class CosmosSwarm:
             list_out.append(list_in.pop(random.randint(0, len(list_in) - 1)))
 
         return list_out
-
-
-async def main():
-    iot_config = config.Config(str(Path(Path(__file__).parents[2], "config.cfg")))[
-        "iot_core"
-    ]
-
-    mqtt_connection = IotCoreMQTTConnection(
-        endpoint=iot_config["endpoint"],
-        cert_path=iot_config["cert_path"],
-        key_path=iot_config["pri_key_path"],
-        ca_cert_path=iot_config["aws_ca_cert_path"],
-        client_id="fdri_swarm",
-        topic_prefix="$aws/rules/cosmos_site_republish",
-    )
-    swarm = await CosmosSwarm.create(
-        queries.CosmosQuery.LEVEL_1_SOILMET_30MIN,
-        mqtt_connection,
-        swarm_name="soilmet",
-        delay_first_cycle=True,
-        max_cycles=5,
-        max_sites=5,
-        sleep_time=30,
-    )
-    await swarm.run()
-
-
-if __name__ == "__main__":
-
-    asyncio.run(main())

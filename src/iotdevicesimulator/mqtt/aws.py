@@ -1,3 +1,5 @@
+"""Contains communication protocols for AWS services."""
+
 import awscrt
 from awscrt import mqtt
 import awscrt.io
@@ -10,6 +12,13 @@ from awscrt.exceptions import AwsCrtError
 
 
 class IotCoreMQTTConnection:
+    """Handles MQTT communication to AWS IoT Core."""
+
+    connection: awscrt.mqtt.Connection
+    """A connection to the MQTT endpoint."""
+
+    topic_prefix: str | None = None
+    """Prefix attached to the send topic. Can attach \"Basic Ingest\" rules this way."""
 
     def __init__(
         self,
@@ -22,11 +31,25 @@ class IotCoreMQTTConnection:
         port: int | None = None,
         clean_session: bool = False,
         keep_alive_secs: int = 1200,
-        topic_prefix: str = "",
+        topic_prefix: str | None = None,
         **kwargs,
     ) -> None:
+        """Initializes the class.
 
-        self.topic_prefix = topic_prefix
+        Args:
+            endpoint: Address of endpoint to send data.
+            cert_path: Path to certificate file.
+            key_path: Path to private key registered to device.
+            ca_cert_path: Path to AWS root CA file.
+            client_id: Client ID assigned to device "thing". Must match policy permissions assigned to "thing" certificate in IoT Core.
+            port: Port used by endpoint. Guesses correct port if not given.
+            clean_session: Builds a clean MQTT session if true. Defaults to False.
+            keep_alive_secs: Time to keep connection alive. Defaults to 1200.
+            topic_prefix: A topic prefixed to MQTT topic, useful for attaching a "Basic Ingest" rule. Defaults to None.
+        """
+
+        if topic_prefix:
+            self.topic_prefix = str(topic_prefix)
 
         tls_ctx_options = awscrt.io.TlsContextOptions.create_client_with_mtls_from_path(
             cert_path, key_path
@@ -80,42 +103,25 @@ class IotCoreMQTTConnection:
             on_connection_closed=self._on_connection_closed,
         )
 
-    # Callback when connection is accidentally lost.
     @staticmethod
     def _on_connection_interrupted(connection, error, **kwargs):
+        """Callback when connection accidentally lost."""
         print("Connection interrupted. error: {}".format(error))
 
-    # Callback when an interrupted connection is re-established.
     @staticmethod
     def _on_connection_resumed(connection, return_code, session_present, **kwargs):
+        """Callback when an interrupted connection is re-established."""
+
         print(
             "Connection resumed. return_code: {} session_present: {}".format(
                 return_code, session_present
             )
         )
 
-        if return_code == mqtt.ConnectReturnCode.ACCEPTED and not session_present:
-            print("Session did not persist. Resubscribing to existing topics...")
-            resubscribe_future, _ = connection.resubscribe_existing_topics()
-
-            # Cannot synchronously wait for resubscribe result because we're on the connection's event-loop thread,
-            # evaluate result with a callback instead.
-            resubscribe_future.add_done_callback(
-                IotCoreMQTTConnection._on_resubscribe_complete
-            )
-
-    @staticmethod
-    def _on_resubscribe_complete(resubscribe_future):
-        resubscribe_results = resubscribe_future.result()
-        print("Resubscribe results: {}".format(resubscribe_results))
-
-        for topic, qos in resubscribe_results["topics"]:
-            if qos is None:
-                sys.exit("Server rejected resubscribe to topic: {}".format(topic))
-
-    # Callback when the connection successfully connects
     @staticmethod
     def _on_connection_success(connection, callback_data):
+        """Callback when the connection successfully connects."""
+
         assert isinstance(callback_data, mqtt.OnConnectionSuccessData)
         print(
             "Connection Successful with return code: {} session present: {}".format(
@@ -123,21 +129,30 @@ class IotCoreMQTTConnection:
             )
         )
 
-    # Callback when a connection attempt fails
     @staticmethod
     def _on_connection_failure(connection, callback_data):
+        """Callback when a connection attempt fails."""
+
         assert isinstance(callback_data, mqtt.OnConnectionFailureData)
         print("Connection failed with error code: {}".format(callback_data.error))
 
-    # Callback when a connection has been disconnected or shutdown successfully
     @staticmethod
     def _on_connection_closed(connection, callback_data):
+        """Callback when a connection has been disconnected or shutdown successfully"""
         print("Connection closed")
 
     def send_message(self, message: str, topic: str, count: int = 1):
+        """Sends a message to the endpoint.
 
-        if self.topic_prefix != "":
+        Args:
+            message: The message to send.
+            topic: MQTT topic to send message under.
+            cound: How many times to repeat the message. If 0, it sends forever.
+        """
+
+        if self.topic_prefix:
             topic = f"{self.topic_prefix}/{topic}"
+
         retry_count = 0
 
         while retry_count < 10:
@@ -183,23 +198,3 @@ class IotCoreMQTTConnection:
         print("Disconnecting...")
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
-        print("Disconnected!")
-
-
-if __name__ == "__main__":
-    # Create a MQTT connection from the command line data
-
-    iot_config = config.Config(str(Path(Path(__file__).parents[3], "config.cfg")))[
-        "iot_core"
-    ]
-
-    conn = IotCoreMQTTConnection(
-        endpoint=iot_config["endpoint"],
-        cert_path=iot_config["cert_path"],
-        key_path=iot_config["pri_key_path"],
-        ca_cert_path=iot_config["aws_ca_cert_path"],
-        client_id="fdri_swarm",
-    )
-
-    conn.send_message("First message", "fdri/cosmos_site/site1", 1)
-    # conn.send_message("Second message", "sdk/test/java", 5)

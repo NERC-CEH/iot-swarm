@@ -28,7 +28,9 @@ version = { attr = "iotdevicesimulator.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["iotdevicesimulator"]
+
+[tool.setuptools.package-data]
+"*" = ["*.*"]
 
 [tool.pytest.ini_options]
 

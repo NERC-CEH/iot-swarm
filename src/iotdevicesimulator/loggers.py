@@ -1,12 +1,17 @@
-import logging
+"""Logging module for defining custom log handlers."""
+
 import logging.handlers
-import logging.config
 import os
 from pathlib import Path
 import platformdirs
 
 
 class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
+    """TimedRotatingFileHandler Handler for rotating logs on a timed basis.
+
+    Extended this handler to ensure log file and directory are created
+    according to platform.
+    """
 
     def __init__(self, *args, **kwargs):
 

@@ -13,8 +13,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   iotdevicesimulator.awsiot
-   iotdevicesimulator.iot
+   iotdevicesimulator.mqtt
 
 Submodules
 ----------
@@ -32,6 +31,15 @@ iotdevicesimulator.devices module
 ---------------------------------
 
 .. automodule:: iotdevicesimulator.devices
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :private-members:
+
+iotdevicesimulator.example module
+---------------------------------
+
+.. automodule:: iotdevicesimulator.example
    :members:
    :undoc-members:
    :show-inheritance:

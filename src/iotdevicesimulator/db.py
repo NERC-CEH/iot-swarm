@@ -1,3 +1,5 @@
+"""This module holds all implementation for databases. Currently only supporting Oracle."""
+
 import oracledb
 import getpass
 import logging
@@ -9,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 class Oracle:
     """Class for handling oracledb logic and retrieving values from DB."""
+
+    _instance_logger: logging.Logger
+    """Logger handle for the instance."""
+
+    connection: oracledb.Connection
+    """Connection to oracle database."""
 
     @classmethod
     async def create(
@@ -22,12 +30,10 @@ class Oracle:
             Initialization is done through the `create() method`: `Oracle.create(...)`.
 
         Args:
-            dsn (str): Oracle data source name.
-            user (str): Username used for query.
-            pw (str): User password for auth.
-
-        Attributes:
-            connection (oracledb.Connection): Connection to oracle database."""
+            dsn: Oracle data source name.
+            user: Username used for query.
+            pw: User password for auth.
+        """
 
         if not password:
             password = getpass.getpass("Enter Oracle password: ")
@@ -51,8 +57,8 @@ class Oracle:
         """Requests the latest data from a table for a specific site.
 
         Args:
-            site_id (str): ID of the site to retrieve records from.
-            query (CosmosQuery): Query to parse and submit.
+            site_id: ID of the site to retrieve records from.
+            query: Query to parse and submit.
 
         Returns:
             dict | None: A dict containing the database columns as keys, and the values as values.

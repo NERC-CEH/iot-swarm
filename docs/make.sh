@@ -24,7 +24,7 @@ function build() {
         args="-M html"
     fi
 
-    $SPHINXBUILD $(echo $args) $SOURCEDIR $BUILDDIR $SPHINXOPTS -a
+    $SPHINXBUILD $(echo $args) $SOURCEDIR $BUILDDIR $SPHINXOPTS
 }
 
 if [ "$1" == "help" ]; then
