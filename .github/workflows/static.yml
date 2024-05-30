@@ -43,7 +43,7 @@ jobs:
           architecture: 'x64'
           cache: 'pip'
       - name: Install Dependencies
-        - run: |
+        run: |
             pip install --upgrade pip
             pip install .[docs]
       - name: Build Docs
