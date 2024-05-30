@@ -13,10 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-          fetch-tags: true
       - name: Set up Python 3.10
         uses: actions/setup-python@v3
         with:
@@ -30,6 +26,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
         run: |
+          git fetch --depth=0 origin +refs/heads/${{github.base_ref}}:refs/remotes/origin/${{github.base_ref}}
           git describe --long
           tag=$(python -c "import iotdevicesimulator; print(iotdevicesimulator.__version__)")
           echo $tag
