@@ -12,7 +12,7 @@ function help() {
 function apidoc() {
     args=$@
     if [ -z "$args" ]; then
-        args="--module-first --force --private"
+        args="--module-first --force"
     fi
     
     sphinx-apidoc $(echo $args) -o source ../src/iotdevicesimulator

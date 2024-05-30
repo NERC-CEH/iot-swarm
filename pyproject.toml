@@ -16,13 +16,12 @@ dependencies = [
 ]
 name = "iot-device-simulator"
 dynamic = ["version"]
-# version = "0.0.0"
 authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
 description = "Package for simulating a net of IoT devices for stress testing."
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized"]
-docs = ["sphinx", "sphinx-copybutton"]
+docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme"]
 
 [tool.setuptools.dynamic]
 version = { attr = "iotdevicesimulator.__version__" }

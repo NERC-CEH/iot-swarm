@@ -10,19 +10,19 @@ from iotdevicesimulator.mqtt.core import MockMessageConnection
 from pathlib import Path
 from config import Config
 
+CONFIG_PATH = Path(
+    Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+)
+config_exists = pytest.mark.skipif(
+    not CONFIG_PATH.exists(),
+    reason="Config file `config.cfg` not found in root directory.",
+)
+
 
 class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.config_path = str(
-            Path(
-                Path(__file__).parents[1],
-                "iotdevicesimulator",
-                "__assets__",
-                "config.cfg",
-            )
-        )
-
+        self.config_path = str(CONFIG_PATH)
         self.config = Config(self.config_path)["oracle"]
 
     @parameterized.expand(
@@ -33,6 +33,8 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         ]
     )
     @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_instantiation(
         self, site_ids, query, sleep_time, max_cycles, max_sites
     ):
@@ -55,16 +57,25 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(swarm.sleep_time, int(sleep_time))
         self.assertEqual(swarm.max_sites, max_sites)
 
+    @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_config_from_dict(self):
         await CosmosSwarm.create(
             CosmosQuery.LEVEL_1_NMDB_1HOUR, MockMessageConnection(), self.config
         )
 
+    @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_config_from_path(self):
         await CosmosSwarm.create(
             CosmosQuery.LEVEL_1_NMDB_1HOUR, MockMessageConnection(), self.config_path
         )
 
+    @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_delay_set(self):
         query = CosmosQuery.LEVEL_1_SOILMET_30MIN
         swarm = await CosmosSwarm.create(
@@ -87,6 +98,9 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(swarm.delay_first_cycle)
 
+    @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_error_if_delay_set_not_bool(self):
         query = CosmosQuery.LEVEL_1_SOILMET_30MIN
 
@@ -100,6 +114,8 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
             )
 
     @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_swarm_name_given(self):
         query = CosmosQuery.LEVEL_1_SOILMET_30MIN
         swarm = await CosmosSwarm.create(
@@ -109,6 +125,8 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(swarm.swarm_name, "myswarm")
 
     @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
     async def test_swarm_name_not_given(self):
         query = CosmosQuery.LEVEL_1_SOILMET_30MIN
         swarm = await CosmosSwarm.create(query, MockMessageConnection(), self.config)
@@ -118,6 +136,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
     @parameterized.expand([-1, 1, 10, 35.52])
     @pytest.mark.asyncio
     @pytest.mark.oracle
+    @config_exists
     async def test_good_max_sites(self, max_sites):
         sites = [f"Site {x}" for x in range(10)]
 
@@ -142,6 +161,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
     @parameterized.expand(["Four", -3, 0])
     @pytest.mark.asyncio
     @pytest.mark.oracle
+    @config_exists
     async def test_bad_max_sites(self, max_sites):
         sites = [f"Site {x}" for x in range(10)]
 
@@ -156,6 +176,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
     @pytest.mark.asyncio
     @pytest.mark.oracle
+    @config_exists
     async def test_get_oracle(self):
         oracle = await CosmosSwarm._get_oracle(self.config)
 
@@ -163,6 +184,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
     @pytest.mark.asyncio
     @pytest.mark.oracle
+    @config_exists
     async def test_site_ids_from_db(self):
         sleep_time = 12
         max_cycles = -1
@@ -173,6 +195,8 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue([isinstance(site, SensorSite) for site in sites])
 
+
+class TestCosmosSwarmStatic(unittest.TestCase):
     @parameterized.expand([-1, 1, 3, 5, 7.2])
     def test_list_restriction_method(self, max_count):
 

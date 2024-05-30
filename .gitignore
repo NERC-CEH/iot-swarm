@@ -1,6 +1,3 @@
-.python/*
-.pytest/*
-.vscode/*
 .*/*
 **/__pycache__/*
 *.docx
@@ -12,5 +9,6 @@ config.cfg
 aws-auth
 *.log
 *.certs
-
+!.github/*
+docs/source/*
 docs/_*
