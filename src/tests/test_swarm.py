@@ -4,7 +4,7 @@ from parameterized import parameterized
 from iotdevicesimulator.swarm import CosmosSwarm
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.devices import SensorSite
-from iotdevicesimulator.queries import CosmosQuery
+from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MockMessageConnection
 
 from pathlib import Path
@@ -186,14 +186,18 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.oracle
     @config_exists
     async def test_site_ids_from_db(self):
-        sleep_time = 12
-        max_cycles = -1
-        oracle = await CosmosSwarm._get_oracle(self.config)
-        sites = await CosmosSwarm._init_sites_from_db(
-            oracle, sleep_time=sleep_time, max_cycles=max_cycles
-        )
+        query1 = CosmosSiteQuery.LEVEL_1_NMDB_1HOUR
+        query2 = CosmosSiteQuery.LEVEL_1_SOILMET_30MIN
 
-        self.assertTrue([isinstance(site, SensorSite) for site in sites])
+        oracle = await CosmosSwarm._get_oracle(self.config)
+        sites1 = await CosmosSwarm._init_sites_from_db(oracle, query1)
+        sites2 = await CosmosSwarm._init_sites_from_db(oracle, query2)
+
+        for site in sites1:
+            self.assertIsInstance(site, SensorSite)
+            self.assertGreater(len(site.site_id), 1)
+
+        self.assertNotEqual(len(sites1), len(sites2))
 
 
 class TestCosmosSwarmStatic(unittest.TestCase):

@@ -69,3 +69,44 @@ FETCH NEXT 1 ROWS ONLY"""
         ORDER BY date_time DESC 
         FETCH NEXT 1 ROWS ONLY
     """
+
+
+@enum.unique
+class CosmosSiteQuery(StrEnum):
+    LEVEL_1_SOILMET_30MIN = "SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_SOILMET_30MIN"
+
+    """Queries unique site IDs from LEVEL1_SOILMET_30MIN.
+    
+    .. code-block:: sql
+
+        SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_SOILMET_30MIN
+    """
+
+    LEVEL_1_NMDB_1HOUR = "SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_NMDB_1HOUR"
+
+    """Queries unique site IDs from LEVEL1_NMDB_1HOUR table.
+    
+    .. code-block:: sql
+
+        SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_NMDB_1HOUR
+    """
+
+    LEVEL_1_PRECIP_1MIN = "SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_PRECIP_1MIN"
+
+    """Queries unique site IDs from the LEVEL1_PRECIP_1MIN table.
+    
+    .. code-block:: sql
+
+        SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_PRECIP_1MIN
+    """
+
+    LEVEL_1_PRECIP_RAINE_1MIN = (
+        "SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_PRECIP_RAINE_1MIN"
+    )
+
+    """Queries unique site IDs from the LEVEL1_PRECIP_RAINE_1MIN table.
+    
+    .. code-block:: sql
+
+        SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_PRECIP_RAINE_1MIN
+    """
