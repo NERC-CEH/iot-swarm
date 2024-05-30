@@ -4,6 +4,7 @@ import pytest
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.queries import CosmosQuery
+from iotdevicesimulator.mqtt.core import MockMessageConnection
 from parameterized import parameterized
 import pathlib, config
 
@@ -52,7 +53,7 @@ class TestSensorSiteInstantiation(unittest.TestCase):
     def test_max_cycle_bad_value_gives_error(self, max_cycles):
         """Tests that negative max_cycles gives ValueError"""
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises((ValueError, TypeError)):
             SensorSite("SITE_ID", max_cycles=max_cycles)
 
     @parameterized.expand([0, 7.6, 1, 5, 10, "10"])
@@ -70,7 +71,9 @@ class TestSensorSiteInstantiation(unittest.TestCase):
             SensorSite("SITE_ID", sleep_time=sleep_time)
 
 
-CONFIG_PATH = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
+CONFIG_PATH = pathlib.Path(
+    pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+)
 
 
 config_exists = pytest.mark.skipif(
@@ -92,6 +95,8 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
             password=creds["password"],
         )
 
+        self.message_connection = MockMessageConnection()
+
     async def asyncTearDown(self) -> None:
         await self.oracle.connection.close()
 
@@ -103,7 +108,7 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
         query = CosmosQuery.LEVEL_1_SOILMET_30MIN
 
         site = SensorSite("MORLY", max_cycles=5, sleep_time=0)
-        await site.run(self.oracle, query)
+        await site.run(self.oracle, query, self.message_connection)
 
         self.assertEqual(site.cycle, site.max_cycles)
 
@@ -122,7 +127,9 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
             for (s, i) in zip(site_ids, max_cycles)
         ]
 
-        await asyncio.gather(*[x.run(self.oracle, query) for x in sites])
+        await asyncio.gather(
+            *[x.run(self.oracle, query, self.message_connection) for x in sites]
+        )
 
         for i, site in enumerate(sites):
             self.assertEqual(site.cycle, max_cycles[i])

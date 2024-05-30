@@ -3,22 +3,21 @@
 import awscrt
 from awscrt import mqtt
 import awscrt.io
-import sys
 import time
 import json
-import config
-from pathlib import Path
 from awscrt.exceptions import AwsCrtError
+from iotdevicesimulator.mqtt.core import MessagingBaseClass
+import backoff
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class IotCoreMQTTConnection:
+class IotCoreMQTTConnection(MessagingBaseClass):
     """Handles MQTT communication to AWS IoT Core."""
 
-    connection: awscrt.mqtt.Connection
+    connection: awscrt.mqtt.Connection | None = None
     """A connection to the MQTT endpoint."""
-
-    topic_prefix: str | None = None
-    """Prefix attached to the send topic. Can attach \"Basic Ingest\" rules this way."""
 
     def __init__(
         self,
@@ -31,7 +30,6 @@ class IotCoreMQTTConnection:
         port: int | None = None,
         clean_session: bool = False,
         keep_alive_secs: int = 1200,
-        topic_prefix: str | None = None,
         **kwargs,
     ) -> None:
         """Initializes the class.
@@ -48,8 +46,25 @@ class IotCoreMQTTConnection:
             topic_prefix: A topic prefixed to MQTT topic, useful for attaching a "Basic Ingest" rule. Defaults to None.
         """
 
-        if topic_prefix:
-            self.topic_prefix = str(topic_prefix)
+        if not isinstance(endpoint, str):
+            raise TypeError(f"`endpoint` must be a `str`, not {type(endpoint)}")
+
+        if not isinstance(cert_path, str):
+            raise TypeError(f"`cert_path` must be a `str`, not {type(cert_path)}")
+
+        if not isinstance(key_path, str):
+            raise TypeError(f"`key_path` must be a `str`, not {type(key_path)}")
+
+        if not isinstance(ca_cert_path, str):
+            raise TypeError(f"`ca_cert_path` must be a `str`, not {type(ca_cert_path)}")
+
+        if not isinstance(client_id, str):
+            raise TypeError(f"`client_id` must be a `str`, not {type(client_id)}")
+
+        if not isinstance(clean_session, bool):
+            raise TypeError(
+                f"`clean_session` must be a bool, not {type(clean_session)}."
+            )
 
         tls_ctx_options = awscrt.io.TlsContextOptions.create_client_with_mtls_from_path(
             cert_path, key_path
@@ -57,12 +72,17 @@ class IotCoreMQTTConnection:
 
         tls_ctx_options.override_default_trust_store_from_path(ca_cert_path)
 
-        if not port:
+        if port is None:
             if awscrt.io.is_alpn_available():
                 port = 443
                 tls_ctx_options.alpn_list = ["x-amzn-mqtt-ca"]
             else:
                 port = 8883
+        else:
+            port = int(port)
+
+            if port < 0:
+                raise ValueError(f"`port` cannot be less than 0. Received: {port}.")
 
         socket_options = awscrt.io.SocketOptions()
         socket_options.connect_timeout_ms = 5000
@@ -70,8 +90,6 @@ class IotCoreMQTTConnection:
         socket_options.keep_alive_timeout_secs = 0
         socket_options.keep_alive_interval_secs = 0
         socket_options.keep_alive_max_probes = 0
-
-        username = None
 
         client_bootstrap = awscrt.io.ClientBootstrap.get_or_create_static_default()
 
@@ -91,25 +109,22 @@ class IotCoreMQTTConnection:
             keep_alive_secs=keep_alive_secs,
             ping_timeout_ms=3000,
             protocol_operation_timeout_ms=0,
-            will=None,
-            username=username,
-            password=None,
             socket_options=socket_options,
             use_websockets=False,
-            websocket_handshake_transform=None,
-            proxy_options=None,
             on_connection_success=self._on_connection_success,
             on_connection_failure=self._on_connection_failure,
             on_connection_closed=self._on_connection_closed,
         )
 
     @staticmethod
-    def _on_connection_interrupted(connection, error, **kwargs):
+    def _on_connection_interrupted(connection, error, **kwargs):  # pragma: no cover
         """Callback when connection accidentally lost."""
         print("Connection interrupted. error: {}".format(error))
 
     @staticmethod
-    def _on_connection_resumed(connection, return_code, session_present, **kwargs):
+    def _on_connection_resumed(
+        connection, return_code, session_present, **kwargs
+    ):  # pragma: no cover
         """Callback when an interrupted connection is re-established."""
 
         print(
@@ -119,7 +134,7 @@ class IotCoreMQTTConnection:
         )
 
     @staticmethod
-    def _on_connection_success(connection, callback_data):
+    def _on_connection_success(connection, callback_data):  # pragma: no cover
         """Callback when the connection successfully connects."""
 
         assert isinstance(callback_data, mqtt.OnConnectionSuccessData)
@@ -130,44 +145,39 @@ class IotCoreMQTTConnection:
         )
 
     @staticmethod
-    def _on_connection_failure(connection, callback_data):
+    def _on_connection_failure(connection, callback_data):  # pragma: no cover
         """Callback when a connection attempt fails."""
 
         assert isinstance(callback_data, mqtt.OnConnectionFailureData)
         print("Connection failed with error code: {}".format(callback_data.error))
 
     @staticmethod
-    def _on_connection_closed(connection, callback_data):
+    def _on_connection_closed(connection, callback_data):  # pragma: no cover
         """Callback when a connection has been disconnected or shutdown successfully"""
         print("Connection closed")
 
-    def send_message(self, message: str, topic: str, count: int = 1):
+    @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
+    def _connect(self):
+        connect_future = self.connection.connect()
+        connect_future.result()
+        print("Connected!")
+
+    @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
+    def _disconnect(self):
+        print("Disconnecting...")
+        disconnect_future = self.connection.disconnect()
+        disconnect_future.result()
+
+    def send_message(self, message: str, topic: str, count: int = 1) -> None:
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
-            cound: How many times to repeat the message. If 0, it sends forever.
+            count: How many times to repeat the message. If 0, it sends forever.
         """
 
-        if self.topic_prefix:
-            topic = f"{self.topic_prefix}/{topic}"
-
-        retry_count = 0
-
-        while retry_count < 10:
-            connect_future = self.connection.connect()
-
-            # Future.result() waits until a result is available
-            try:
-                connect_future.result()
-                break
-            except AwsCrtError:
-                print(f"Could not connect. Attempt {retry_count+1}/10")
-                retry_count += 1
-                time.sleep(2 * retry_count)
-
-        print("Connected!")
+        self._connect()
 
         # Publish message to server desired number of times.
         # This step is skipped if message is blank.
@@ -195,6 +205,4 @@ class IotCoreMQTTConnection:
                     time.sleep(1)
                 publish_count += 1
 
-        print("Disconnecting...")
-        disconnect_future = self.connection.disconnect()
-        disconnect_future.result()
+        self._disconnect()

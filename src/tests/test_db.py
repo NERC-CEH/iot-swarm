@@ -9,7 +9,9 @@ from iotdevicesimulator import db
 from iotdevicesimulator.queries import CosmosQuery
 import oracledb
 
-CONFIG_PATH = pathlib.Path(pathlib.Path(__file__).parents[2], "config.cfg")
+CONFIG_PATH = pathlib.Path(
+    pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+)
 
 
 config_exists = pytest.mark.skipif(

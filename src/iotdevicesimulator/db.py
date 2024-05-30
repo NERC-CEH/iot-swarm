@@ -40,7 +40,7 @@ class Oracle:
 
         self = cls()
 
-        if inherit_logger:
+        if inherit_logger is not None:
             self._instance_logger = inherit_logger.getChild("db")
         else:
             self._instance_logger = logger

@@ -12,6 +12,7 @@ dependencies = [
     "awscli",
     "awscrt",
     "oracledb",
+    "backoff",
 ]
 name = "iot-device-simulator"
 dynamic = ["version"]
@@ -43,3 +44,6 @@ markers = [
     "asyncio: Tests asynchronous functions.",
     "oracle: Requires oracle connection and required config credentials",
 ]
+
+[tool.coverage.run]
+omit = ["*example.py", "*__init__.py"]

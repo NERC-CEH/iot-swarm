@@ -42,26 +42,26 @@ class SensorSite:
         
         self.site_id = str(site_id)
         
-        if inherit_logger:
+        if inherit_logger is not None:
             self._instance_logger = inherit_logger.getChild(f"site-{self.site_id}")
         else:
             self._instance_logger = logger.getChild(self.site_id)
 
-        if max_cycles:
+        if max_cycles is not None:
             max_cycles = int(max_cycles)
             if max_cycles <= 0 and max_cycles != -1:
                 raise ValueError(f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}")
             
             self.max_cycles = max_cycles
         
-        if sleep_time:
+        if sleep_time is not None:
             sleep_time = int(sleep_time)
             if sleep_time < 0:
                 raise ValueError(f"`sleep_time` must be 0 or more. Received: {sleep_time}")
             
             self.sleep_time = sleep_time
 
-        if delay_first_cycle:
+        if delay_first_cycle is not None:
             if not isinstance(delay_first_cycle, bool):
                 raise TypeError(
                     f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
@@ -77,7 +77,8 @@ class SensorSite:
     def __str__(self):
         return f"Site ID: \"{self.site_id}\", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}"
 
-    async def run(self, oracle: Oracle, query: CosmosQuery, message_connection: IotCoreMQTTConnection):
+    async def run(self, oracle: Oracle, query: CosmosQuery,
+                  message_connection: IotCoreMQTTConnection):
         """The main invocation of the method. Expects a Oracle object to do work on
         and a query to retrieve. Runs asynchronously until `max_cycles` is reached.
         

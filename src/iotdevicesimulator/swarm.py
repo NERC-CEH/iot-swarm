@@ -3,13 +3,14 @@
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
+from iotdevicesimulator.mqtt.core import MessagingBaseClass
 import logging.config
 from typing import List
 from pathlib import Path
 import asyncio
 import random
 import uuid
+import config
 
 log_config = Path(Path(__file__).parent, "__assets__", "loggers.ini")
 
@@ -28,7 +29,7 @@ class CosmosSwarm:
     async nature of database implementation.
     """
 
-    message_connection: IotCoreMQTTConnection
+    message_connection: MessagingBaseClass
     """Messaging object to submit data to."""
 
     swarm_name: str
@@ -66,14 +67,14 @@ class CosmosSwarm:
     async def create(
         cls,
         query: str,
-        message_connection: IotCoreMQTTConnection,
+        message_connection: MessagingBaseClass,
+        credentials: str | dict,
         site_ids: List[str] | None = None,
         sleep_time: int | None = None,
         max_cycles: int | None = None,
         max_sites: int | None = None,
         swarm_name: str | None = None,
         delay_first_cycle: bool | None = None,
-        credentials: str | None = None,
     ) -> None:
         """Factory method for initialising the class.
 
@@ -90,9 +91,9 @@ class CosmosSwarm:
         """
         self = cls()
 
-        if not isinstance(message_connection, IotCoreMQTTConnection):
+        if not isinstance(message_connection, MessagingBaseClass):
             raise TypeError(
-                f"`message_connection` must be a `IotCoreMQTTConnection`. Received: {type(message_connection)}."
+                f"`message_connection` must be a `MessagingBaseClass`. Received: {type(message_connection)}."
             )
         self.message_connection = message_connection
 
@@ -102,7 +103,15 @@ class CosmosSwarm:
             )
         self.query = query
 
-        if swarm_name:
+        if not isinstance(credentials, (dict, str)):
+            raise TypeError(
+                f"`credentials` must be a path to a config file, or a dict of credentials, not {type(credentials)}"
+            )
+
+        if isinstance(credentials, str):
+            credentials = config.Config(credentials)["oracle"]
+
+        if swarm_name is not None:
             self.swarm_name = str(swarm_name)
         else:
             self.swarm_name = f"swarm-{uuid.uuid4()}"
@@ -110,7 +119,7 @@ class CosmosSwarm:
         self._instance_logger = logger.getChild(self.swarm_name)
         self._instance_logger.debug("Initialising swarm")
 
-        if max_cycles:
+        if max_cycles is not None:
             max_cycles = int(max_cycles)
             if max_cycles <= 0 and max_cycles != -1:
                 raise ValueError(
@@ -119,7 +128,7 @@ class CosmosSwarm:
 
             self.max_cycles = max_cycles
 
-        if sleep_time:
+        if sleep_time is not None:
             sleep_time = int(sleep_time)
             if sleep_time < 0:
                 raise ValueError(
@@ -127,7 +136,7 @@ class CosmosSwarm:
                 )
             self.sleep_time = sleep_time
 
-        if max_sites:
+        if max_sites is not None:
             max_sites = int(max_sites)
             if max_sites <= 0 and max_sites != -1:
                 raise ValueError(
@@ -135,7 +144,7 @@ class CosmosSwarm:
                 )
             self.max_sites = max_sites
 
-        if delay_first_cycle:
+        if delay_first_cycle is not None:
             if not isinstance(delay_first_cycle, bool):
                 raise TypeError(
                     f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
