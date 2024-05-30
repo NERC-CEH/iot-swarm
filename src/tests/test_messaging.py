@@ -10,6 +10,14 @@ import awscrt.mqtt
 import awscrt.io
 from parameterized import parameterized
 
+CONFIG_PATH = Path(
+    Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+)
+config_exists = pytest.mark.skipif(
+    not CONFIG_PATH.exists(),
+    reason="Config file `config.cfg` not found in root directory.",
+)
+
 
 class TestBaseClass(unittest.TestCase):
 
@@ -35,20 +43,13 @@ class TestMockMessageConnection(unittest.TestCase):
 
 class TestIoTCoreMQTTConnection(unittest.TestCase):
 
+    @config_exists
     def setUp(self) -> None:
-        config = Config(
-            str(
-                Path(
-                    Path(__file__).parents[1],
-                    "iotdevicesimulator",
-                    "__assets__",
-                    "config.cfg",
-                )
-            )
-        )
+        config = Config(str(CONFIG_PATH))
 
         self.config = config["iot_core"]
 
+    @config_exists
     def test_instantiation(self):
 
         instance = IotCoreMQTTConnection(**self.config, client_id="test_id")
@@ -57,6 +58,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
 
         self.assertIsInstance(instance.connection, awscrt.mqtt.Connection)
 
+    @config_exists
     def test_non_string_arguments(self):
 
         with self.assertRaises(TypeError):
@@ -104,6 +106,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
                 1,
             )
 
+    @config_exists
     def test_port(self):
 
         # Expect one of defaults if no port given
@@ -124,6 +127,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         self.assertEqual(instance.connection.port, 420)
 
     @parameterized.expand([-4, {"f": 4}, "FOUR"])
+    @config_exists
     def test_bad_port_type(self, port):
 
         with self.assertRaises((TypeError, ValueError)):
@@ -136,6 +140,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
                 port=port,
             )
 
+    @config_exists
     def test_clean_session_set(self):
         expected = False
 
@@ -151,6 +156,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         self.assertEqual(instance.connection.clean_session, expected)
 
     @parameterized.expand([0, -1, "true", None])
+    @config_exists
     def test_bad_clean_session_type(self, clean_session):
 
         with self.assertRaises(TypeError):
@@ -158,6 +164,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
                 **self.config, client_id="test_id", clean_session=clean_session
             )
 
+    @config_exists
     def test_keep_alive_secs_set(self):
         # Test defualt is not none
         instance = IotCoreMQTTConnection(**self.config, client_id="test_id")
@@ -171,6 +178,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         self.assertEqual(instance.connection.keep_alive_secs, expected)
 
     @parameterized.expand(["FOURTY", "True", None])
+    @config_exists
     def test_bad_keep_alive_secs_type(self, secs):
         with self.assertRaises(TypeError):
             IotCoreMQTTConnection(
