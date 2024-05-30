@@ -2,18 +2,12 @@ import unittest
 import pytest
 import config
 import pathlib
-import threading
-from typing import Awaitable
-import asyncio
 from iotdevicesimulator import db
 from iotdevicesimulator.queries import CosmosQuery
-import oracledb
 
 CONFIG_PATH = pathlib.Path(
     pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
 )
-
-
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
     reason="Config file `config.cfg` not found in root directory.",
@@ -55,6 +49,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["SITE_ID"], site_id)
 
     @pytest.mark.asyncio
+    @pytest.mark.oracle
     @config_exists
     async def test_bad_query_type(self):
 
