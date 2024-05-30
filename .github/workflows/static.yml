@@ -41,10 +41,12 @@ jobs:
           python-version: '3.12'
           # Optional - x64 or x86 architecture, defaults to x64
           architecture: 'x64'
-      - name: Build Docs
+          cache: pip
         run: |
           pip install --upgrade pip
           pip install .[docs]
+      - name: Build Docs
+        run: |
           pushd docs
           . ./make.sh apidoc
           . ./make.sh build
