@@ -58,6 +58,7 @@ To create an IoT Swarm you must write a script such as the following:
    import asyncio
    import config
    from pathlib import Path
+   import logging
 
 
    async def main(config_path: str):
@@ -66,6 +67,10 @@ To create an IoT Swarm you must write a script such as the following:
       Args:
          config_path: A path to the config file for credentials and connection points.
       """
+      log_config = Path(Path(__file__).parent, "__assets__", "loggers.ini")
+
+      logging.config.fileConfig(fname=log_config)
+
       app_config = config.Config(config_path)
 
       iot_config = app_config["iot_core"]
@@ -74,8 +79,8 @@ To create an IoT Swarm you must write a script such as the following:
       mqtt_connection = IotCoreMQTTConnection(
          endpoint=iot_config["endpoint"],
          cert_path=iot_config["cert_path"],
-         key_path=iot_config["pri_key_path"],
-         ca_cert_path=iot_config["aws_ca_cert_path"],
+         key_path=iot_config["key_path"],
+         ca_cert_path=iot_config["ca_cert_path"],
          client_id="fdri_swarm",
       )
       swarm = await CosmosSwarm.create(
@@ -91,10 +96,11 @@ To create an IoT Swarm you must write a script such as the following:
       await swarm.run()
 
 
-      if __name__ == "__main__":
+   if __name__ == "__main__":
 
-         config_path = "path/to/config.cfg"
-         asyncio.run(main(config_path))
+      config_path = str(Path(Path(__file__).parent, "__assets__", "config.cfg"))
+      asyncio.run(main(config_path))
+
 
 This instantiates and runs a swarm of 5 sites from the COSMOS database that
 each run for 5 cycles of queries and wait for 30 seconds between queries.

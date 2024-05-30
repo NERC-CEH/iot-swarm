@@ -74,8 +74,6 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 CONFIG_PATH = pathlib.Path(
     pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
 )
-
-
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
     reason="Config file `config.cfg` not found in root directory.",
@@ -85,6 +83,9 @@ config_exists = pytest.mark.skipif(
 class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
     """Tests the active behaviour of SensorSite objects."""
 
+    @pytest.mark.oracle
+    @pytest.mark.asyncio
+    @config_exists
     async def asyncSetUp(self):
         cred_path = str(CONFIG_PATH)
         creds = config.Config(cred_path)["oracle"]
@@ -97,11 +98,15 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
 
         self.message_connection = MockMessageConnection()
 
+    @pytest.mark.oracle
+    @pytest.mark.asyncio
+    @config_exists
     async def asyncTearDown(self) -> None:
         await self.oracle.connection.close()
 
     @pytest.mark.asyncio
     @pytest.mark.oracle
+    @config_exists
     async def test_run_stops_after_max_cycles(self):
         """Ensures .run() method breaks after max_cycles"""
 
@@ -114,6 +119,7 @@ class TestSensorSiteOperation(unittest.IsolatedAsyncioTestCase):
 
     @pytest.mark.asyncio
     @pytest.mark.oracle
+    @config_exists
     async def test_multi_instances_stop_at_max_cycles(self):
         """Ensures .run() method breaks after max_cycles for multiple instances"""
 
