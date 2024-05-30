@@ -5,7 +5,7 @@ from iotdevicesimulator.swarm import CosmosSwarm
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.mqtt.core import MockMessageConnection
+from iotdevicesimulator.messaging.core import MockMessageConnection
 
 from pathlib import Path
 from config import Config

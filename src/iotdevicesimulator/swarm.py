@@ -3,7 +3,7 @@
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.mqtt.core import MessagingBaseClass
+from iotdevicesimulator.messaging.core import MessagingBaseClass
 import logging.config
 from typing import List
 from pathlib import Path

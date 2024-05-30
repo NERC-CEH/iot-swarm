@@ -45,4 +45,4 @@ markers = [
 ]
 
 [tool.coverage.run]
-omit = ["*example.py", "*__init__.py"]
+omit = ["*example.py", "*__init__.py", "queries.py"]
