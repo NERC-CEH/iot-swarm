@@ -13,4 +13,5 @@ aws-auth
 *.log
 *.certs
 
+docs/source/*
 docs/_*

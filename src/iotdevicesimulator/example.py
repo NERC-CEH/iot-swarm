@@ -1,3 +1,5 @@
+"""Module for demonstrating invocation of a swarm."""
+
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.swarm import CosmosSwarm
 from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
@@ -20,8 +22,8 @@ async def main(config_path: str):
     mqtt_connection = IotCoreMQTTConnection(
         endpoint=iot_config["endpoint"],
         cert_path=iot_config["cert_path"],
-        key_path=iot_config["pri_key_path"],
-        ca_cert_path=iot_config["aws_ca_cert_path"],
+        key_path=iot_config["key_path"],
+        ca_cert_path=iot_config["ca_cert_path"],
         client_id="fdri_swarm",
     )
     swarm = await CosmosSwarm.create(
