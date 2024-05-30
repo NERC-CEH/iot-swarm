@@ -6,6 +6,7 @@ from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
 import asyncio
 import config
 from pathlib import Path
+import logging
 
 
 async def main(config_path: str):
@@ -14,6 +15,10 @@ async def main(config_path: str):
     Args:
         config_path: A path to the config file for credentials and connection points.
     """
+    log_config = Path(Path(__file__).parent, "__assets__", "loggers.ini")
+
+    logging.config.fileConfig(fname=log_config)
+
     app_config = config.Config(config_path)
 
     iot_config = app_config["iot_core"]

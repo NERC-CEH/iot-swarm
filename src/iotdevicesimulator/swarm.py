@@ -12,10 +12,6 @@ import random
 import uuid
 import config
 
-log_config = Path(Path(__file__).parent, "__assets__", "loggers.ini")
-
-logging.config.fileConfig(fname=log_config)
-
 logger = logging.getLogger(__name__)
 
 
