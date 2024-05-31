@@ -70,6 +70,17 @@ class TestSensorSiteInstantiation(unittest.TestCase):
         with self.assertRaises(ValueError):
             SensorSite("SITE_ID", sleep_time=sleep_time)
 
+    def test_topic_prefix(self):
+        """Tests that the topic prefix is set"""
+        site = SensorSite("SITE_ID")
+
+        site.topic = "topic1"
+        self.assertEqual(site.topic, "fdri/cosmos_site/SITE_ID/topic1")
+
+        site = SensorSite("SITE2", topic_prefix="$some/rule/path")
+        site.topic = "topic2"
+        self.assertEqual(site.topic, "$some/rule/path/fdri/cosmos_site/SITE2/topic2")
+
 
 CONFIG_PATH = pathlib.Path(
     pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"

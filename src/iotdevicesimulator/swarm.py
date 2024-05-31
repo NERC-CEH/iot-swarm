@@ -55,6 +55,9 @@ class CosmosSwarm:
     query: CosmosQuery
     """Query run in database."""
 
+    topic_prefix: str
+    """Adds prefix to sensor topic."""
+
     def __len__(self):
         """Returns number of sites"""
         return len(self.sites)
@@ -71,19 +74,21 @@ class CosmosSwarm:
         max_sites: int | None = None,
         swarm_name: str | None = None,
         delay_first_cycle: bool | None = None,
+        topic_prefix: str | None = None,
     ) -> None:
         """Factory method for initialising the class.
 
         Args:
             query: A query retrieve from the database.
             message_connection: Object used to send data.
+            credentials: A path to database credentials.
             site_ids: A list of site ID strings.
             sleep_time: Length of time to sleep after sending data in seconds.
             max_cycles: Maximum number of data sending cycles.
             max_sites: Maximum number of sites to initialise.
             swarm_name: Name / ID given to swarm.
             delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
-            credentials: A path to database credentials.
+            topic_prefix: Prefixes the sensor topic.
         """
         self = cls()
 
@@ -147,6 +152,9 @@ class CosmosSwarm:
                 )
             self.delay_first_cycle = delay_first_cycle
 
+        if topic_prefix is not None:
+            self.topic_prefix = str(topic_prefix)
+
         self.oracle = await self._get_oracle(
             credentials=credentials, inherit_logger=self._instance_logger
         )
@@ -159,6 +167,7 @@ class CosmosSwarm:
                 max_sites=self.max_sites,
                 swarm_logger=self._instance_logger,
                 delay_first_cycle=self.delay_first_cycle,
+                topic_prefix=self.topic_prefix,
             )
         else:
             self.sites = await self._init_sites_from_db(
@@ -169,6 +178,7 @@ class CosmosSwarm:
                 max_sites=self.max_sites,
                 swarm_logger=self._instance_logger,
                 delay_first_cycle=self.delay_first_cycle,
+                topic_prefix=self.topic_prefix,
             )
 
         self._instance_logger.debug("Swarm Ready")
@@ -235,6 +245,7 @@ class CosmosSwarm:
         max_sites: int = 0,
         swarm_logger: logging.Logger | None = None,
         delay_first_cycle: bool = False,
+        topic_prefix: str | None = None,
     ):
         """Initialises a list of SensorSites.
 
@@ -245,6 +256,7 @@ class CosmosSwarm:
             max_sites: Maximum number of sites to initialise. Picks randomly from list if given
             swarm_logger: Passes the instance logger to sites
             delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+            topic_prefix: Prefixes the sensor topic.
 
         Returns:
             List[SensorSite]: A list of sensor sites.
@@ -259,6 +271,7 @@ class CosmosSwarm:
                 max_cycles=max_cycles,
                 inherit_logger=swarm_logger,
                 delay_first_cycle=delay_first_cycle,
+                topic_prefix=topic_prefix,
             )
             for site_id in site_ids
         ]
@@ -272,6 +285,7 @@ class CosmosSwarm:
         max_sites=0,
         swarm_logger: logging.Logger | None = None,
         delay_first_cycle: bool = False,
+        topic_prefix: str | None = None,
     ) -> List[SensorSite]:
         """Initialised sensor sites from the COSMOS DB.
 
@@ -283,6 +297,7 @@ class CosmosSwarm:
             max_sites: Maximum number of sites to initialise. Picks randomly from list if less than number of sites found
             swarm_logger: Passes the instance logger to sites
             delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+            topic_prefix: Prefixes the sensor topic.
 
         Returns:
             List[SensorSite]: A list of sensor sites.
@@ -300,6 +315,7 @@ class CosmosSwarm:
                 max_cycles=max_cycles,
                 inherit_logger=swarm_logger,
                 delay_first_cycle=delay_first_cycle,
+                topic_prefix=topic_prefix,
             )
             for site_id in site_ids
         ]

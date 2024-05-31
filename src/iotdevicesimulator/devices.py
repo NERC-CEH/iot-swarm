@@ -17,6 +17,7 @@ class SensorSite:
         max_cycles: Maximum number of cycles before shutdown.
         inherit_logger: Override for the module logger.
         delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+        topic_prefix: Prefixes the sensor topic.
     """
 
     cycle: int | None   = 0
@@ -37,8 +38,27 @@ class SensorSite:
     _instance_logger: logging.Logger
     """Logger used by the instance."""
 
+    topic_prefix: str = None
+    """Added as prefix to topic string."""
+
+    @property
+    def topic(self):
+        """MQTT message topic."""
+        return self._topic
     
-    def __init__(self, site_id: str,*, sleep_time: int|None=None, max_cycles: int|None=None, inherit_logger:logging.Logger|None=None, delay_first_cycle:bool|None=None) -> None:
+    @topic.setter
+    def topic(self, query):
+        """Gets the topic"""
+        _topic = f"fdri/cosmos_site/{self.site_id}/{query}"
+
+        if self.topic_prefix is not None:
+            _topic = f"{self.topic_prefix}/{_topic}"
+
+        self._topic = _topic
+    
+    def __init__(self, site_id: str,*, sleep_time: int|None=None,
+                 max_cycles: int|None=None, inherit_logger:logging.Logger|None=None,
+                 delay_first_cycle:bool|None=None, topic_prefix: str|None=None) -> None:
         
         self.site_id = str(site_id)
         
@@ -69,6 +89,9 @@ class SensorSite:
 
             self.delay_first_cycle = delay_first_cycle
 
+        if topic_prefix is not None:
+            self.topic_prefix = str(topic_prefix)
+
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
@@ -86,6 +109,8 @@ class SensorSite:
             oracle: The oracle database.
             query: Query to process by database.
         """
+
+        self.topic = query.name
         while True:
 
             if self.delay_first_cycle and self.cycle == 0:
@@ -99,9 +124,8 @@ class SensorSite:
                 self._instance_logger.warn(f"No data found.")
             else:
                 self._instance_logger.debug(f"Cycle {self.cycle+1}/{self.max_cycles} Read data from: {row["DATE_TIME"]}")
-                mqtt_topic = f"fdri/cosmos_site/{self.site_id}/{query.name}"
-                message_connection.send_message(str(row), mqtt_topic)
-                self._instance_logger.info(f"Sent message to: {mqtt_topic}")
+                message_connection.send_message(str(row), self.topic)
+                self._instance_logger.info(f"Sent message to: {self.topic}")
             
             self.cycle += 1
             if self.max_cycles > 0 and self.cycle >= self.max_cycles:

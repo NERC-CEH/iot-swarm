@@ -77,6 +77,7 @@ def test():
 @click.option("--max-sites", type=click.IntRange(0))
 @click.option("--swarm-name", type=click.STRING)
 @click.option("--delay-start", type=click.BOOL, default=False)
+@click.option("--topic-prefix", type=click.STRING)
 def mqtt(
     ctx,
     provider,
@@ -91,6 +92,7 @@ def mqtt(
     max_sites,
     swarm_name,
     delay_start,
+    topic_prefix,
 ):
     """Gets an MQTT connection"""
     query = queries.CosmosQuery[query]
@@ -122,6 +124,7 @@ def mqtt(
             max_sites=max_sites,
             swarm_name=swarm_name,
             delay_first_cycle=delay_start,
+            topic_prefix=topic_prefix,
         )
     )
 
