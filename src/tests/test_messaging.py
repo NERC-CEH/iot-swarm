@@ -2,8 +2,8 @@ import unittest.mock
 import pytest
 import unittest
 from unittest.mock import patch
-from iotdevicesimulator.mqtt.core import MockMessageConnection, MessagingBaseClass
-from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
+from iotdevicesimulator.messaging.core import MockMessageConnection, MessagingBaseClass
+from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
 from config import Config
 from pathlib import Path
 import awscrt.mqtt
@@ -62,7 +62,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     def test_non_string_arguments(self):
 
         with self.assertRaises(TypeError):
-            instance = IotCoreMQTTConnection(
+            IotCoreMQTTConnection(
                 1,
                 self.config["cert_path"],
                 self.config["key_path"],
@@ -71,7 +71,16 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
         with self.assertRaises(TypeError):
-            instance = IotCoreMQTTConnection(
+            IotCoreMQTTConnection(
+                self.config["endpoint"],
+                1,
+                self.config["key_path"],
+                self.config["ca_cert_path"],
+                "client_id",
+            )
+
+        with self.assertRaises(TypeError):
+            IotCoreMQTTConnection(
                 self.config["endpoint"],
                 self.config["cert_path"],
                 1,
@@ -80,16 +89,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
         with self.assertRaises(TypeError):
-            instance = IotCoreMQTTConnection(
-                self.config["endpoint"],
-                self.config["cert_path"],
-                1,
-                self.config["ca_cert_path"],
-                "client_id",
-            )
-
-        with self.assertRaises(TypeError):
-            instance = IotCoreMQTTConnection(
+            IotCoreMQTTConnection(
                 self.config["endpoint"],
                 self.config["cert_path"],
                 self.config["key_path"],
@@ -98,7 +98,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
         with self.assertRaises(TypeError):
-            instance = IotCoreMQTTConnection(
+            IotCoreMQTTConnection(
                 self.config["endpoint"],
                 self.config["cert_path"],
                 self.config["key_path"],

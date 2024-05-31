@@ -2,7 +2,7 @@
 
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.swarm import CosmosSwarm
-from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
+from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
 import asyncio
 import config
 from pathlib import Path

@@ -6,7 +6,7 @@ import awscrt.io
 import time
 import json
 from awscrt.exceptions import AwsCrtError
-from iotdevicesimulator.mqtt.core import MessagingBaseClass
+from iotdevicesimulator.messaging.core import MessagingBaseClass
 import backoff
 import logging
 
@@ -157,18 +157,20 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         print("Connection closed")
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
-    def _connect(self):
+    def _connect(self):  # pragma: no cover
         connect_future = self.connection.connect()
         connect_future.result()
         print("Connected!")
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
-    def _disconnect(self):
+    def _disconnect(self):  # pragma: no cover
         print("Disconnecting...")
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(self, message: str, topic: str, count: int = 1) -> None:
+    def send_message(
+        self, message: str, topic: str, count: int = 1
+    ) -> None:  # pragma: no cover
         """Sends a message to the endpoint.
 
         Args:

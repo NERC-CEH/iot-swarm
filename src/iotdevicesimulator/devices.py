@@ -3,7 +3,7 @@ import asyncio
 import logging
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.db import Oracle
-from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
+from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
 import random
 
 logger = logging.getLogger(__name__)

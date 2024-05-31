@@ -2,8 +2,8 @@
 
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
-from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.mqtt.core import MessagingBaseClass
+from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
+from iotdevicesimulator.messaging.core import MessagingBaseClass
 import logging.config
 from typing import List
 from pathlib import Path
@@ -163,6 +163,7 @@ class CosmosSwarm:
         else:
             self.sites = await self._init_sites_from_db(
                 self.oracle,
+                CosmosSiteQuery[self.query.name],
                 sleep_time=self.sleep_time,
                 max_cycles=self.max_cycles,
                 max_sites=self.max_sites,
@@ -265,6 +266,7 @@ class CosmosSwarm:
     @staticmethod
     async def _init_sites_from_db(
         oracle: Oracle,
+        query: CosmosQuery,
         sleep_time: int = 10,
         max_cycles: int = 3,
         max_sites=-1,
@@ -275,6 +277,7 @@ class CosmosSwarm:
 
         Args:
             oracle: Oracle DB to query
+            query: Query to get data from
             sleep_time: Length of time to sleep after sending data in seconds.
             max_cycles: Maximum number of data sending cycles.
             max_sites: Maximum number of sites to initialise. Picks randomly from list if less than number of sites found
@@ -283,28 +286,23 @@ class CosmosSwarm:
 
         Returns:
             List[SensorSite]: A list of sensor sites.
-
-        TODO: Update to grab sites from unique items in DB tables.
         """
 
-        async with oracle.connection.cursor() as cursor:
-            await cursor.execute("SELECT UNIQUE(SITE_ID) from COSMOS.SITES")
+        site_ids = await oracle.query_site_ids(query)
 
-            site_ids = await cursor.fetchall()
+        if max_sites != -1:
+            site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
-            if max_sites != -1:
-                site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
-
-            return [
-                SensorSite(
-                    site_id[0],
-                    sleep_time=sleep_time,
-                    max_cycles=max_cycles,
-                    inherit_logger=swarm_logger,
-                    delay_first_cycle=delay_first_cycle,
-                )
-                for site_id in site_ids
-            ]
+        return [
+            SensorSite(
+                site_id,
+                sleep_time=sleep_time,
+                max_cycles=max_cycles,
+                inherit_logger=swarm_logger,
+                delay_first_cycle=delay_first_cycle,
+            )
+            for site_id in site_ids
+        ]
 
     @staticmethod
     def _random_list_items(list_in: List[object], max_count: int) -> List[object]:

@@ -4,7 +4,7 @@ import oracledb
 import getpass
 import logging
 
-from iotdevicesimulator.queries import CosmosQuery
+from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 
 logger = logging.getLogger(__name__)
 
@@ -83,3 +83,29 @@ class Oracle:
                 return None
 
             return dict(zip(columns, data))
+
+    async def query_site_ids(self, query: CosmosSiteQuery) -> list:
+        """query_site_ids returns a list of site IDs from COSMOS database
+
+        Args:
+            query (CosmosSiteQuery): The query to run.
+
+        Returns:
+            List[str]: A list of site ID strings.
+        """
+
+        if not isinstance(query, CosmosSiteQuery):
+            raise TypeError(
+                f"`query` must be a `CosmosSiteQuery` Enum, not a `{type(query)}`"
+            )
+
+        async with self.connection.cursor() as cursor:
+            await cursor.execute(query.value)
+
+            data = await cursor.fetchall()
+            data = [x[0] for x in data]
+
+            if not data:
+                data = []
+
+            return data

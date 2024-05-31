@@ -42,7 +42,8 @@ addopts = "--cov=iotdevicesimulator"
 markers = [
     "asyncio: Tests asynchronous functions.",
     "oracle: Requires oracle connection and required config credentials",
+    "slow: Marks slow tests",
 ]
 
 [tool.coverage.run]
-omit = ["*example.py", "*__init__.py"]
+omit = ["*example.py", "*__init__.py", "queries.py", "loggers.py"]

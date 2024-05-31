@@ -4,7 +4,7 @@ import pytest
 from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.db import Oracle
 from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.mqtt.core import MockMessageConnection
+from iotdevicesimulator.messaging.core import MockMessageConnection
 from parameterized import parameterized
 import pathlib, config
 
