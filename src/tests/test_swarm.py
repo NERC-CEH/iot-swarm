@@ -27,7 +27,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
     @parameterized.expand(
         [
-            ["ALIC1", CosmosQuery.LEVEL_1_SOILMET_30MIN, 1, -1, -1],
+            ["ALIC1", CosmosQuery.LEVEL_1_SOILMET_30MIN, 1, 0, 0],
             [["ALIC1"], CosmosQuery.LEVEL_1_NMDB_1HOUR, 10, 1, 2],
             [["ALIC1", "PORTN"], CosmosQuery.LEVEL_1_PRECIP_1MIN, 12.2, 45, 8],
         ]
@@ -133,7 +133,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(swarm.swarm_name, str)
 
-    @parameterized.expand([-1, 1, 10, 35.52])
+    @parameterized.expand([0, 1, 10, 35.52])
     @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists
@@ -158,7 +158,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(swarm), expected_length)
 
-    @parameterized.expand(["Four", -3, 0])
+    @parameterized.expand(["Four", -3, -1])
     @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists

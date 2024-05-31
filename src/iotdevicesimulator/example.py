@@ -34,12 +34,12 @@ async def main(config_path: str):
     swarm = await CosmosSwarm.create(
         CosmosQuery.LEVEL_1_SOILMET_30MIN,
         mqtt_connection,
+        oracle_config,
         swarm_name="soilmet",
         delay_first_cycle=True,
         max_cycles=5,
         max_sites=5,
         sleep_time=30,
-        credentials=oracle_config,
     )
     await swarm.run()
 

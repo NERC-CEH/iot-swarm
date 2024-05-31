@@ -117,9 +117,9 @@ class CosmosSwarm:
 
         if max_cycles is not None:
             max_cycles = int(max_cycles)
-            if max_cycles <= 0 and max_cycles != -1:
+            if max_cycles < 0:
                 raise ValueError(
-                    f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}"
+                    f"`max_cycles` must be 1 or more, or 0 for no maximum. Received: {max_cycles}"
                 )
 
             self.max_cycles = max_cycles
@@ -134,9 +134,9 @@ class CosmosSwarm:
 
         if max_sites is not None:
             max_sites = int(max_sites)
-            if max_sites <= 0 and max_sites != -1:
+            if max_sites < 0:
                 raise ValueError(
-                    f"`max_sites` must be 1 or more, or -1 for no maximum. Received: {max_sites}"
+                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
                 )
             self.max_sites = max_sites
 
@@ -232,7 +232,7 @@ class CosmosSwarm:
         site_ids: List[str],
         sleep_time: int = 10,
         max_cycles: int = 3,
-        max_sites: int = -1,
+        max_sites: int = 0,
         swarm_logger: logging.Logger | None = None,
         delay_first_cycle: bool = False,
     ):
@@ -249,7 +249,7 @@ class CosmosSwarm:
         Returns:
             List[SensorSite]: A list of sensor sites.
         """
-        if max_sites != -1:
+        if max_sites > 0:
             site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
         return [
@@ -269,7 +269,7 @@ class CosmosSwarm:
         query: CosmosQuery,
         sleep_time: int = 10,
         max_cycles: int = 3,
-        max_sites=-1,
+        max_sites=0,
         swarm_logger: logging.Logger | None = None,
         delay_first_cycle: bool = False,
     ) -> List[SensorSite]:
@@ -290,7 +290,7 @@ class CosmosSwarm:
 
         site_ids = await oracle.query_site_ids(query)
 
-        if max_sites != -1:
+        if max_sites > 0:
             site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
         return [

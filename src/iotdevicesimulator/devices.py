@@ -49,8 +49,8 @@ class SensorSite:
 
         if max_cycles is not None:
             max_cycles = int(max_cycles)
-            if max_cycles <= 0 and max_cycles != -1:
-                raise ValueError(f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}")
+            if max_cycles < 0:
+                raise ValueError(f"`max_cycles` must be 1 or more, or 0 for no maximum. Received: {max_cycles}")
             
             self.max_cycles = max_cycles
         
@@ -101,9 +101,10 @@ class SensorSite:
                 self._instance_logger.debug(f"Cycle {self.cycle+1}/{self.max_cycles} Read data from: {row["DATE_TIME"]}")
                 mqtt_topic = f"fdri/cosmos_site/{self.site_id}/{query.name}"
                 message_connection.send_message(str(row), mqtt_topic)
+                self._instance_logger.info(f"Sent message to: {mqtt_topic}")
             
             self.cycle += 1
-            if self.cycle >= self.max_cycles:
+            if self.max_cycles > 0 and self.cycle >= self.max_cycles:
                 break
 
             await asyncio.sleep(self.sleep_time)

@@ -12,3 +12,4 @@ aws-auth
 !.github/*
 docs/source/*
 docs/_*
+conf.sh
