@@ -83,20 +83,20 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
             MockMessageConnection(),
             self.config,
             site_ids="MORLY",
-            delay_first_cycle=True,
+            delay_start=True,
         )
 
-        self.assertTrue(swarm.delay_first_cycle)
+        self.assertTrue(swarm.delay_start)
 
         swarm = await CosmosSwarm.create(
             query,
             MockMessageConnection(),
             self.config,
             site_ids="MORLY",
-            delay_first_cycle=False,
+            delay_start=False,
         )
 
-        self.assertFalse(swarm.delay_first_cycle)
+        self.assertFalse(swarm.delay_start)
 
     @pytest.mark.asyncio
     @config_exists
@@ -110,7 +110,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
                 MockMessageConnection(),
                 self.config,
                 site_ids="MORLY",
-                delay_first_cycle=4,
+                delay_start=4,
             )
 
     @pytest.mark.asyncio

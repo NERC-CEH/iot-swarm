@@ -21,7 +21,7 @@ description = "Package for simulating a net of IoT devices for stress testing."
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized"]
-docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme"]
+docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 
 [project.scripts]
 iot-swarm = "iotdevicesimulator.scripts.cli:main"

@@ -36,7 +36,7 @@ async def main(config_path: str):
         mqtt_connection,
         oracle_config,
         swarm_name="soilmet",
-        delay_first_cycle=True,
+        delay_start=True,
         max_cycles=5,
         max_sites=5,
         sleep_time=30,

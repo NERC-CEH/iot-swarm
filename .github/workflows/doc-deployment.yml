@@ -4,7 +4,8 @@ name: Deploy static content to Pages
 on:
   # Runs on pushes targeting the default branch
   workflow_run:
-      workflows: ["Python Tests"]
+      workflows: ["Test Package"]
+      branches: ["main"]
       types:
           - completed
 
