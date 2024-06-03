@@ -92,6 +92,9 @@ class SensorSite:
         if topic_prefix is not None:
             self.topic_prefix = str(topic_prefix)
 
+        if topic_prefix is not None:
+            self.topic_prefix = str(topic_prefix)
+
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
