@@ -1,0 +1,12 @@
+name: Test Package
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: ./.github/workflows/test.yml
+  docs:
+    uses: ./.github/workflows/doc-test.yml
