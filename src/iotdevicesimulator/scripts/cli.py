@@ -13,7 +13,7 @@ TABLES = [table.name for table in queries.CosmosQuery]
 
 @click.group()
 @click.pass_context
-def main(ctx):
+def main(ctx: click.Context):
     """Core group of the cli."""
     ctx.ensure_object(dict)
 
@@ -37,8 +37,8 @@ def main(ctx):
     prompt=True,
     envvar="IOT_SWARM_COSMOS_PASSWORD",
 )
-def cosmos(ctx, site, dsn, user, password):
-    """Uses the COSMOS database to get data."""
+def cosmos(ctx: click.Context, site: str, dsn: str, user: str, password: str):
+    """Uses the COSMOS database as the source for data to send."""
     ctx.obj["credentials"] = {"dsn": dsn, "user": user, "password": password}
     ctx.obj["sites"] = site
 
@@ -47,6 +47,13 @@ def cosmos(ctx, site, dsn, user, password):
 def test():
     """Enables testing of cosmos group arguments."""
     pass
+
+
+@cosmos.command()
+def list_sites(
+    ctx: click.Context,
+):
+    """Lists site IDs from the database."""
 
 
 @cosmos.command()
@@ -97,7 +104,7 @@ def mqtt(
     delay_start,
     topic_prefix,
 ):
-    """Sends data via MQTT"""
+    """Sends The cosmos data via MQTT protocol. Currently only supports sending through AWS IoT Core."""
     query = queries.CosmosQuery[query]
 
     async def _swarm(query, mqtt_connection, credentials, *args, **kwargs):

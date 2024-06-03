@@ -183,24 +183,36 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(oracle, Oracle)
 
     @pytest.mark.asyncio
+    @config_exists
+    @pytest.mark.oracle
+    async def test_site_ids_from_db(self):
+
+        swarm = await CosmosSwarm.create(
+            CosmosQuery.LEVEL_1_SOILMET_30MIN, MockMessageConnection(), self.config
+        )
+
+        self.assertGreater(len(swarm.sites), 0)
+
+    @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists
-    async def test_site_ids_from_db(self):
-        query1 = CosmosSiteQuery.LEVEL_1_NMDB_1HOUR
-        query2 = CosmosSiteQuery.LEVEL_1_SOILMET_30MIN
+    async def test__len__(self):
+        """Tests the __len__ method."""
 
-        oracle = await CosmosSwarm._get_oracle(self.config)
-        sites1 = await CosmosSwarm._init_sites_from_db(oracle, query1)
-        sites2 = await CosmosSwarm._init_sites_from_db(oracle, query2)
+        for site_count in [1, 3, 10, 100, 1000]:
+            site_ids = ["SITE_ID"] * site_count
+            swarm = await CosmosSwarm.create(
+                CosmosQuery.LEVEL_1_SOILMET_30MIN,
+                MockMessageConnection(),
+                self.config,
+                site_ids=site_ids,
+                max_sites=0,
+            )
 
-        for site in sites1:
-            self.assertIsInstance(site, SensorSite)
-            self.assertGreater(len(site.site_id), 1)
-
-        self.assertNotEqual(len(sites1), len(sites2))
+            self.assertEqual(len(swarm), site_count)
 
 
-class TestCosmosSwarmStatic(unittest.TestCase):
+class TestCosmosSwarmStatic(unittest.IsolatedAsyncioTestCase):
     @parameterized.expand([-1, 1, 3, 5, 7.2])
     def test_list_restriction_method(self, max_count):
 
@@ -222,6 +234,23 @@ class TestCosmosSwarmStatic(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             CosmosSwarm._random_list_items(list_in, max_count)
+
+    @pytest.mark.asyncio
+    @pytest.mark.oracle
+    @pytest.mark.slow
+    @config_exists
+    async def test_sites_grabbed_from_db(self):
+        """Tests that site IDs are returned from database."""
+
+        config = Config(str(CONFIG_PATH))["oracle"]
+        oracle = await CosmosSwarm._get_oracle(config)
+
+        for query in CosmosSiteQuery:
+            sites = await CosmosSwarm._get_sites_from_db(oracle, query)
+
+            self.assertIsInstance(sites, list)
+            [self.assertIsInstance(site, str) for site in sites]
+            self.assertGreater(len(sites), 0)
 
 
 if __name__ == "__main__":
