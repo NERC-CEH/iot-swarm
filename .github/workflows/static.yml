@@ -5,6 +5,7 @@ on:
   # Runs on pushes targeting the default branch
   workflow_run:
       workflows: ["Python Tests"]
+      branches: ["*"]
       types:
           - completed
 

@@ -129,7 +129,7 @@ To create an IoT Swarm you must write a script such as the following:
          CosmosQuery.LEVEL_1_SOILMET_30MIN,
          mqtt_connection,
          swarm_name="soilmet",
-         delay_first_cycle=True,
+         delay_start=True,
          max_cycles=5,
          max_sites=5,
          sleep_time=30,

@@ -16,7 +16,7 @@ class SensorSite:
         sleep_time: Time to sleep between requests (seconds).
         max_cycles: Maximum number of cycles before shutdown.
         inherit_logger: Override for the module logger.
-        delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+        delay_start: Adds a random delay to first invocation from 0 - `sleep_time`.
         topic_prefix: Prefixes the sensor topic.
     """
 
@@ -32,7 +32,7 @@ class SensorSite:
     site_id: str
     """ID of the site."""
 
-    delay_first_cycle: bool = False
+    delay_start: bool = False
     """Adds a random delay to first invocation from 0 - `sleep_time`."""
 
     _instance_logger: logging.Logger
@@ -58,7 +58,7 @@ class SensorSite:
     
     def __init__(self, site_id: str,*, sleep_time: int|None=None,
                  max_cycles: int|None=None, inherit_logger:logging.Logger|None=None,
-                 delay_first_cycle:bool|None=None, topic_prefix: str|None=None) -> None:
+                 delay_start:bool|None=None, topic_prefix: str|None=None) -> None:
         
         self.site_id = str(site_id)
         
@@ -81,13 +81,13 @@ class SensorSite:
             
             self.sleep_time = sleep_time
 
-        if delay_first_cycle is not None:
-            if not isinstance(delay_first_cycle, bool):
+        if delay_start is not None:
+            if not isinstance(delay_start, bool):
                 raise TypeError(
-                    f"`delay_first_cycle` must be a bool. Received: {delay_first_cycle}."
+                    f"`delay_start` must be a bool. Received: {delay_start}."
                 )
 
-            self.delay_first_cycle = delay_first_cycle
+            self.delay_start = delay_start
 
         if topic_prefix is not None:
             self.topic_prefix = str(topic_prefix)
@@ -113,7 +113,7 @@ class SensorSite:
         self.topic = query.name
         while True:
 
-            if self.delay_first_cycle and self.cycle == 0:
+            if self.delay_start and self.cycle == 0:
                 delay = random.randint(0, self.sleep_time)
                 self._instance_logger.debug(f"Delaying first cycle for: {delay}s")
                 await asyncio.sleep(delay)
