@@ -148,9 +148,9 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
             max_sites=max_sites,
         )
 
-        expected_length = max_sites
+        expected_length = int(max_sites)
 
-        if max_sites == -1:
+        if max_sites == 0:
             expected_length = len(sites)
 
         if expected_length > len(sites):

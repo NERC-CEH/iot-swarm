@@ -10,6 +10,5 @@ aws-auth
 *.log
 *.certs
 !.github/*
-docs/source/*
 docs/_*
 conf.sh

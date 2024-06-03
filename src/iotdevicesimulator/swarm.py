@@ -55,7 +55,7 @@ class CosmosSwarm:
     query: CosmosQuery
     """Query run in database."""
 
-    topic_prefix: str
+    topic_prefix: str = None
     """Adds prefix to sensor topic."""
 
     def __len__(self):

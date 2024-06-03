@@ -1,3 +1,5 @@
+"""CLI script module exposed to user."""
+
 import click
 from iotdevicesimulator import queries
 from iotdevicesimulator.swarm import CosmosSwarm
@@ -36,13 +38,14 @@ def main(ctx):
     envvar="IOT_SWARM_COSMOS_PASSWORD",
 )
 def cosmos(ctx, site, dsn, user, password):
-
+    """Uses the COSMOS database to get data."""
     ctx.obj["credentials"] = {"dsn": dsn, "user": user, "password": password}
     ctx.obj["sites"] = site
 
 
 @cosmos.command()
 def test():
+    """Enables testing of cosmos group arguments."""
     pass
 
 
@@ -94,7 +97,7 @@ def mqtt(
     delay_start,
     topic_prefix,
 ):
-    """Gets an MQTT connection"""
+    """Sends data via MQTT"""
     query = queries.CosmosQuery[query]
 
     async def _swarm(query, mqtt_connection, credentials, *args, **kwargs):
