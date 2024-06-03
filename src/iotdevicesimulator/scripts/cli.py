@@ -222,7 +222,7 @@ def mqtt(
             max_cycles=max_cycles,
             max_sites=max_sites,
             swarm_name=swarm_name,
-            delay_first_cycle=delay_start,
+            delay_start=delay_start,
             topic_prefix=topic_prefix,
         )
     )
