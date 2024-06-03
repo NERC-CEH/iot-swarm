@@ -5,7 +5,6 @@ on:
   # Runs on pushes targeting the default branch
   workflow_run:
       workflows: ["Python Tests"]
-      branches: ["main"]
       types:
           - completed
 
@@ -54,13 +53,14 @@ jobs:
         run: |
           python -c "import iotdevicesimulator; print(iotdevicesimulator.__version__)"
           pushd docs
-          . ./make.sh apidoc
           . ./make.sh build
       - name: Upload artifact
+        if: ${{ github.head_ref == 'main' || github.ref_name == 'main' }}
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
           path: 'docs/_build/html'
       - name: Deploy to GitHub Pages
+        if: ${{ github.head_ref == 'main' || github.ref_name == 'main' }}
         id: deployment
         uses: actions/deploy-pages@v4

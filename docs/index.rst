@@ -6,6 +6,9 @@
 .. role:: python(code)
    :language: python
 
+.. role:: shell(code)
+   :language: shell
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -43,10 +46,49 @@ Install this package via pip:
 
 This installs the package :python:`iotdevicesimulator` into your python environment.
 
+-------------
+Using The CLI
+-------------
 
------
-Usage
------
+Installing this package will add a Command Line Interface (CLI) tool to your environment.
+It can be invoked by typing :shell:`iot-swarm` into your terminal. The CLI can be called to
+intialise a swarm with data sent every 30 minutes like so:
+
+.. code-block:: shell
+
+   iot-swarm cosmos --dsn="xxxxxx" --user="xxxxx" --password="*****" \
+      mqtt "aws" LEVEL_1_SOILMET_30MIN "client_id" \
+         --endpoint="xxxxxxx" \
+         --cert-path="C:\path\..." \
+         --key-path="C:\path\..." \
+         --ca-cert-path="C:\path\..." \
+         --sleep-time=1800 \
+         --dry
+
+Parameters such as the certificates, credentials, endpoints take up a lot of volume, and can be provided by environment variables instead:
+
+.. code-block:: shell
+
+   # COSMOS Credentials
+   export IOT_SWARM_COSMOS_DSN="xxxxxxxx"
+   export IOT_SWARM_COSMOS_USER="xxxxxxxx"
+   export IOT_SWARM_COSMOS_PASSWORD="xxxxxxx"
+
+   # AWS MQTT Configuration
+   export IOT_SWARM_MQTT_ENDPOINT="xxxxxxxx"
+   export IOT_SWARM_MQTT_CERT_PATH=="C:\path\..."
+   export IOT_SWARM_MQTT_KEY_PATH="C:\path\..."
+   export IOT_SWARM_MQTT_CA_CERT_PATH="C:\path\..."
+
+Then the CLI can be called more cleanly:
+
+.. code-block:: shell
+
+   iot-swarm cosmos mqtt "aws" LEVEL_1_SOILMET_30MIN "client_id" --sleep-time=1800 --swarm-name="my-swarm"
+
+------------------------
+Using the Python Modules
+------------------------
 
 To create an IoT Swarm you must write a script such as the following:
 
@@ -105,8 +147,7 @@ To create an IoT Swarm you must write a script such as the following:
 This instantiates and runs a swarm of 5 sites from the COSMOS database that
 each run for 5 cycles of queries and wait for 30 seconds between queries.
 
-The system requires a config file containing database credentials and endpoint
-details for data transmission.
+The system expects config credentials for the MQTT endpoint and the COSMOS Oracle database.
 
 .. include:: example-config.cfg
 

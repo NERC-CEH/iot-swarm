@@ -42,14 +42,14 @@ class TestSensorSiteInstantiation(unittest.TestCase):
             f'Site ID: "{site.site_id}", Sleep Time: {site.sleep_time}, Max Cycles: {site.max_cycles}, Cycle: {site.cycle}',
         )
 
-    @parameterized.expand([-1, 7.9, 1, 5, 10, "10"])
+    @parameterized.expand([0, 7.9, 1, 5, 10, "10"])
     def test_max_cycle_argument(self, max_cycles):
         """Tests that the max argument is set"""
 
         site = SensorSite("SITE_ID", max_cycles=max_cycles)
         self.assertEqual(site.max_cycles, int(max_cycles))
 
-    @parameterized.expand(["four", "TEN", -10, 0])
+    @parameterized.expand(["four", "TEN", -10, -1])
     def test_max_cycle_bad_value_gives_error(self, max_cycles):
         """Tests that negative max_cycles gives ValueError"""
 
@@ -69,6 +69,17 @@ class TestSensorSiteInstantiation(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             SensorSite("SITE_ID", sleep_time=sleep_time)
+
+    def test_topic_prefix(self):
+        """Tests that the topic prefix is set"""
+        site = SensorSite("SITE_ID")
+
+        site.topic = "topic1"
+        self.assertEqual(site.topic, "fdri/cosmos_site/SITE_ID/topic1")
+
+        site = SensorSite("SITE2", topic_prefix="$some/rule/path")
+        site.topic = "topic2"
+        self.assertEqual(site.topic, "$some/rule/path/fdri/cosmos_site/SITE2/topic2")
 
 
 CONFIG_PATH = pathlib.Path(

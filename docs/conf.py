@@ -5,13 +5,19 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+
+import os, sys
+
+path = os.path.abspath("../src")
+sys.path.append(path)
+print(path)
 import iotdevicesimulator
 
 project = "IoT Thing Swarm"
 copyright = "2024, Lewis Chambers"
 author = "Lewis Chambers"
 release = iotdevicesimulator.__version__
-
+version = release
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
@@ -21,6 +27,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_rtd_theme",
     "sphinx_copybutton",
+    "sphinx_click",
 ]
 
 

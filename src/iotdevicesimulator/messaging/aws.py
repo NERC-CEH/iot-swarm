@@ -154,17 +154,15 @@ class IotCoreMQTTConnection(MessagingBaseClass):
     @staticmethod
     def _on_connection_closed(connection, callback_data):  # pragma: no cover
         """Callback when a connection has been disconnected or shutdown successfully"""
-        print("Connection closed")
+        print("Connection closed\n")
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _connect(self):  # pragma: no cover
         connect_future = self.connection.connect()
         connect_future.result()
-        print("Connected!")
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _disconnect(self):  # pragma: no cover
-        print("Disconnecting...")
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
@@ -186,16 +184,13 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         # This step loops forever if count was set to 0.
         if message:
             if count == 0:
-                print("Sending messages until program killed")
+                logger.info("Sending messages until program killed")
             else:
-                print("Sending {} message(s)".format(count))
+                logger.info("Sending {} message(s)".format(count))
 
             publish_count = 1
             while (publish_count <= count) or (count == 0):
                 message_text = "{} [{}]".format(message, publish_count)
-                print(
-                    "Publishing message to topic '{}': {}".format(topic, message_text)
-                )
                 message_json = json.dumps(message_text)
                 self.connection.publish(
                     topic=topic,

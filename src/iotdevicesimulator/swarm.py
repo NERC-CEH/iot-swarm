@@ -55,9 +55,31 @@ class CosmosSwarm:
     query: CosmosQuery
     """Query run in database."""
 
+    topic_prefix: str = None
+    """Adds prefix to sensor topic."""
+
     def __len__(self):
         """Returns number of sites"""
         return len(self.sites)
+
+    def __repr__(self):
+        topic_prefix = (
+            "" if self.topic_prefix is None else f', topic_prefix="{self.topic_prefix}"'
+        )
+        return (
+            f"CosmosSwarm({type(self.query)}, {self.message_connection}, site_ids={[x.site_id for x in self.sites]}"
+            f", sleep_time={self.sleep_time}, max_cycles={self.max_cycles}, max_sites={self.max_sites}"
+            f', swarm_name="{self.swarm_name}", delay_first_cycle={self.delay_first_cycle}{topic_prefix})'
+        )
+
+    def __str__(self):
+        topic_prefix = (
+            "" if self.topic_prefix is None else f', topic_prefix="{self.topic_prefix}"'
+        )
+        return (
+            f'CosmosSwarm({self.query.__class__.__name__}.{self.query.name}, swarm_name="{self.swarm_name}"'
+            f"{topic_prefix}, sleep_time={self.sleep_time}, max_cycles={self.max_cycles}, delay_start={self.delay_first_cycle})"
+        )
 
     @classmethod
     async def create(
@@ -71,19 +93,21 @@ class CosmosSwarm:
         max_sites: int | None = None,
         swarm_name: str | None = None,
         delay_first_cycle: bool | None = None,
+        topic_prefix: str | None = None,
     ) -> None:
         """Factory method for initialising the class.
 
         Args:
             query: A query retrieve from the database.
             message_connection: Object used to send data.
+            credentials: A path to database credentials.
             site_ids: A list of site ID strings.
             sleep_time: Length of time to sleep after sending data in seconds.
             max_cycles: Maximum number of data sending cycles.
             max_sites: Maximum number of sites to initialise.
             swarm_name: Name / ID given to swarm.
             delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
-            credentials: A path to database credentials.
+            topic_prefix: Prefixes the sensor topic.
         """
         self = cls()
 
@@ -117,9 +141,9 @@ class CosmosSwarm:
 
         if max_cycles is not None:
             max_cycles = int(max_cycles)
-            if max_cycles <= 0 and max_cycles != -1:
+            if max_cycles < 0:
                 raise ValueError(
-                    f"`max_cycles` must be 1 or more, or -1 for no maximum. Received: {max_cycles}"
+                    f"`max_cycles` must be 1 or more, or 0 for no maximum. Received: {max_cycles}"
                 )
 
             self.max_cycles = max_cycles
@@ -134,9 +158,9 @@ class CosmosSwarm:
 
         if max_sites is not None:
             max_sites = int(max_sites)
-            if max_sites <= 0 and max_sites != -1:
+            if max_sites < 0:
                 raise ValueError(
-                    f"`max_sites` must be 1 or more, or -1 for no maximum. Received: {max_sites}"
+                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
                 )
             self.max_sites = max_sites
 
@@ -147,29 +171,27 @@ class CosmosSwarm:
                 )
             self.delay_first_cycle = delay_first_cycle
 
+        if topic_prefix is not None:
+            self.topic_prefix = str(topic_prefix)
+
         self.oracle = await self._get_oracle(
             credentials=credentials, inherit_logger=self._instance_logger
         )
 
-        if site_ids:
-            self.sites = self._init_sites(
-                site_ids,
-                sleep_time=self.sleep_time,
-                max_cycles=self.max_cycles,
-                max_sites=self.max_sites,
-                swarm_logger=self._instance_logger,
-                delay_first_cycle=self.delay_first_cycle,
+        if not site_ids:
+            site_ids = await self._get_sites_from_db(
+                self.oracle, CosmosSiteQuery[self.query.name]
             )
-        else:
-            self.sites = await self._init_sites_from_db(
-                self.oracle,
-                CosmosSiteQuery[self.query.name],
-                sleep_time=self.sleep_time,
-                max_cycles=self.max_cycles,
-                max_sites=self.max_sites,
-                swarm_logger=self._instance_logger,
-                delay_first_cycle=self.delay_first_cycle,
-            )
+
+        self.sites = self._init_sites(
+            site_ids,
+            sleep_time=self.sleep_time,
+            max_cycles=self.max_cycles,
+            max_sites=self.max_sites,
+            swarm_logger=self._instance_logger,
+            delay_first_cycle=self.delay_first_cycle,
+            topic_prefix=self.topic_prefix,
+        )
 
         self._instance_logger.debug("Swarm Ready")
 
@@ -232,9 +254,10 @@ class CosmosSwarm:
         site_ids: List[str],
         sleep_time: int = 10,
         max_cycles: int = 3,
-        max_sites: int = -1,
+        max_sites: int = 0,
         swarm_logger: logging.Logger | None = None,
         delay_first_cycle: bool = False,
+        topic_prefix: str | None = None,
     ):
         """Initialises a list of SensorSites.
 
@@ -245,11 +268,12 @@ class CosmosSwarm:
             max_sites: Maximum number of sites to initialise. Picks randomly from list if given
             swarm_logger: Passes the instance logger to sites
             delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+            topic_prefix: Prefixes the sensor topic.
 
         Returns:
             List[SensorSite]: A list of sensor sites.
         """
-        if max_sites != -1:
+        if max_sites > 0:
             site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
         return [
@@ -259,50 +283,24 @@ class CosmosSwarm:
                 max_cycles=max_cycles,
                 inherit_logger=swarm_logger,
                 delay_first_cycle=delay_first_cycle,
+                topic_prefix=topic_prefix,
             )
             for site_id in site_ids
         ]
 
     @staticmethod
-    async def _init_sites_from_db(
-        oracle: Oracle,
-        query: CosmosQuery,
-        sleep_time: int = 10,
-        max_cycles: int = 3,
-        max_sites=-1,
-        swarm_logger: logging.Logger | None = None,
-        delay_first_cycle: bool = False,
-    ) -> List[SensorSite]:
-        """Initialised sensor sites from the COSMOS DB.
+    async def _get_sites_from_db(oracle: Oracle, query: CosmosSiteQuery) -> str:
+        """Returns a list of site IDs from a database Query
 
         Args:
-            oracle: Oracle DB to query
-            query: Query to get data from
-            sleep_time: Length of time to sleep after sending data in seconds.
-            max_cycles: Maximum number of data sending cycles.
-            max_sites: Maximum number of sites to initialise. Picks randomly from list if less than number of sites found
-            swarm_logger: Passes the instance logger to sites
-            delay_first_cycle: Adds a random delay to first invocation from 0 - `sleep_time`.
+            oracle: An Oracle database connection.
+            query: A site ID query.
 
         Returns:
-            List[SensorSite]: A list of sensor sites.
+            List[str]: A list of site ID strings.
         """
 
-        site_ids = await oracle.query_site_ids(query)
-
-        if max_sites != -1:
-            site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
-
-        return [
-            SensorSite(
-                site_id,
-                sleep_time=sleep_time,
-                max_cycles=max_cycles,
-                inherit_logger=swarm_logger,
-                delay_first_cycle=delay_first_cycle,
-            )
-            for site_id in site_ids
-        ]
+        return await oracle.query_site_ids(query)
 
     @staticmethod
     def _random_list_items(list_in: List[object], max_count: int) -> List[object]:
