@@ -15,7 +15,7 @@ function apidoc() {
         args="--module-first --force"
     fi
     
-    sphinx-apidoc $(echo $args) -o source ../src/iotdevicesimulator
+    sphinx-apidoc $(echo $args) -o source ../src/iotdevicesimulator '../src/iotdevicesimulator/scripts/*'
 }
 
 function build() {
