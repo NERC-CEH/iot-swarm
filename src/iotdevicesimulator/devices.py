@@ -20,13 +20,13 @@ class SensorSite:
         topic_prefix: Prefixes the sensor topic.
     """
 
-    cycle: int | None   = 0
+    cycle: int = 0
     """Current cycle."""
 
-    max_cycles: int = 1
+    max_cycles: int = 0
     """Maximum number of data transfer cycles before shutting down."""
 
-    sleep_time: int = 30
+    sleep_time: int = 60
     """Time to sleep for each time data is sent."""
 
     site_id: str
@@ -88,9 +88,6 @@ class SensorSite:
                 )
 
             self.delay_start = delay_start
-
-        if topic_prefix is not None:
-            self.topic_prefix = str(topic_prefix)
 
         if topic_prefix is not None:
             self.topic_prefix = str(topic_prefix)

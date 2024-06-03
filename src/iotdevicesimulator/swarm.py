@@ -34,13 +34,13 @@ class CosmosSwarm:
     _instance_logger: logging.Logger
     """Logger handle used by instance."""
 
-    max_cycles: int = 1
+    max_cycles: int = 0
     """Maximum number of data transfer cycles before shutting down."""
 
-    max_sites: int = 5
+    max_sites: int = 0
     """Maximum number of sites allowed to be instantiated."""
 
-    sleep_time: int = 30
+    sleep_time: int = 60
     """Time to sleep for each time data is sent."""
 
     sites: List[SensorSite]
@@ -55,7 +55,7 @@ class CosmosSwarm:
     query: CosmosQuery
     """Query run in database."""
 
-    topic_prefix: str = None
+    topic_prefix: str | None = None
     """Adds prefix to sensor topic."""
 
     def __len__(self):
@@ -252,9 +252,9 @@ class CosmosSwarm:
     @staticmethod
     def _init_sites(
         site_ids: List[str],
-        sleep_time: int = 10,
-        max_cycles: int = 3,
-        max_sites: int = 0,
+        sleep_time: int | None = None,
+        max_cycles: int | None = None,
+        max_sites: int | None = None,
         swarm_logger: logging.Logger | None = None,
         delay_start: bool = False,
         topic_prefix: str | None = None,
