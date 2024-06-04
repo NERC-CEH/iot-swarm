@@ -7,6 +7,7 @@ import time
 import json
 from awscrt.exceptions import AwsCrtError
 from iotdevicesimulator.messaging.core import MessagingBaseClass
+from iotdevicesimulator.messaging.utils import json_serial
 import backoff
 import logging
 
@@ -18,6 +19,9 @@ class IotCoreMQTTConnection(MessagingBaseClass):
 
     connection: awscrt.mqtt.Connection | None = None
     """A connection to the MQTT endpoint."""
+
+    _instance_logger: logging.Logger
+    """Logger handle used by instance."""
 
     def __init__(
         self,
@@ -116,90 +120,79 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             on_connection_closed=self._on_connection_closed,
         )
 
-    @staticmethod
-    def _on_connection_interrupted(connection, error, **kwargs):  # pragma: no cover
-        """Callback when connection accidentally lost."""
-        print("Connection interrupted. error: {}".format(error))
+        self._instance_logger = logger.getChild(f"client-{client_id}")
 
-    @staticmethod
+    def _on_connection_interrupted(
+        self, connection, error, **kwargs
+    ):  # pragma: no cover
+        """Callback when connection accidentally lost."""
+        self._instance_logger.debug("Connection interrupted. error: {}".format(error))
+
     def _on_connection_resumed(
-        connection, return_code, session_present, **kwargs
+        self, connection, return_code, session_present, **kwargs
     ):  # pragma: no cover
         """Callback when an interrupted connection is re-established."""
 
-        print(
+        self._instance_logger.debug(
             "Connection resumed. return_code: {} session_present: {}".format(
                 return_code, session_present
             )
         )
 
-    @staticmethod
-    def _on_connection_success(connection, callback_data):  # pragma: no cover
+    def _on_connection_success(self, connection, callback_data):  # pragma: no cover
         """Callback when the connection successfully connects."""
 
         assert isinstance(callback_data, mqtt.OnConnectionSuccessData)
-        print(
+        self._instance_logger.debug(
             "Connection Successful with return code: {} session present: {}".format(
                 callback_data.return_code, callback_data.session_present
             )
         )
 
-    @staticmethod
-    def _on_connection_failure(connection, callback_data):  # pragma: no cover
+    def _on_connection_failure(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection attempt fails."""
 
         assert isinstance(callback_data, mqtt.OnConnectionFailureData)
-        print("Connection failed with error code: {}".format(callback_data.error))
+        self._instance_logger.debug(
+            "Connection failed with error code: {}".format(callback_data.error)
+        )
 
-    @staticmethod
-    def _on_connection_closed(connection, callback_data):  # pragma: no cover
+    def _on_connection_closed(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection has been disconnected or shutdown successfully"""
-        print("Connection closed\n")
+        self._instance_logger.debug("Connection closed\n")
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _connect(self):  # pragma: no cover
+        self._instance_logger.debug("Connecting to endpoint")
         connect_future = self.connection.connect()
         connect_future.result()
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _disconnect(self):  # pragma: no cover
+        self._instance_logger.debug("Disconnecting from endpoint")
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(
-        self, message: str, topic: str, count: int = 1
-    ) -> None:  # pragma: no cover
+    def send_message(self, message: dict, topic: str) -> None:  # pragma: no cover
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
-            count: How many times to repeat the message. If 0, it sends forever.
         """
+
+        if not message:
+            logging.error(f"No message to send for topic: {topic}")
+            return
 
         self._connect()
 
-        # Publish message to server desired number of times.
-        # This step is skipped if message is blank.
-        # This step loops forever if count was set to 0.
         if message:
-            if count == 0:
-                logger.info("Sending messages until program killed")
-            else:
-                logger.info("Sending {} message(s)".format(count))
-
-            publish_count = 1
-            while (publish_count <= count) or (count == 0):
-                message_text = "{} [{}]".format(message, publish_count)
-                message_json = json.dumps(message_text)
-                self.connection.publish(
-                    topic=topic,
-                    payload=message_json,
-                    qos=mqtt.QoS.AT_LEAST_ONCE,
-                )
-
-                if count > 1:
-                    time.sleep(1)
-                publish_count += 1
+            payload = json.dumps(message, default=json_serial)
+            self.connection.publish(
+                topic=topic,
+                payload=payload,
+                qos=mqtt.QoS.AT_LEAST_ONCE,
+            )
 
         self._disconnect()

@@ -183,6 +183,9 @@ class CosmosSwarm:
                 self.oracle, CosmosSiteQuery[self.query.name]
             )
 
+        if isinstance(site_ids, str):
+            site_ids = [site_ids]
+
         self.sites = self._init_sites(
             site_ids,
             sleep_time=self.sleep_time,

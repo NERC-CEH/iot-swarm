@@ -19,14 +19,7 @@ TABLES = [table.name for table in queries.CosmosQuery]
     type=click.Path(exists=True),
     help="Path to a logging config file. Uses default if not given.",
 )
-@click.option(
-    "--log-level",
-    type=click.Choice(
-        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-    ),
-    help="Sets the level of logs outputted.",
-)
-def main(ctx: click.Context, log_config: Path, log_level: str):
+def main(ctx: click.Context, log_config: Path):
     """Core group of the cli."""
     ctx.ensure_object(dict)
 
@@ -34,9 +27,6 @@ def main(ctx: click.Context, log_config: Path, log_level: str):
         log_config = Path(Path(__file__).parents[1], "__assets__", "loggers.ini")
 
     logging.config.fileConfig(fname=log_config)
-
-    if log_level:
-        logging.getLogger().setLevel(log_level)
 
 
 @main.group()

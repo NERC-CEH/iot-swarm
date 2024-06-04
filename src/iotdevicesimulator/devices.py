@@ -124,7 +124,7 @@ class SensorSite:
                 self._instance_logger.warn(f"No data found.")
             else:
                 self._instance_logger.debug(f"Cycle {self.cycle+1}/{self.max_cycles} Read data from: {row["DATE_TIME"]}")
-                message_connection.send_message(str(row), self.topic)
+                message_connection.send_message(row, self.topic)
                 self._instance_logger.info(f"Sent message to: {self.topic}")
             
             self.cycle += 1

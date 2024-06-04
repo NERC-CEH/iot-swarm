@@ -36,10 +36,11 @@ async def main(config_path: str):
         mqtt_connection,
         oracle_config,
         swarm_name="soilmet",
-        delay_start=True,
+        delay_start=False,
         max_cycles=5,
         max_sites=5,
         sleep_time=30,
+        site_ids="MORLY",
     )
     await swarm.run()
 
