@@ -1,7 +1,7 @@
 """This is the core module for orchestrating swarms of IoT devices. One swarm defined currently for using COSMOS data."""
 
-from iotdevicesimulator.devices import SensorSite
-from iotdevicesimulator.db import Oracle
+from iotdevicesimulator.devices import CosmosSensorDevice
+from iotdevicesimulator.db import Oracle, BaseDatabase
 from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MessagingBaseClass
 import logging.config
@@ -43,14 +43,14 @@ class CosmosSwarm:
     sleep_time: int = 60
     """Time to sleep for each time data is sent."""
 
-    sites: List[SensorSite]
+    sites: List[CosmosSensorDevice]
     """List of site objects."""
 
     delay_start: bool = False
     """Adds a random delay to first invocation from 0 - `sleep_time`."""
 
-    oracle: Oracle
-    """Oracle database object"""
+    database: BaseDatabase
+    """Database object"""
 
     query: CosmosQuery
     """Query run in database."""
@@ -174,13 +174,13 @@ class CosmosSwarm:
         if topic_prefix is not None:
             self.topic_prefix = str(topic_prefix)
 
-        self.oracle = await self._get_oracle(
+        self.database = await self._get_database(
             credentials=credentials, inherit_logger=self._instance_logger
         )
 
         if not site_ids:
             site_ids = await self._get_sites_from_db(
-                self.oracle, CosmosSiteQuery[self.query.name]
+                self.database, CosmosSiteQuery[self.query.name]
             )
 
         if isinstance(site_ids, str):
@@ -209,7 +209,7 @@ class CosmosSwarm:
         self._instance_logger.debug("Running main loop")
         await asyncio.gather(
             *[
-                site.run(self.oracle, self.query, self.message_connection)
+                site.run(self.database, self.query, self.message_connection)
                 for site in self.sites
             ]
         )
@@ -217,12 +217,12 @@ class CosmosSwarm:
         self._instance_logger.info("Finished")
 
     @staticmethod
-    async def _get_oracle(
+    async def _get_database(
         credentials: dict,
         inherit_logger: logging.Logger | None = None,
-    ) -> Oracle:
+    ) -> BaseDatabase:
         """Receives a dict of credentials and returns an asynchronous
-        connection to Oracle.
+        connection to database.
 
         The expected source of credentials is the config file, but this
         can be provided manually with a dict:
@@ -240,20 +240,20 @@ class CosmosSwarm:
             inherit_logger: Inherits the module logger if true.
 
         Returns:
-            Oracle: An oracle database.
+            BaseDatabase: A database.
         """
 
-        oracle = await Oracle.create(
+        database = await Oracle.create(
             credentials["dsn"],
             credentials["user"],
             password=credentials["password"],
             inherit_logger=inherit_logger,
         )
 
-        return oracle
+        return database
 
-    @staticmethod
     def _init_sites(
+        self,
         site_ids: List[str],
         sleep_time: int | None = None,
         max_cycles: int | None = None,
@@ -262,7 +262,7 @@ class CosmosSwarm:
         delay_start: bool = False,
         topic_prefix: str | None = None,
     ):
-        """Initialises a list of SensorSites.
+        """Initialises a list of CosmosSensorDevices.
 
         Args:
             site_ids: A list of site ID strings.
@@ -274,13 +274,15 @@ class CosmosSwarm:
             topic_prefix: Prefixes the sensor topic.
 
         Returns:
-            List[SensorSite]: A list of sensor sites.
+            List[CosmosSensorDevice]: A list of sensor sites.
         """
         if max_sites > 0:
             site_ids = CosmosSwarm._random_list_items(site_ids, max_sites)
 
         return [
-            SensorSite(
+            CosmosSensorDevice(
+                self.query,
+                self.database,
                 site_id,
                 sleep_time=sleep_time,
                 max_cycles=max_cycles,
@@ -292,18 +294,18 @@ class CosmosSwarm:
         ]
 
     @staticmethod
-    async def _get_sites_from_db(oracle: Oracle, query: CosmosSiteQuery) -> str:
+    async def _get_sites_from_db(database: BaseDatabase, query: CosmosSiteQuery) -> str:
         """Returns a list of site IDs from a database Query
 
         Args:
-            oracle: An Oracle database connection.
+            database: A database connection.
             query: A site ID query.
 
         Returns:
             List[str]: A list of site ID strings.
         """
 
-        return await oracle.query_site_ids(query)
+        return await database.query_site_ids(query)
 
     @staticmethod
     def _random_list_items(list_in: List[object], max_count: int) -> List[object]:

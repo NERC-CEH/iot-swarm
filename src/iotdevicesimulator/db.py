@@ -3,13 +3,31 @@
 import oracledb
 import getpass
 import logging
-
+import abc
 from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 
 logger = logging.getLogger(__name__)
 
 
-class Oracle:
+class BaseDatabase(abc.ABC):
+    """Base class for implementing database objects"""
+
+    _instance_logger: logging.Logger
+    """Logger handle for the instance."""
+
+    connection: object
+    """Connection to oracle database."""
+
+    @abc.abstractmethod
+    async def query_latest_from_site(self):
+        pass
+
+    @abc.abstractmethod
+    async def query_site_ids(self):
+        pass
+
+
+class Oracle(BaseDatabase):
     """Class for handling oracledb logic and retrieving values from DB."""
 
     _instance_logger: logging.Logger

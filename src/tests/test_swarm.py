@@ -3,7 +3,6 @@ import pytest
 from parameterized import parameterized
 from iotdevicesimulator.swarm import CosmosSwarm
 from iotdevicesimulator.db import Oracle
-from iotdevicesimulator.devices import SensorSite
 from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MockMessageConnection
 
@@ -48,8 +47,11 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
             max_sites=max_sites,
         )
 
+        if isinstance(site_ids, str):
+            site_ids = [site_ids]
+
         for site, site_id in zip(swarm.sites, site_ids):
-            self.assertEqual(site.site_id, site_id)
+            self.assertEqual(site.device_id, site_id)
             self.assertEqual(site.max_cycles, int(max_cycles))
             self.assertEqual(site.sleep_time, int(sleep_time))
 
@@ -177,8 +179,8 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists
-    async def test_get_oracle(self):
-        oracle = await CosmosSwarm._get_oracle(self.config)
+    async def test_get_database(self):
+        oracle = await CosmosSwarm._get_database(self.config)
 
         self.assertIsInstance(oracle, Oracle)
 
@@ -243,7 +245,7 @@ class TestCosmosSwarmStatic(unittest.IsolatedAsyncioTestCase):
         """Tests that site IDs are returned from database."""
 
         config = Config(str(CONFIG_PATH))["oracle"]
-        oracle = await CosmosSwarm._get_oracle(config)
+        oracle = await CosmosSwarm._get_database(config)
 
         for query in CosmosSiteQuery:
             sites = await CosmosSwarm._get_sites_from_db(oracle, query)
