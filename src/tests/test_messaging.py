@@ -9,6 +9,7 @@ from pathlib import Path
 import awscrt.mqtt
 import awscrt.io
 from parameterized import parameterized
+import logging
 
 CONFIG_PATH = Path(
     Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
@@ -28,6 +29,8 @@ class TestBaseClass(unittest.TestCase):
         self.assertIsNone(instance.connection)
         self.assertIsNone(instance.send_message())
 
+        self.assertEqual(instance.__repr__(), "MessagingBaseClass()")
+
 
 class TestMockMessageConnection(unittest.TestCase):
 
@@ -39,6 +42,26 @@ class TestMockMessageConnection(unittest.TestCase):
         self.assertIsNone(mock.send_message())
 
         self.assertIsInstance(mock, MessagingBaseClass)
+
+    def test_logger_used(self):
+
+        mock = MockMessageConnection()
+
+        with self.assertLogs() as cm:
+            mock.send_message()
+            self.assertEqual(
+                cm.output,
+                [
+                    "INFO:iotdevicesimulator.messaging.core.MockMessageConnection:Message was sent."
+                ],
+            )
+
+        with self.assertLogs() as cm:
+            mock.send_message(use_logger=logging.getLogger("mine"))
+            self.assertEqual(
+                cm.output,
+                ["INFO:mine:Message was sent."],
+            )
 
 
 class TestIoTCoreMQTTConnection(unittest.TestCase):
@@ -183,6 +206,29 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         with self.assertRaises(TypeError):
             IotCoreMQTTConnection(
                 **self.config, client_id="test_id", keep_alive_secs=secs
+            )
+
+    @config_exists
+    def test_logger_set(self):
+        inst = IotCoreMQTTConnection(**self.config, client_id="test_id")
+
+        expected = 'No message to send for topic: "mytopic".'
+        with self.assertLogs() as cm:
+            inst.send_message(None, "mytopic")
+
+            self.assertEqual(
+                cm.output,
+                [
+                    f"ERROR:iotdevicesimulator.messaging.aws.IotCoreMQTTConnection.client-test_id:{expected}"
+                ],
+            )
+
+        with self.assertLogs() as cm:
+            inst.send_message(None, "mytopic", use_logger=logging.getLogger("mine"))
+
+            self.assertEqual(
+                cm.output,
+                [f"ERROR:mine:{expected}"],
             )
 
 

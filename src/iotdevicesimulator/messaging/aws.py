@@ -21,9 +21,6 @@ class IotCoreMQTTConnection(MessagingBaseClass):
     connection: awscrt.mqtt.Connection | None = None
     """A connection to the MQTT endpoint."""
 
-    _instance_logger: logging.Logger
-    """Logger handle used by instance."""
-
     def __init__(
         self,
         endpoint: str,
@@ -121,7 +118,9 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             on_connection_closed=self._on_connection_closed,
         )
 
-        self._instance_logger = logger.getChild(f"client-{client_id}")
+        self._instance_logger = logger.getChild(
+            f"{self.__class__.__name__}.client-{client_id}"
+        )
 
     def _on_connection_interrupted(
         self, connection, error, **kwargs
@@ -174,21 +173,28 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(self, message: dict, topic: str) -> None:  # pragma: no cover
+    def send_message(
+        self, message: dict, topic: str, use_logger: logging.Logger | None = None
+    ) -> None:
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
+            use_logger: Sends log message with requested logger.
         """
+        if use_logger is not None and isinstance(use_logger, logging.Logger):
+            use_logger = use_logger
+        else:
+            use_logger = self._instance_logger
 
         if not message:
-            logging.error(f"No message to send for topic: {topic}")
+            use_logger.error(f'No message to send for topic: "{topic}".')
             return
 
         self._connect()
 
-        if message:
+        if message:  # pragma: no cover
             payload = json.dumps(message, default=json_serial)
             self.connection.publish(
                 topic=topic,
@@ -196,6 +202,6 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
 
-        self._instance_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
+        use_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
 
         self._disconnect()
