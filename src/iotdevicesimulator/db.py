@@ -15,16 +15,15 @@ class BaseDatabase(abc.ABC):
     _instance_logger: logging.Logger
     """Logger handle for the instance."""
 
-    connection: object
-    """Connection to oracle database."""
-
     @abc.abstractmethod
-    async def query_latest_from_site(self):
+    def query_latest_from_site(self):
         pass
 
-    @abc.abstractmethod
-    async def query_site_ids(self):
-        pass
+
+class MockData(BaseDatabase):
+
+    def query_latest_from_site(self):
+        return []
 
 
 class Oracle(BaseDatabase):
@@ -102,11 +101,14 @@ class Oracle(BaseDatabase):
 
             return dict(zip(columns, data))
 
-    async def query_site_ids(self, query: CosmosSiteQuery) -> list:
+    async def query_site_ids(
+        self, query: CosmosSiteQuery, max_sites: int | None = None
+    ) -> list:
         """query_site_ids returns a list of site IDs from COSMOS database
 
         Args:
-            query (CosmosSiteQuery): The query to run.
+            query: The query to run.
+            max_sites: Maximum number of sites to retreive
 
         Returns:
             List[str]: A list of site ID strings.
@@ -117,11 +119,18 @@ class Oracle(BaseDatabase):
                 f"`query` must be a `CosmosSiteQuery` Enum, not a `{type(query)}`"
             )
 
+        if max_sites is not None:
+            max_sites = int(max_sites)
+            if max_sites < 0:
+                raise ValueError(
+                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
+                )
+
         async with self.connection.cursor() as cursor:
             await cursor.execute(query.value)
 
             data = await cursor.fetchall()
-            data = [x[0] for x in data]
+            data = [x[0] for x in data[:max_sites]]
 
             if not data:
                 data = []

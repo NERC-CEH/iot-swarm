@@ -10,6 +10,7 @@ from iotdevicesimulator.messaging.core import MessagingBaseClass
 from iotdevicesimulator.messaging.utils import json_serial
 import backoff
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +160,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
 
     def _on_connection_closed(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection has been disconnected or shutdown successfully"""
-        self._instance_logger.debug("Connection closed\n")
+        self._instance_logger.debug("Connection closed")
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _connect(self):  # pragma: no cover
@@ -194,5 +195,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 payload=payload,
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
+
+        self._instance_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
 
         self._disconnect()

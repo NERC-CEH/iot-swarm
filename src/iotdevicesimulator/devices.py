@@ -4,9 +4,11 @@ import asyncio
 import logging
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.db import BaseDatabase, Oracle
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection, MessagingBaseClass
+from iotdevicesimulator.messaging.core import MockMessageConnection, MessagingBaseClass
+from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
 import random
 import abc
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -35,48 +37,47 @@ class BaseDevice(abc.ABC):
     _instance_logger: logging.Logger
     """Logger used by the instance."""
 
-    topic_prefix: str = None
-    """Added as prefix to topic string."""
-
-    topic_suffix: str = None
-    """Adds a topic suffix"""
-
-    data_source: str = "cosmos"
+    data_source: BaseDatabase
     """Specifies the source of data to use."""
 
-    mqtt_topic: str
-    """Topic used to send MQTT messages"""
+    connection: MessagingBaseClass
+    """Connection to the data receiver."""
 
     def __init__(
         self,
         device_id: str,
+        data_source: str,
+        connection: MessagingBaseClass,
         *,
         sleep_time: int | None = None,
         max_cycles: int | None = None,
-        inherit_logger: logging.Logger | None = None,
         delay_start: bool | None = None,
-        topic_prefix: str | None = None,
-        topic_suffix: str | None = None,
-        data_source: str | None = None,
     ) -> None:
         """Initializer
 
         Args:
             device_id: ID of site.
             sleep_time: Time to sleep between requests (seconds).
+            data_source: Source of data to retrieve
+            connection: Connection used to send messages.
             max_cycles: Maximum number of cycles before shutdown.
             inherit_logger: Override for the module logger.
             delay_start: Adds a random delay to first invocation from 0 - `sleep_time`.
-            topic_prefix: Prefixes the sensor topic.
-            topic_prefix: Suffixes the sensor topic.
-            data_source: Source of data to retrieve
         """
+
         self.device_id = str(device_id)
 
-        if inherit_logger is not None:
-            self._instance_logger = inherit_logger.getChild(f"site-{self.device_id}")
-        else:
-            self._instance_logger = logger.getChild(self.device_id)
+        if not isinstance(data_source, BaseDatabase):
+            raise TypeError(
+                f"`data_source` must be a `BaseDatabase`. Received: {data_source}."
+            )
+        self.data_source = data_source
+
+        if not isinstance(connection, MessagingBaseClass):
+            raise TypeError(
+                f"`connection` must be a `MessagingBaseClass`. Received: {connection}."
+            )
+        self.connection = connection
 
         if max_cycles is not None:
             max_cycles = int(max_cycles)
@@ -101,68 +102,33 @@ class BaseDevice(abc.ABC):
                 )
             self.delay_start = delay_start
 
-        if data_source is not None:
-            if not isinstance(data_source, str):
-                raise TypeError(
-                    f"`data_source` must be a str. Received: {data_source}."
-                )
-            self.data_source = data_source
-
-        topics = self._get_mqtt_topics(prefix=topic_prefix, suffix=topic_suffix)
-        self.mqtt_topic = topics[0]
-
+        self._instance_logger = logger.getChild(self.device_id)
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}("
             f'"{self.device_id}"'
+            f", {self.data_source}"
+            f", {self.connection}"
             f", sleep_time={self.sleep_time}"
             f", max_cycles={self.max_cycles}"
             f", delay_start={self.delay_start}"
-            f", topic_prefix={self.topic_prefix}"
-            f", data_source={self.data_source}"
             f")"
         )
 
     def __str__(self):
         return f'Site ID: "{self.device_id}", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}'
 
-    def _get_mqtt_topics(self, prefix: str | None = None, suffix: str | None = None):
-
-        mqtt_topic = f"{self.device_type}/{self.device_id}"
-
-        if prefix is not None:
-            prefix = str(prefix)
-            mqtt_topic = f"{prefix}/{mqtt_topic}"
-
-        if suffix is not None:
-            mqtt_topic = f"{mqtt_topic}/{suffix}"
-
-        return mqtt_topic, prefix, suffix
-
     async def _add_delay(self):
         delay = random.randint(0, self.sleep_time)
         self._instance_logger.debug(f"Delaying first cycle for: {delay}s")
         await asyncio.sleep(delay)
 
-    def _send_payload(
-        self, payload: dict, message_connection: MessagingBaseClass, *args
-    ):
-        if not payload:
-            self._instance_logger.warning(f"No data found.")
-            return
+    def _send_payload(self, payload: dict, *args, **kwargs):
+        self.connection.send_message(payload, *args, **kwargs)
 
-        if isinstance(message_connection, IotCoreMQTTConnection):
-            message_connection.send_message(payload, self.mqtt_topic)
-            self._instance_logger.info(f"Sent message to: {self.mqtt_topic}")
-        elif isinstance(message_connection, MessagingBaseClass):
-            message_connection.send_message()
-            self._instance_logger.info("Ate a message")
-        else:
-            raise TypeError(f"Invalid messaging type: {type(message_connection)}.")
-
-    async def run(self, message_connection: MessagingBaseClass):
+    async def run(self):
         """The main invocation of the method. Expects a Oracle object to do work on
         and a query to retrieve. Runs asynchronously until `max_cycles` is reached.
 
@@ -177,7 +143,12 @@ class BaseDevice(abc.ABC):
 
             payload = await self._get_payload()
 
-            self._send_payload(payload, message_connection)
+            if not payload:
+                self._instance_logger.warning(f"No data found.")
+                return
+
+            self._instance_logger.debug("Requesting payload submission.")
+            self._send_payload(payload)
 
             self.cycle += 1
             if self.max_cycles > 0 and self.cycle >= self.max_cycles:
@@ -203,32 +174,25 @@ class CosmosDevice(BaseDevice):
     query: CosmosQuery | None = None
     """The query used to retrieve data."""
 
-    database: BaseDatabase
-    """Database used for data source."""
-
-    def __init__(self, query: CosmosQuery, database: BaseDatabase, *args, **kwargs):
+    def __init__(self, query: CosmosQuery, *args, **kwargs):
 
         if not isinstance(query, CosmosQuery):
             raise TypeError(f"`query` must be a CosmosQuery, not {type(query)}")
 
-        if not isinstance(database, BaseDatabase):
-            raise TypeError(f"`database` must be a BaseDatabase, not {type(database)}")
-
         self.query = query
-        self.database = database
 
         super().__init__(*args, **kwargs)
 
     async def _get_payload(self):
-        if isinstance(self.database, Oracle):
-            payload = await self.database.query_latest_from_site(
+        if isinstance(self.data_source, Oracle):
+            payload = await self.data_source.query_latest_from_site(
                 self.device_id, self.query
             )
 
             return self._format_payload(payload)
 
-        elif isinstance(self.database, BaseDatabase):
-            return await self.database.query_latest_from_site()
+        elif isinstance(self.data_source, BaseDatabase):
+            return await self.data_source.query_latest_from_site()
 
     @staticmethod
     def _format_payload(payload: dict):
@@ -241,22 +205,47 @@ class CosmosDevice(BaseDevice):
         return (
             f"{self.__class__.__name__}("
             f"{self.query.__class__.__name__}.{self.query.name}"
-            f", {self.database.__repr__()}"
             f", {parent}"
         )
 
 
-class CosmosSensorDevice(CosmosDevice):
-    """Digital representation of a site used in FDRI"""
+class MQTTCosmosDevice(CosmosDevice):
+    """MQTT implementation of the Cosmos DB reliant devices.
 
-    device_type = "cosmos-sensor-device"
+    Args:
+        topic_prefix: Prefixes the MQTT topic.
+        topic_suffix: Suffixes the MQTT topic.
+    """
 
-    def __init__(self, *args, **kwargs) -> None:
+    topic: str
+    """MQTT message topic"""
+
+    def __init__(
+        self,
+        *args,
+        topic_prefix: str | None = None,
+        topic_suffix: str | None = None,
+        **kwargs,
+    ):
 
         super().__init__(*args, **kwargs)
 
+        self.topic = f"{self.device_type}/{self.device_id}"
 
-class CR1000X(CosmosDevice):
+        if topic_prefix is not None:
+            self.topic = f"{topic_prefix}/{self.topic}"
+
+        if topic_suffix is not None:
+            self.topic = f"{self.topic}/{topic_suffix}"
+
+    def _send_payload(self, payload: dict, *args, **kwargs):
+        self.connection.send_message(payload, self.topic)
+        self._instance_logger.info(
+            f'Sent {sys.getsizeof(payload)} bytes to "{self.topic}"'
+        )
+
+
+class CR1000XCosmosDevice(CosmosDevice):
     "Represents a CR1000X datalogger."
 
     device_type = "CR1000X"
@@ -289,3 +278,35 @@ class CR1000X(CosmosDevice):
         f_payload["data"] = {"time": time, "vals": list(payload.values())}
         f_payload["fields"] = [{"name": key} for key in payload.keys()]
         return f_payload
+
+
+class MQTTCR1000XCosmosDevice(MQTTCosmosDevice, CR1000XCosmosDevice):
+    pass
+
+
+class DeviceFactory:
+
+    @staticmethod
+    def create_device(
+        connection: MessagingBaseClass,
+        *args,
+        device_type: str = "base",
+        **kwargs,
+    ):
+        if not isinstance(connection, MessagingBaseClass):
+            raise TypeError(f"Invalid connection: {type(connection)}")
+
+        handles = {
+            IotCoreMQTTConnection: {
+                "base": MQTTCosmosDevice,
+                "cr1000x": MQTTCR1000XCosmosDevice,
+            },
+            MockMessageConnection: {
+                "base": CosmosDevice,
+                "cr1000x": CR1000XCosmosDevice,
+            },
+        }
+
+        return handles[type(connection)][device_type](
+            *args, connection=connection, **kwargs
+        )

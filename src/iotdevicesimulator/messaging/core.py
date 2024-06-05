@@ -1,5 +1,8 @@
 from abc import ABC
 from abc import abstractmethod
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MessagingBaseClass(ABC):
@@ -25,6 +28,13 @@ class MockMessageConnection(MessagingBaseClass):
     """Connection object. Not needed in a mock but must be implemented"""
 
     @staticmethod
-    def send_message(*args, **kwargs):
-        """Consumes requests to send a message but does nothing with it."""
-        pass
+    def send_message(*args, use_logger: logging.Logger | None, **kwargs):
+        """Consumes requests to send a message but does nothing with it.
+
+        Args:
+            use_logger: Sends log message with requested logger."""
+
+        if use_logger is not None and isinstance(use_logger, logging.Logger):
+            logger = use_logger
+
+        logger.info("Ate a message.")
