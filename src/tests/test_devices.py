@@ -1,12 +1,18 @@
 import unittest
 import asyncio
 import pytest
-from iotdevicesimulator.devices import CosmosSensorDevice, BaseDevice, CosmosDevice
+from iotdevicesimulator.devices import (
+    CosmosSensorDevice,
+    BaseDevice,
+    CosmosDevice,
+    CR1000X,
+)
 from iotdevicesimulator.db import Oracle, BaseDatabase
 from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MockMessageConnection
 from parameterized import parameterized
 from unittest.mock import patch
+from datetime import datetime
 
 
 class TestBaseClass(unittest.TestCase):
@@ -76,6 +82,22 @@ class TestCosmosDevice(unittest.IsolatedAsyncioTestCase):
         """Expected that payload receives no formatting"""
 
         self.assertEqual(payload, CosmosSensorDevice._format_payload(payload))
+
+    @parameterized.expand(
+        [
+            ["MORLY", None, None, "cosmos-device/MORLY"],
+            ["ALIC1", "prefix", None, "prefix/cosmos-device/ALIC1"],
+            ["TEST", None, "suffix", "cosmos-device/TEST/suffix"],
+            ["ANOTHER", "prefix", "suffix", "prefix/cosmos-device/ANOTHER/suffix"],
+        ]
+    )
+    def test_topic_set(self, site_id, prefix, suffix, expected):
+        """Tests the topic setting"""
+
+        device = CosmosDevice(self.query, self.database, site_id)
+        self.assertEqual(
+            device._get_mqtt_topics(prefix=prefix, suffix=suffix)[0], expected
+        )
 
 
 class TestCosmosSensorDeviceInstantiation(unittest.TestCase):
@@ -164,22 +186,13 @@ class TestCosmosSensorDeviceInstantiation(unittest.TestCase):
                 self.query, self.database, "device_id", sleep_time=sleep_time
             )
 
-    def test_topic_prefix(self):
+    @parameterized.expand([["MORLY", None, None, "cosmos-sensor-device/MORLY"]])
+    def test_topic_prefix(self, site_id, prefix, suffix, expected):
         """Tests that the topic prefix is set"""
-        site = CosmosSensorDevice(self.query, self.database, "device_id")
+        site = CosmosSensorDevice(self.query, self.database, site_id)
 
-        site.topic = "topic1"
         self.assertEqual(
-            site.topic, "fdri/cosmos_site/cosmos-sensor-site/device_id/topic1"
-        )
-
-        site = CosmosSensorDevice(
-            self.query, self.database, "SITE2", topic_prefix="$some/rule/path"
-        )
-        site.topic = "topic2"
-        self.assertEqual(
-            site.topic,
-            "$some/rule/path/fdri/cosmos_site/cosmos-sensor-site/SITE2/topic2",
+            site._get_mqtt_topics(prefix=prefix, suffix=suffix)[0], expected
         )
 
 
@@ -221,6 +234,23 @@ class TestCosmosSensorDeviceOperation(unittest.IsolatedAsyncioTestCase):
 
         for i, site in enumerate(sites):
             self.assertEqual(site.cycle, max_cycles[i])
+
+
+class TestCR1000X(unittest.TestCase):
+
+    @patch.multiple(BaseDatabase, __abstractmethods__=set())
+    def setUp(self) -> None:
+        self.database = BaseDatabase()
+        self.query = CosmosQuery.LEVEL_1_SOILMET_30MIN
+
+    def test_payload_formatting(self):
+
+        device = CR1000X(self.query, self.database, "site")
+
+        payload = {"DATE_TIME": datetime.now(), "A": 1, "B": 2.1233}
+        formatted = device._format_payload(payload)
+
+        print(formatted)
 
 
 if __name__ == "__main__":

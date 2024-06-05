@@ -6,7 +6,6 @@ from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MessagingBaseClass
 import logging.config
 from typing import List
-from pathlib import Path
 import asyncio
 import random
 import uuid
@@ -58,6 +57,9 @@ class CosmosSwarm:
     topic_prefix: str | None = None
     """Adds prefix to sensor topic."""
 
+    topic_suffix: str | None = None
+    """Adds suffix to sensor topic."""
+
     def __len__(self):
         """Returns number of sites"""
         return len(self.sites)
@@ -94,6 +96,7 @@ class CosmosSwarm:
         swarm_name: str | None = None,
         delay_start: bool | None = None,
         topic_prefix: str | None = None,
+        topic_suffix: str | None = None,
     ) -> None:
         """Factory method for initialising the class.
 
@@ -108,6 +111,7 @@ class CosmosSwarm:
             swarm_name: Name / ID given to swarm.
             delay_start: Adds a random delay to first invocation from 0 - `sleep_time`.
             topic_prefix: Prefixes the sensor topic.
+            topic_suffix: Suffixes the sensor topic.
         """
         self = cls()
 
@@ -174,6 +178,11 @@ class CosmosSwarm:
         if topic_prefix is not None:
             self.topic_prefix = str(topic_prefix)
 
+        if topic_suffix is not None:
+            self.topic_suffix = str(topic_suffix)
+        else:
+            self.topic_suffix = self.query.name
+
         self.database = await self._get_database(
             credentials=credentials, inherit_logger=self._instance_logger
         )
@@ -194,6 +203,7 @@ class CosmosSwarm:
             swarm_logger=self._instance_logger,
             delay_start=self.delay_start,
             topic_prefix=self.topic_prefix,
+            topic_suffix=self.topic_suffix,
         )
 
         self._instance_logger.debug("Swarm Ready")
@@ -208,10 +218,7 @@ class CosmosSwarm:
 
         self._instance_logger.debug("Running main loop")
         await asyncio.gather(
-            *[
-                site.run(self.database, self.query, self.message_connection)
-                for site in self.sites
-            ]
+            *[site.run(self.message_connection) for site in self.sites]
         )
 
         self._instance_logger.info("Finished")
@@ -261,6 +268,7 @@ class CosmosSwarm:
         swarm_logger: logging.Logger | None = None,
         delay_start: bool = False,
         topic_prefix: str | None = None,
+        topic_suffix: str | None = None,
     ):
         """Initialises a list of CosmosSensorDevices.
 
@@ -272,6 +280,7 @@ class CosmosSwarm:
             swarm_logger: Passes the instance logger to sites
             delay_start: Adds a random delay to first invocation from 0 - `sleep_time`.
             topic_prefix: Prefixes the sensor topic.
+            topic_suffix: Suffixes the sensor topic.
 
         Returns:
             List[CosmosSensorDevice]: A list of sensor sites.
@@ -289,6 +298,7 @@ class CosmosSwarm:
                 inherit_logger=swarm_logger,
                 delay_start=delay_start,
                 topic_prefix=topic_prefix,
+                topic_suffix=topic_suffix,
             )
             for site_id in site_ids
         ]

@@ -38,23 +38,14 @@ class BaseDevice(abc.ABC):
     topic_prefix: str = None
     """Added as prefix to topic string."""
 
+    topic_suffix: str = None
+    """Adds a topic suffix"""
+
     data_source: str = "cosmos"
     """Specifies the source of data to use."""
 
-    @property
-    def topic(self):
-        """MQTT message topic."""
-        return self._topic
-
-    @topic.setter
-    def topic(self, query):
-        """Gets the topic"""
-        _topic = f"fdri/cosmos_site/{self.sensor_type}/{self.device_id}/{query}"
-
-        if self.topic_prefix is not None:
-            _topic = f"{self.topic_prefix}/{_topic}"
-
-        self._topic = _topic
+    mqtt_topic: str
+    """Topic used to send MQTT messages"""
 
     def __init__(
         self,
@@ -65,6 +56,7 @@ class BaseDevice(abc.ABC):
         inherit_logger: logging.Logger | None = None,
         delay_start: bool | None = None,
         topic_prefix: str | None = None,
+        topic_suffix: str | None = None,
         data_source: str | None = None,
     ) -> None:
         """Initializer
@@ -76,6 +68,7 @@ class BaseDevice(abc.ABC):
             inherit_logger: Override for the module logger.
             delay_start: Adds a random delay to first invocation from 0 - `sleep_time`.
             topic_prefix: Prefixes the sensor topic.
+            topic_prefix: Suffixes the sensor topic.
             data_source: Source of data to retrieve
         """
         self.device_id = str(device_id)
@@ -115,8 +108,8 @@ class BaseDevice(abc.ABC):
                 )
             self.data_source = data_source
 
-        if topic_prefix is not None:
-            self.topic_prefix = str(topic_prefix)
+        topics = self._get_mqtt_topics(prefix=topic_prefix, suffix=topic_suffix)
+        self.mqtt_topic = topics[0]
 
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
@@ -135,6 +128,19 @@ class BaseDevice(abc.ABC):
     def __str__(self):
         return f'Site ID: "{self.device_id}", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}'
 
+    def _get_mqtt_topics(self, prefix: str | None = None, suffix: str | None = None):
+
+        mqtt_topic = f"{self.device_type}/{self.device_id}"
+
+        if prefix is not None:
+            prefix = str(prefix)
+            mqtt_topic = f"{prefix}/{mqtt_topic}"
+
+        if suffix is not None:
+            mqtt_topic = f"{mqtt_topic}/{suffix}"
+
+        return mqtt_topic, prefix, suffix
+
     async def _add_delay(self):
         delay = random.randint(0, self.sleep_time)
         self._instance_logger.debug(f"Delaying first cycle for: {delay}s")
@@ -148,8 +154,8 @@ class BaseDevice(abc.ABC):
             return
 
         if isinstance(message_connection, IotCoreMQTTConnection):
-            message_connection.send_message(payload, self.topic)
-            self._instance_logger.info(f"Sent message to: {self.topic}")
+            message_connection.send_message(payload, self.mqtt_topic)
+            self._instance_logger.info(f"Sent message to: {self.mqtt_topic}")
         elif isinstance(message_connection, MessagingBaseClass):
             message_connection.send_message()
             self._instance_logger.info("Ate a message")
@@ -243,8 +249,43 @@ class CosmosDevice(BaseDevice):
 class CosmosSensorDevice(CosmosDevice):
     """Digital representation of a site used in FDRI"""
 
-    sensor_type = "cosmos-sensor-site"
+    device_type = "cosmos-sensor-device"
 
     def __init__(self, *args, **kwargs) -> None:
 
         super().__init__(*args, **kwargs)
+
+
+class CR1000X(CosmosDevice):
+    "Represents a CR1000X datalogger."
+
+    device_type = "CR1000X"
+
+    def __init__(self, *args, **kwargs) -> None:
+
+        super().__init__(*args, **kwargs)
+
+    def _format_payload(self, payload: dict):
+        """Formats the payload into datalogger method."""
+
+        f_payload = dict()
+
+        f_payload["head"] = {
+            "transaction": 0,
+            "signature": 111111,
+            "environment": {
+                "station_name": self.device_id,
+                "table_name": self.topic_suffix,
+                "model": self.device_type,
+                "os_version": "Not a real OS",
+                "prog_name": "test",
+            },
+        }
+
+        time = payload["DATE_TIME"]
+
+        payload.pop("DATE_TIME")
+
+        f_payload["data"] = {"time": time, "vals": list(payload.values())}
+        f_payload["fields"] = [{"name": key} for key in payload.keys()]
+        return f_payload

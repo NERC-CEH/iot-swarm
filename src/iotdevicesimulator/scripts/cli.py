@@ -158,7 +158,13 @@ def list_sites(ctx, query):
 @click.option(
     "--topic-prefix",
     type=click.STRING,
+    default="fdri/cosmos_test",
     help="Prefixes the MQTT topic with a string. Can augment the calculated MQTT topic returned by each site.",
+)
+@click.option(
+    "--topic-suffix",
+    type=click.STRING,
+    help="Suffixes the MQTT topic with a string. Can augment the calculated MQTT topic returned by each site.",
 )
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
 def mqtt(
@@ -176,6 +182,7 @@ def mqtt(
     swarm_name,
     delay_start,
     topic_prefix,
+    topic_suffix,
     dry,
 ):
     """Sends The cosmos data via MQTT protocol using PROVIDER.
@@ -214,6 +221,7 @@ def mqtt(
             swarm_name=swarm_name,
             delay_start=delay_start,
             topic_prefix=topic_prefix,
+            topic_suffix=topic_suffix,
         )
     )
 
