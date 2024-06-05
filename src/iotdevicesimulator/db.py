@@ -10,39 +10,61 @@ logger = logging.getLogger(__name__)
 
 
 class BaseDatabase(abc.ABC):
-    """Base class for implementing database objects"""
+    """Base class for implementing database objects
+
+    Args:
+        inherit_logger: Assigns the passed logger to instance.
+    """
 
     _instance_logger: logging.Logger
     """Logger handle for the instance."""
+
+    def __init__(self, inherit_logger: logging.Logger | None = None):
+        if inherit_logger is not None:
+            self._instance_logger = inherit_logger.getChild(self.__class__.__name__)
+        else:
+            self._instance_logger = logger.getChild(self.__class__.__name__)
+
+    def __repr__(self):
+        if self._instance_logger.parent.name == "iotdevicesimulator.db":
+            logger_arg = ""
+        else:
+            logger_arg = f"inherit_logger={self._instance_logger.parent}"
+        return f"{self.__class__.__name__}({logger_arg})"
 
     @abc.abstractmethod
     def query_latest_from_site(self):
         pass
 
 
-class MockData(BaseDatabase):
+class MockDB(BaseDatabase):
 
-    def query_latest_from_site(self):
+    @staticmethod
+    def query_latest_from_site():
         return []
 
 
 class Oracle(BaseDatabase):
     """Class for handling oracledb logic and retrieving values from DB."""
 
-    _instance_logger: logging.Logger
-    """Logger handle for the instance."""
-
     connection: oracledb.Connection
     """Connection to oracle database."""
 
+    def __repr__(self):
+        parent_repr = (
+            super().__repr__().lstrip(f"{self.__class__.__name__}(").rstrip(")")
+        )
+        if len(parent_repr) > 0:
+            parent_repr = ", " + parent_repr
+        return (
+            f"{self.__class__.__name__}("
+            f'"{self.connection.dsn}"'
+            f"{parent_repr}"
+            f")"
+        )
+
     @classmethod
-    async def create(
-        cls,
-        dsn: str,
-        user: str,
-        password: str = None,
-        inherit_logger: logging.Logger | None = None,
-    ):
+    async def create(cls, dsn: str, user: str, *, password: str = None, **kwargs):
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `Oracle.create(...)`.
 
@@ -55,12 +77,7 @@ class Oracle(BaseDatabase):
         if not password:
             password = getpass.getpass("Enter Oracle password: ")
 
-        self = cls()
-
-        if inherit_logger is not None:
-            self._instance_logger = inherit_logger.getChild("db")
-        else:
-            self._instance_logger = logger
+        self = cls(**kwargs)
 
         self.connection = await oracledb.connect_async(
             dsn=dsn, user=user, password=password
