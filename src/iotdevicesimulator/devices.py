@@ -46,12 +46,13 @@ class BaseDevice(abc.ABC):
     def __init__(
         self,
         device_id: str,
-        data_source: str,
+        data_source: BaseDatabase,
         connection: MessagingBaseClass,
         *,
         sleep_time: int | None = None,
         max_cycles: int | None = None,
         delay_start: bool | None = None,
+        inherit_logger: logging.Logger | None = None,
     ) -> None:
         """Initializer
 
@@ -61,8 +62,8 @@ class BaseDevice(abc.ABC):
             data_source: Source of data to retrieve
             connection: Connection used to send messages.
             max_cycles: Maximum number of cycles before shutdown.
-            inherit_logger: Override for the module logger.
             delay_start: Adds a random delay to first invocation from 0 - `sleep_time`.
+            inherit_logger: Override for the module logger.
         """
 
         self.device_id = str(device_id)
@@ -90,9 +91,7 @@ class BaseDevice(abc.ABC):
         if sleep_time is not None:
             sleep_time = int(sleep_time)
             if sleep_time < 0:
-                raise ValueError(
-                    f"`sleep_time` must be 0 or more. Received: {sleep_time}"
-                )
+                raise ValueError(f"`sleep_time` must 0 or more. Received: {sleep_time}")
             self.sleep_time = sleep_time
 
         if delay_start is not None:
@@ -102,27 +101,48 @@ class BaseDevice(abc.ABC):
                 )
             self.delay_start = delay_start
 
-        self._instance_logger = logger.getChild(self.device_id)
+        if inherit_logger is not None:
+            self._instance_logger = inherit_logger.getChild(
+                f"{self.__class__.__name__}-{self.device_id}"
+            )
+        else:
+            self._instance_logger = logger.getChild(
+                f"{self.__class__.__name__}-{self.device_id}"
+            )
+
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
+
+        sleep_time_arg = (
+            f", sleep_time={self.sleep_time}"
+            if self.sleep_time != self.__class__.sleep_time
+            else ""
+        )
+        max_cycles_arg = (
+            f", max_cycles={self.max_cycles}"
+            if self.max_cycles != self.__class__.max_cycles
+            else ""
+        )
+        delay_start_arg = (
+            f", delay_start={self.delay_start}"
+            if self.delay_start != self.__class__.delay_start
+            else ""
+        )
         return (
             f"{self.__class__.__name__}("
             f'"{self.device_id}"'
             f", {self.data_source}"
             f", {self.connection}"
-            f", sleep_time={self.sleep_time}"
-            f", max_cycles={self.max_cycles}"
-            f", delay_start={self.delay_start}"
+            f"{sleep_time_arg}"
+            f"{max_cycles_arg}"
+            f"{delay_start_arg}"
             f")"
         )
 
-    def __str__(self):
-        return f'Site ID: "{self.device_id}", Sleep Time: {self.sleep_time}, Max Cycles: {self.max_cycles}, Cycle: {self.cycle}'
-
     async def _add_delay(self):
         delay = random.randint(0, self.sleep_time)
-        self._instance_logger.debug(f"Delaying first cycle for: {delay}s")
+        self._instance_logger.debug(f"Delaying first cycle for: {delay}s.")
         await asyncio.sleep(delay)
 
     def _send_payload(self, payload: dict, *args, **kwargs):
@@ -143,12 +163,11 @@ class BaseDevice(abc.ABC):
 
             payload = await self._get_payload()
 
-            if not payload:
+            if payload:
+                self._instance_logger.debug("Requesting payload submission.")
+                self._send_payload(payload)
+            else:
                 self._instance_logger.warning(f"No data found.")
-                return
-
-            self._instance_logger.debug("Requesting payload submission.")
-            self._send_payload(payload)
 
             self.cycle += 1
             if self.max_cycles > 0 and self.cycle >= self.max_cycles:
@@ -157,13 +176,12 @@ class BaseDevice(abc.ABC):
             await asyncio.sleep(self.sleep_time)
 
     @abc.abstractmethod
-    def _get_payload(self):
+    async def _get_payload(self):
         """Method for grabbing the payload to send"""
 
     @abc.abstractmethod
-    def _format_payload(self):
+    async def _format_payload(self):
         """Oranises payload into correct structure."""
-        pass
 
 
 class CosmosDevice(BaseDevice):

@@ -64,7 +64,7 @@ class Oracle(BaseDatabase):
         )
 
     @classmethod
-    async def create(cls, dsn: str, user: str, *, password: str = None, **kwargs):
+    async def create(cls, dsn: str, user: str, password: str = None, **kwargs):
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `Oracle.create(...)`.
 
