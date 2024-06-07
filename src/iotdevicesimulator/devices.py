@@ -8,6 +8,7 @@ from iotdevicesimulator.messaging.core import MessagingBaseClass
 from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
 import random
 import abc
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -284,10 +285,46 @@ class BaseDevice(abc.ABC):
 class CR1000XDevice(BaseDevice):
     "Represents a CR1000X datalogger."
 
-    device_type = "cr1000x"
+    device_type = "CR1000X"
 
-    def _format_payload(self, payload: dict):
-        """Formats the payload into datalogger method."""
+    @staticmethod
+    def _build_field(
+        name: str,
+        data_type: str = "",
+        units: str = "",
+        process: str = "",
+        settable: bool = False,
+    ) -> dict:
+        """Returns a field dict. Will be expanded to guess data_type in future.
+
+        Args:
+            name: Name of the field.
+            data_type: Identifier of the type of data, such as 'xsd:float'.
+            units: Units used by field, such as 'Deg C', 'Volts.'
+            process: Data aggregation process used, such as 'Avg', 'Smp'.
+            settable: Defines whether the value is settable.
+
+        Returns:
+            dict: A dictionary of the field.
+        """
+
+        return {
+            "name": str(name),
+            "type": str(data_type),
+            "units": str(units),
+            "process": str(process),
+            "settable": bool(settable),
+        }
+
+    def _format_payload(self, payload: dict) -> dict:
+        """Formats the payload into datalogger method.
+
+        Args:
+            payload: The payload object to format.
+
+        Returns:
+            dict: A dictionary of the formatted data.
+        """
 
         f_payload = dict()
 
@@ -298,20 +335,34 @@ class CR1000XDevice(BaseDevice):
                 "station_name": self.device_id,
                 "table_name": "no table",
                 "model": self.device_type,
-                "os_version": "Not a real OS",
-                "prog_name": "test",
+                "serial_no": "00000",
+                "os_version": f"{self.device_type}.Std.07.02",
+                "prog_name": "CPU:not_real.CR1X",
             },
         }
 
         if isinstance(payload, dict):
-            time = payload["DATE_TIME"]
+            keys = []
+            vals = []
+            date_found = False
+            for k, v in payload.items():
+                if k.lower() != "date_time":
+                    keys.append(k)
+                    vals.append(v)
+                else:
+                    date_found = True
+                    time = v
 
-            payload.pop("DATE_TIME")
+            if not date_found:
+                time = datetime.now().isoformat()
 
-            f_payload["data"] = {"time": time, "vals": list(payload.values())}
-            f_payload["fields"] = [{"name": key} for key in payload.keys()]
+            f_payload["head"]["fields"] = [self._build_field(k) for k in keys]
+            f_payload["data"] = {"time": time, "vals": vals}
+
         elif hasattr(payload, "__iter__"):
-            f_payload["fields"] = ["_" + i for i in range(len(payload))]
-            f_payload["data"] = {"vals": payload}
+            f_payload["head"]["fields"] = [
+                self._build_field(f"_{i}") for i in range(len(payload))
+            ]
+            f_payload["data"] = {"time": datetime.now().isoformat(), "vals": payload}
 
         return f_payload

@@ -2,7 +2,7 @@ import unittest
 import asyncio
 import pytest
 import logging
-from iotdevicesimulator.devices import BaseDevice
+from iotdevicesimulator.devices import BaseDevice, CR1000XDevice
 from iotdevicesimulator.db import Oracle, BaseDatabase, MockDB
 from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MockMessageConnection, MessagingBaseClass
@@ -11,6 +11,7 @@ from parameterized import parameterized
 from unittest.mock import patch
 import pathlib
 import config
+from datetime import datetime
 
 CONFIG_PATH = pathlib.Path(
     pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
@@ -448,5 +449,158 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
 class TestCr1000xDevice(unittest.TestCase):
     """Test suite for the CR1000X Device."""
 
+    def setUp(self):
+        self.db = MockDB()
+        self.conn = MockMessageConnection()
+        self.maxDiff = None
+
+    def test_instantiation(self):
+        """Tests that object can be instantiated."""
+
+        inst = CR1000XDevice("device", self.db, self.conn)
+
+        self.assertIsInstance(inst, CR1000XDevice)
+        self.assertIsInstance(inst, BaseDevice)
+        self.assertEqual(inst.device_type, "CR1000X")
+
+    def test_list_payload_formatting(self):
+        payload = [1,"data", "true", True]
+
+        device = CR1000XDevice("my_device", self.db, self.conn)
+
+        formatted = device._format_payload(payload)
+
+        expected = {
+            "head": {
+                "transaction": 0,
+                "signature": 111111,
+                "environment": {
+                    "station_name": "my_device",
+                    "table_name": "no table",
+                    "model": device.device_type,
+                    "serial_no": "00000",
+                    "os_version": f"{device.device_type}.Std.07.02",
+                    "prog_name": "CPU:not_real.CR1X"
+                },
+                "fields": [
+                    {
+                        "name": "_0",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    },
+                    {
+                        "name": "_1",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    },
+                    {
+                        "name": "_2",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    },
+                    {
+                        "name": "_3",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    }
+                ]
+            },
+            "data": {
+                "time": "",
+                "vals": payload
+            }
+        }
+
+        self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
+        self.assertDictEqual(formatted["head"], expected["head"], "head of payload must be equal")
+        self.assertEqual(formatted["data"].keys(), expected["data"].keys(), "Data segment must have same keys.")
+        self.assertListEqual(formatted["data"]["vals"], expected["data"]["vals"])
+
+        # Error if not isoformat
+        datetime.fromisoformat(formatted["data"]["time"])
+
+    def test_dict_payload_formatting(self):
+        payload = {"temp": 17.16, "door_open": False, "BattV": 74, "BattLevel": 99}
+
+        device = CR1000XDevice("my_dict_device", self.db, self.conn)
+
+        formatted = device._format_payload(payload)
+
+        expected = {
+            "head": {
+                "transaction": 0,
+                "signature": 111111,
+                "environment": {
+                    "station_name": device.device_id,
+                    "table_name": "no table",
+                    "model": device.device_type,
+                    "serial_no": "00000",
+                    "os_version": f"{device.device_type}.Std.07.02",
+                    "prog_name": "CPU:not_real.CR1X"
+                },
+                "fields": [
+                    {
+                        "name": "temp",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    },
+                    {
+                        "name": "door_open",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    },
+                    {
+                        "name": "BattV",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    },
+                    {
+                        "name": "BattLevel",
+                        "type": "",
+                        "units": "",
+                        "process": "",
+                        "settable": False
+                    }
+                ]
+            },
+            "data": {
+                "time": "",
+                "vals": list(payload.values())
+            }
+        }
+
+        self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
+        self.assertDictEqual(formatted["head"], expected["head"], "head of payload must be equal")
+        self.assertEqual(formatted["data"].keys(), expected["data"].keys(), "Data segment must have same keys.")
+        self.assertListEqual(formatted["data"]["vals"], expected["data"]["vals"])
+
+        # Error if not isoformat
+        datetime.fromisoformat(formatted["data"]["time"])
+
+        # Testing with date provided
+        payload["DATE_TIME"] = datetime.now().isoformat()
+
+        formatted = device._format_payload(payload)
+        datetime.fromisoformat(formatted["data"]["time"])
+
+        # Testing with lowercase date provided
+        payload["date_time"] = datetime.now().isoformat()
+
+        formatted = device._format_payload(payload)
+        datetime.fromisoformat(formatted["data"]["time"])
 if __name__ == "__main__":
     unittest.main()
