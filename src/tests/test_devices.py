@@ -166,6 +166,27 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(repr(instance), expected)
 
+    def test_query_not_set_for_non_oracle_db(self):
+        
+        inst = BaseDevice("test", MockDB(), MockMessageConnection(), query=CosmosQuery.LEVEL_1_SOILMET_30MIN)
+
+        with self.assertRaises(AttributeError):
+            inst.query
+    
+    def test_prefix_suffix_not_set_for_non_mqtt(self):
+        "Tests that mqtt prefix and suffix not set for non MQTT messaging."
+
+        inst = BaseDevice("site-1", self.data_source, MockMessageConnection(), mqtt_prefix="prefix", mqtt_suffix="suffix")
+
+        with self.assertRaises(AttributeError):
+            inst.mqtt_topic
+        
+        with self.assertRaises(AttributeError):
+            inst.mqtt_prefix
+
+        with self.assertRaises(AttributeError):
+            inst.mqtt_suffix
+
     @parameterized.expand(
         [
             [None, logging.getLogger("iotdevicesimulator.devices")],
@@ -250,21 +271,6 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site-12", self.db, self.conn)
 
         self.assertEqual(inst.mqtt_topic, "base-device/site-12")
-
-
-    def test_prefix_suffix_not_set_for_non_mqtt(self):
-        "Tests that mqtt prefix and suffix not set for non MQTT messaging."
-
-        inst = BaseDevice("site-1", self.db, MockMessageConnection(), mqtt_prefix="prefix", mqtt_suffix="suffix")
-
-        with self.assertRaises(AttributeError):
-            inst.mqtt_topic
-        
-        with self.assertRaises(AttributeError):
-            inst.mqtt_prefix
-
-        with self.assertRaises(AttributeError):
-            inst.mqtt_suffix
     
     @parameterized.expand([
         [None, None, None, ""],
@@ -272,8 +278,8 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         ["topic", "prefix", None, ', mqtt_topic="topic", mqtt_prefix="prefix"'],
         ["topic", "prefix", "suffix",', mqtt_topic="topic", mqtt_prefix="prefix", mqtt_suffix="suffix"'],
     ])
-
-    def test__repr__mqtt_opts_no_mqtt_connection(self, topic, prefix, suffix,expected_args):
+    @config_exists
+    def test__repr__mqtt_opts_mqtt_connection(self, topic, prefix, suffix,expected_args):
         """Tests that the __repr__ method returns correctly with MQTT options set."""
         expected = f'BaseDevice("site-id", {str(MockDB())}, {str(self.conn)}{expected_args})'
         inst = BaseDevice("site-id", MockDB(), self.conn, mqtt_topic=topic, mqtt_prefix=prefix, mqtt_suffix=suffix)
@@ -296,21 +302,13 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
         await self.oracle.connection.close()
     
     @parameterized.expand([-1, -423.78, CosmosSiteQuery.LEVEL_1_NMDB_1HOUR, "Four", MockDB(), {"a": 1}])
+    @config_exists
     def test_query_value_check(self, query):
 
         with self.assertRaises(TypeError):
             BaseDevice(
                 "test_id", self.oracle, MockMessageConnection(), query=query
             )
-
-
-    def test_query_not_set_for_non_oracle_db(self):
-        
-        inst = BaseDevice("test", MockDB(), MockMessageConnection(), query=self.query)
-
-        with self.assertRaises(AttributeError):
-            inst.query
-
 
     @pytest.mark.oracle
     @config_exists
@@ -446,6 +444,9 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(payload, list)
         self.assertEqual(len(payload),0)
+
+class TestCr1000xDevice(unittest.TestCase):
+    """Test suite for the CR1000X Device."""
 
 if __name__ == "__main__":
     unittest.main()

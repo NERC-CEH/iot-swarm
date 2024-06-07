@@ -175,6 +175,9 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises((TypeError,ValueError)):
             await self.oracle.query_site_ids(CosmosSiteQuery.LEVEL_1_SOILMET_30MIN, max_sites=max_sites)
 
+    @pytest.mark.asyncio
+    @pytest.mark.oracle
+    @config_exists
     async def test__repr__(self):
         """Tests string representation."""
 
