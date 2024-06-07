@@ -493,7 +493,7 @@ class TestCr1000xDevice(unittest.TestCase):
         self.assertEqual(inst.table_name, str(arg))
 
     def test_list_payload_formatting(self):
-        payload = [1,"data", "true", True]
+        payload = [1,"data", 0.0, True]
 
         device = CR1000XDevice("my_device", self.db, self.conn)
 
@@ -514,28 +514,28 @@ class TestCr1000xDevice(unittest.TestCase):
                 "fields": [
                     {
                         "name": "_0",
-                        "type": "",
+                        "type": "xsd:short",
                         "units": "",
                         "process": "",
                         "settable": False
                     },
                     {
                         "name": "_1",
-                        "type": "",
+                        "type": "xsd:string",
                         "units": "",
                         "process": "",
                         "settable": False
                     },
                     {
                         "name": "_2",
-                        "type": "",
+                        "type": "xsd:float",
                         "units": "",
                         "process": "",
                         "settable": False
                     },
                     {
                         "name": "_3",
-                        "type": "",
+                        "type": "xsd:boolean",
                         "units": "",
                         "process": "",
                         "settable": False
@@ -557,7 +557,7 @@ class TestCr1000xDevice(unittest.TestCase):
         datetime.fromisoformat(formatted["data"]["time"])
 
     def test_dict_payload_formatting(self):
-        payload = {"temp": 17.16, "door_open": False, "BattV": 74, "BattLevel": 99}
+        payload = {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50}
 
         device = CR1000XDevice("my_dict_device", self.db, self.conn)
 
@@ -578,28 +578,28 @@ class TestCr1000xDevice(unittest.TestCase):
                 "fields": [
                     {
                         "name": "temp",
-                        "type": "",
+                        "type": "xsd:float",
                         "units": "",
                         "process": "",
                         "settable": False
                     },
                     {
                         "name": "door_open",
-                        "type": "",
+                        "type": "xsd:boolean",
                         "units": "",
                         "process": "",
                         "settable": False
                     },
                     {
                         "name": "BattV",
-                        "type": "",
+                        "type": "xsd:integer",
                         "units": "",
                         "process": "",
                         "settable": False
                     },
                     {
                         "name": "BattLevel",
-                        "type": "",
+                        "type": "xsd:double",
                         "units": "",
                         "process": "",
                         "settable": False
@@ -631,5 +631,44 @@ class TestCr1000xDevice(unittest.TestCase):
 
         formatted = device._format_payload(payload)
         datetime.fromisoformat(formatted["data"]["time"])
+
+    @parameterized.expand([
+        [0, "xsd:int"],
+        [32767, "xsd:short"],
+        [-32768, "xsd:short"],
+        [-2147483648, "xsd:int"],
+        [2147483647, "xsd:int"],
+        [-9223372036854775808, "xsd:long"],
+        [9223372036854775807, "xsd:long"],
+        [-9923372036854775808, "xsd:integer"],
+        [9923372036854775807, "xsd:integer"],
+        [-3.4028234663852886e+38, "xsd:float"],
+        [3.4028234663852886e+38, "xsd:float"],
+        [-1.1754943508222875e-38, "xsd:float"],
+        [1.1754943508222875e-38, "xsd:float"],
+        [0.0, "xsd:float"],
+        [1e39, "xsd:double"],
+        [-1e39, "xsd:double"],
+        [1e-39, "xsd:double"],
+        [-1e-39, "xsd:double"],
+        [True, "xsd:boolean"],
+        [False, "xsd:boolean"],
+        [datetime.now().isoformat(), "xsd:dateTime"],
+        [datetime.now(), "xsd:dateTime"],
+        ["value", "xsd:string"]
+
+    ])
+    def test_data_type_matching(self, value, expected):
+        """Tests that the `xsd` data type can be extracted."""
+
+        result = CR1000XDevice._get_xsd_type(value)
+
+        self.assertEqual(result, expected)
+
+    def test_error_if_xsd_type_not_valid(self):
+
+        with self.assertRaises(TypeError):
+            CR1000XDevice._get_xsd_type(None)
+            
 if __name__ == "__main__":
     unittest.main()

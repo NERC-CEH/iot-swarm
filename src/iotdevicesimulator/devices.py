@@ -325,6 +325,60 @@ class CR1000XDevice(BaseDevice):
             self.table_name = str(table_name)
 
     @staticmethod
+    def _get_xsd_type(value: str | int | float | bool | object) -> str:
+        """Converts a value to the XML data type expected.
+        Args:
+            value: The item to convert.
+
+        Returns:
+            str: A string of the XML datatype.
+        """
+
+        if isinstance(value, datetime):
+            return "xsd:dateTime"
+
+        if isinstance(value, bool):
+            return "xsd:boolean"
+
+        if isinstance(value, str):
+            try:
+                datetime.fromisoformat(value)
+                return "xsd:dateTime"
+            except ValueError:
+                pass
+
+            return "xsd:string"
+
+        if isinstance(value, int):
+            if (value > 0 and value <= 32767) or (value < 0 and value >= -32768):
+                return "xsd:short"
+            if (
+                value == 0
+                or (value < 0 and value >= -2147483648)
+                or (value > 0 and value <= 2147483647)
+            ):
+                return "xsd:int"
+            if (value > 0 and value <= 9223372036854775807) or (
+                value < 0 and value >= -9223372036854775808
+            ):
+                return "xsd:long"
+            else:
+                return "xsd:integer"
+
+        if isinstance(value, float):
+            if abs(value) > 0 and (
+                abs(value) < 1.1754943508222875e-38
+                or abs(value) > 3.4028234663852886e38
+            ):
+                return "xsd:double"
+            else:
+                return "xsd:float"
+
+        raise TypeError(
+            f"Couldnt find XML datatype for value `{value}` and type: `{type(value)}`."
+        )
+
+    @staticmethod
     def _build_field(
         name: str,
         data_type: str = "",
@@ -393,12 +447,16 @@ class CR1000XDevice(BaseDevice):
             if not date_found:
                 time = datetime.now().isoformat()
 
-            f_payload["head"]["fields"] = [self._build_field(k) for k in keys]
+            f_payload["head"]["fields"] = [
+                self._build_field(k, data_type=self._get_xsd_type(v))
+                for k, v in zip(keys, vals)
+            ]
             f_payload["data"] = {"time": time, "vals": vals}
 
         elif hasattr(payload, "__iter__"):
             f_payload["head"]["fields"] = [
-                self._build_field(f"_{i}") for i in range(len(payload))
+                self._build_field(f"_{i}", data_type=self._get_xsd_type(payload[i]))
+                for i in range(len(payload))
             ]
             f_payload["data"] = {"time": datetime.now().isoformat(), "vals": payload}
 
