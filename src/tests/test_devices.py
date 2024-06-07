@@ -454,6 +454,7 @@ class TestCr1000xDevice(unittest.TestCase):
         self.conn = MockMessageConnection()
         self.maxDiff = None
 
+    
     def test_instantiation(self):
         """Tests that object can be instantiated."""
 
@@ -462,6 +463,34 @@ class TestCr1000xDevice(unittest.TestCase):
         self.assertIsInstance(inst, CR1000XDevice)
         self.assertIsInstance(inst, BaseDevice)
         self.assertEqual(inst.device_type, "CR1000X")
+
+    @parameterized.expand([123456, "newserial", 123.2])
+    def test_serial_number_set(self, arg):
+        """Tests that serial number gets set when argument given."""
+        inst = CR1000XDevice("device", self.db, self.conn, serial_number=arg)
+
+        self.assertEqual(inst.serial_number, str(arg))
+
+    @parameterized.expand(["test os version", "newserial", 123.2])
+    def test_os_version_set(self, arg):
+        """Tests that os_version gets set when argument given."""
+        inst = CR1000XDevice("device", self.db, self.conn, os_version=arg)
+
+        self.assertEqual(inst.os_version, str(arg))
+
+    @parameterized.expand([123456, "newserial", 123.2])
+    def test_program_name_set(self, arg):
+        """Tests that program name gets set when argument given."""
+        inst = CR1000XDevice("device", self.db, self.conn, program_name=arg)
+
+        self.assertEqual(inst.program_name, str(arg))
+
+    @parameterized.expand([123456, "newserial", 123.2])
+    def test_table_name_set(self, arg):
+        """Tests that table_name gets set when argument given."""
+        inst = CR1000XDevice("device", self.db, self.conn, table_name=arg)
+
+        self.assertEqual(inst.table_name, str(arg))
 
     def test_list_payload_formatting(self):
         payload = [1,"data", "true", True]
@@ -475,12 +504,12 @@ class TestCr1000xDevice(unittest.TestCase):
                 "transaction": 0,
                 "signature": 111111,
                 "environment": {
-                    "station_name": "my_device",
-                    "table_name": "no table",
+                    "station_name": device.device_id,
+                    "table_name": device.table_name,
                     "model": device.device_type,
-                    "serial_no": "00000",
-                    "os_version": f"{device.device_type}.Std.07.02",
-                    "prog_name": "CPU:not_real.CR1X"
+                    "serial_no": device.serial_number,
+                    "os_version": device.os_version,
+                    "prog_name": device.program_name
                 },
                 "fields": [
                     {
@@ -540,11 +569,11 @@ class TestCr1000xDevice(unittest.TestCase):
                 "signature": 111111,
                 "environment": {
                     "station_name": device.device_id,
-                    "table_name": "no table",
+                    "table_name": device.table_name,
                     "model": device.device_type,
-                    "serial_no": "00000",
-                    "os_version": f"{device.device_type}.Std.07.02",
-                    "prog_name": "CPU:not_real.CR1X"
+                    "serial_no": device.serial_number,
+                    "os_version": device.os_version,
+                    "prog_name": device.program_name
                 },
                 "fields": [
                     {

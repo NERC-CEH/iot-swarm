@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from iotdevicesimulator import __version__ as package_version
 from iotdevicesimulator.queries import CosmosQuery
 from iotdevicesimulator.db import BaseDatabase, Oracle
 from iotdevicesimulator.messaging.core import MessagingBaseClass
@@ -287,6 +288,42 @@ class CR1000XDevice(BaseDevice):
 
     device_type = "CR1000X"
 
+    serial_number: str = "00000"
+    """Serial number of the device instance."""
+
+    os_version: str = f"{device_type}.Std.07.02"
+    """Operating system installed on the device."""
+
+    program_name: str = f"CPU:iotdevicesimulator-{package_version}.CR1X"
+    """Name of logger program being run."""
+
+    table_name: str = "default"
+    """Name of table being submitted by logger."""
+
+    def __init__(
+        self,
+        *args,
+        serial_number: str | None = None,
+        os_version: str | None = None,
+        program_name: str | None = None,
+        table_name: str | None = None,
+        **kwargs,
+    ):
+        """Initialises the class"""
+        super().__init__(*args, **kwargs)
+
+        if serial_number is not None:
+            self.serial_number = str(serial_number)
+
+        if os_version is not None:
+            self.os_version = str(os_version)
+
+        if program_name is not None:
+            self.program_name = str(program_name)
+
+        if table_name is not None:
+            self.table_name = str(table_name)
+
     @staticmethod
     def _build_field(
         name: str,
@@ -333,11 +370,11 @@ class CR1000XDevice(BaseDevice):
             "signature": 111111,
             "environment": {
                 "station_name": self.device_id,
-                "table_name": "no table",
+                "table_name": self.table_name,
                 "model": self.device_type,
-                "serial_no": "00000",
-                "os_version": f"{self.device_type}.Std.07.02",
-                "prog_name": "CPU:not_real.CR1X",
+                "serial_no": self.serial_number,
+                "os_version": self.os_version,
+                "prog_name": self.program_name,
             },
         }
 
