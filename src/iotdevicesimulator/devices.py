@@ -296,17 +296,22 @@ class CR1000XDevice(BaseDevice):
             "signature": 111111,
             "environment": {
                 "station_name": self.device_id,
-                "table_name": self.topic_suffix,
+                "table_name": "no table",
                 "model": self.device_type,
                 "os_version": "Not a real OS",
                 "prog_name": "test",
             },
         }
 
-        time = payload["DATE_TIME"]
+        if isinstance(payload, dict):
+            time = payload["DATE_TIME"]
 
-        payload.pop("DATE_TIME")
+            payload.pop("DATE_TIME")
 
-        f_payload["data"] = {"time": time, "vals": list(payload.values())}
-        f_payload["fields"] = [{"name": key} for key in payload.keys()]
+            f_payload["data"] = {"time": time, "vals": list(payload.values())}
+            f_payload["fields"] = [{"name": key} for key in payload.keys()]
+        elif hasattr(payload, "__iter__"):
+            f_payload["fields"] = ["_" + i for i in range(len(payload))]
+            f_payload["data"] = {"vals": payload}
+
         return f_payload

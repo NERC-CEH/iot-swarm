@@ -10,10 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class Swarm:
-    """Object for creating a swarm of COSMOS site devices.
-    This object instantiates a group of sensor devices that submit data from the
-    COSMOS database and then wait for a specified time. When run unrestricted, this
-    can simulate the full COSMOS network in real time.
+    """Manages a swarm of IoT devices and runs the main loop
+    of all devices. Can receive any number or combination of devices.
     """
 
     name: str
@@ -30,23 +28,24 @@ class Swarm:
         return len(self.devices)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.devices}, name={self.name})"
-
-    def __str__(self):
-        topic_prefix = (
-            "" if self.topic_prefix is None else f', topic_prefix="{self.topic_prefix}"'
+        name_arg = (
+            f', name="{self.name}"'
+            if not self.name.startswith("unnamed-swarm-")
+            else ""
         )
-        return (
-            f'CosmosSwarm({self.query.__class__.__name__}.{self.query.name}, name="{self.name}"'
-            f"{topic_prefix}, sleep_time={self.sleep_time}, max_cycles={self.max_cycles}, delay_start={self.delay_start})"
+        devices_arg = (
+            self.devices[0].__repr__()
+            if len(self.devices) == 1
+            else self.devices.__repr__()
         )
+        return f"{self.__class__.__name__}({devices_arg}{name_arg})"
 
     def __init__(
         self,
         devices: List[BaseDevice],
         name: str | None = None,
     ) -> None:
-        """Factory method for initialising the class.
+        """Initializes the class.
 
         Args:
             devices: A list of devices to swarmify.
@@ -54,7 +53,7 @@ class Swarm:
         """
 
         if not hasattr(devices, "__iter__"):
-            devices = set(devices)
+            devices = [devices]
 
         if not all([isinstance(device, BaseDevice) for device in devices]):
             raise TypeError(
@@ -66,17 +65,19 @@ class Swarm:
         if name is not None:
             self.name = str(name)
         else:
-            self.name = f"swarm-{uuid.uuid4()}"
+            self.name = f"unnamed-swarm-{uuid.uuid4()}"
 
-        self._instance_logger = logger.getChild(self.name)
+        self._instance_logger = logger.getChild(
+            f"{self.__class__.__name__}.{self.name}"
+        )
 
     async def run(self) -> None:
         """Main function for running the swarm. Sends the query
         and message connection object. Runs until all sites reach
-        their maximum cycle. If no maximum, it runs forever.
+        their maximum cycle. If any site has no maximum, it runs forever.
         """
 
-        self._instance_logger.info(f"Running main loop: swarm-{self.name}")
+        self._instance_logger.info("Running main loop.")
         await asyncio.gather(*[device.run() for device in self.devices])
 
-        self._instance_logger.info(f"Terminated: swarm-{self.name}")
+        self._instance_logger.info("Terminated.")
