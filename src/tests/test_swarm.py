@@ -1,31 +1,16 @@
-from typing import Coroutine
 import unittest
-import pytest
 from parameterized import parameterized
 from iotdevicesimulator.swarm import Swarm
 from iotdevicesimulator.devices import BaseDevice, CR1000XDevice
 from iotdevicesimulator.messaging.core import MockMessageConnection
 from iotdevicesimulator.db import MockDB
 
-from pathlib import Path
-from config import Config
-
-CONFIG_PATH = Path(
-    Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
-)
-config_exists = pytest.mark.skipif(
-    not CONFIG_PATH.exists(),
-    reason="Config file `config.cfg` not found in root directory.",
-)
-
 
 class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.config_path = str(CONFIG_PATH)
-        self.config = Config(self.config_path)["oracle"]
 
-        site_ids = ["MORLY", "ALIC1", "ABCD"]
+        site_ids = list(range(10))
 
         self.base_devices = [
             BaseDevice(site, MockDB(), MockMessageConnection()) for site in site_ids
@@ -126,8 +111,6 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 class TestSwarmRunning(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.config_path = str(CONFIG_PATH)
-        self.config = Config(self.config_path)["oracle"]
 
         site_ids = list(range(10))
 
