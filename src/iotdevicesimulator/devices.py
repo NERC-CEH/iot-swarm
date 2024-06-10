@@ -493,8 +493,12 @@ class CR1000XField:
 
         if not units is None:
             self.units = str(units)
+
         if not process is None:
             self.process = str(process)
+        else:
+            self.process = CR1000XField._get_process(name)
+
         if settable is not None:
             if not isinstance(settable, bool):
                 raise TypeError(
@@ -551,8 +555,7 @@ class CR1000XField:
 
         Args:
             values: The list of values to assess.
-        Returns:
-            XMLDataType: The resultant type."""
+        Returns: The resultant type."""
 
         if not hasattr(values, "__iter__"):
             values = [values]
@@ -572,8 +575,7 @@ class CR1000XField:
         Args:
             value: The item to convert.
 
-        Returns:
-            XMLDataTypes: The XML datatype.
+        Returns: The XML datatype.
         """
         if value is None:
             return XMLDataTypes.null
@@ -624,3 +626,32 @@ class CR1000XField:
         raise TypeError(
             f"Couldnt find XML datatype for value `{value}` and type: `{type(value)}`."
         )
+
+    @staticmethod
+    def _get_process(value: str) -> str:
+        """Calculates the process attribute based on the variable name.
+
+        Args:
+            value: The variable name to generate from.
+
+        Returns: The value of the expected process used.
+        """
+
+        value = value.lower()
+
+        if value.endswith("_std"):  # Standard Deviation
+            return "Std"
+        elif value.endswith("_avg"):  # Average
+            return "Avg"
+        elif value.endswith("_max"):  # Maximum
+            return "Max"
+        elif value.endswith("_min"):  # Minimum
+            return "Min"
+        elif value.endswith("_mom"):  # Moment
+            return "Mom"
+        elif value.endswith("_tot"):  # Totalize
+            return "Tot"
+        elif value.endswith("_cov"):  # Covariance
+            return "Cov"
+
+        return "Smp"  # Sample

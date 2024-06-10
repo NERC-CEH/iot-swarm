@@ -691,7 +691,6 @@ class TestCr1000xDevice(unittest.TestCase):
         with self.assertRaises(ValueError):
             device._format_payload(bad_key_payload)
 
-
 class TestCR1000XField(unittest.TestCase):
     """Tests the datalogger field objects."""
 
@@ -814,5 +813,34 @@ class TestCR1000XField(unittest.TestCase):
 
         self.assertEqual(json.dumps(obj, default=json_serial), expected)
 
+    @parameterized.expand([
+        ["Temp", "Smp"],
+        ["Temp_avg", "Avg"],
+        ["Temp_AVG", "Avg"],
+        ["Temp_avg_C", "Smp"],
+        ["Temp_STD", "Std"],
+        ["Temp_Max", "Max"],
+        ["Temp_Min", "Min"],
+        ["Temp_cov", "Cov"],
+        ["Temp_tot", "Tot"],
+        ["Temp_Mom", "Mom"],
+    ])
+    def test_process_calculation(self, variable: str, expected: str): 
+        """Tests that the expected process can be calculated."""
+
+        result = CR1000XField._get_process(variable)
+
+        self.assertEqual(result, expected)
+
+    @parameterized.expand([
+        ["Temp", "Smp"],
+        ["Temp_avg", "Avg"],
+        ["Temp_AVG", "Avg"],
+    ])
+    def test_initialization_with_process_calculated(self, name, expected):
+        """Checking that process gets set from the variable name."""
+        result = CR1000XField(name, data_type="xsd:float")
+
+        self.assertEqual(result.process, expected)
 if __name__ == "__main__":
     unittest.main()
