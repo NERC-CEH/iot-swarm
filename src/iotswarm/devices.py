@@ -8,7 +8,6 @@ from iotswarm.db import BaseDatabase, Oracle
 from iotswarm.messaging.core import MessagingBaseClass
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 import random
-import abc
 from datetime import datetime
 import enum
 from typing import List
@@ -16,7 +15,7 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 
-class BaseDevice(abc.ABC):
+class BaseDevice:
     """Base class for sensing devices."""
 
     device_type: str = "base-device"
@@ -324,6 +323,8 @@ class CR1000XDevice(BaseDevice):
 
         if serial_number is not None:
             self.serial_number = str(serial_number)
+        else:
+            self.serial_number = self._get_serial_number_from_site(self.device_id)
 
         if os_version is not None:
             self.os_version = str(os_version)
@@ -419,6 +420,20 @@ class CR1000XDevice(BaseDevice):
         ]
 
         return f_payload
+
+    @staticmethod
+    def _get_serial_number_from_site(value: str) -> str:
+        """Generates a serial number from a string value.
+        Converts the characters into dash separated numbers.
+
+        Args:
+            value: The string value to generate the id from.
+
+        Returns: A string serial number"""
+
+        value = str(value)
+
+        return "-".join([str(ord(x)) for x in value])
 
 
 class XMLDataTypes(enum.Enum):

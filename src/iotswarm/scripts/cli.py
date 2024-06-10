@@ -4,7 +4,7 @@ import click
 from iotswarm import queries
 from iotswarm.devices import BaseDevice, CR1000XDevice
 from iotswarm.swarm import Swarm
-from iotswarm.db import Oracle, MockDB
+from iotswarm.db import Oracle
 from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 import asyncio

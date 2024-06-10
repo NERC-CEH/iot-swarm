@@ -691,6 +691,23 @@ class TestCr1000xDevice(unittest.TestCase):
         with self.assertRaises(ValueError):
             device._format_payload(bad_key_payload)
 
+
+    @parameterized.expand([
+        ["ABCDE", "65-66-67-68-69"],
+        ["ALIC1", "65-76-73-67-49"],
+        ["MORLY", "77-79-82-76-89"]
+    ])
+    def test_serial_number_from_site(self, site, expected):
+
+        result = CR1000XDevice._get_serial_number_from_site(site)
+
+        self.assertEqual(result, expected)
+
+        result = CR1000XDevice(site, self.db, self.conn)
+
+        self.assertEqual(result.serial_number, expected)
+
+
 class TestCR1000XField(unittest.TestCase):
     """Tests the datalogger field objects."""
 
@@ -842,5 +859,7 @@ class TestCR1000XField(unittest.TestCase):
         result = CR1000XField(name, data_type="xsd:float")
 
         self.assertEqual(result.process, expected)
+
+
 if __name__ == "__main__":
     unittest.main()
