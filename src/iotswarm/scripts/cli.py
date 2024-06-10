@@ -1,12 +1,12 @@
 """CLI exposed when the package is installed."""
 
 import click
-from iotdevicesimulator import queries
-from iotdevicesimulator.devices import BaseDevice, CR1000XDevice
-from iotdevicesimulator.swarm import Swarm
-from iotdevicesimulator.db import Oracle, MockDB
-from iotdevicesimulator.messaging.core import MockMessageConnection
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
+from iotswarm import queries
+from iotswarm.devices import BaseDevice, CR1000XDevice
+from iotswarm.swarm import Swarm
+from iotswarm.db import Oracle, MockDB
+from iotswarm.messaging.core import MockMessageConnection
+from iotswarm.messaging.aws import IotCoreMQTTConnection
 import asyncio
 from pathlib import Path
 import logging

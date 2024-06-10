@@ -1,11 +1,11 @@
 """Module for demonstrating invocation of a swarm."""
 
-from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
-from iotdevicesimulator.swarm import Swarm
-from iotdevicesimulator import devices
-from iotdevicesimulator.messaging.core import MockMessageConnection
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
-from iotdevicesimulator import db
+from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm.swarm import Swarm
+from iotswarm import devices
+from iotswarm.messaging.core import MockMessageConnection
+from iotswarm.messaging.aws import IotCoreMQTTConnection
+from iotswarm import db
 import asyncio
 import config
 from pathlib import Path

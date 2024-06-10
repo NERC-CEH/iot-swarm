@@ -11,12 +11,12 @@ import os, sys
 path = os.path.abspath("../src")
 sys.path.append(path)
 print(path)
-import iotdevicesimulator
+import iotswarm
 
 project = "IoT Thing Swarm"
 copyright = "2024, Lewis Chambers"
 author = "Lewis Chambers"
-release = iotdevicesimulator.__version__
+release = iotswarm.__version__
 version = release
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -2,8 +2,8 @@ import unittest.mock
 import pytest
 import unittest
 from unittest.mock import patch
-from iotdevicesimulator.messaging.core import MockMessageConnection, MessagingBaseClass
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
+from iotswarm.messaging.core import MockMessageConnection, MessagingBaseClass
+from iotswarm.messaging.aws import IotCoreMQTTConnection
 from config import Config
 from pathlib import Path
 import awscrt.mqtt
@@ -12,7 +12,7 @@ from parameterized import parameterized
 import logging
 
 CONFIG_PATH = Path(
-    Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+    Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
@@ -52,7 +52,7 @@ class TestMockMessageConnection(unittest.TestCase):
             self.assertEqual(
                 cm.output,
                 [
-                    "INFO:iotdevicesimulator.messaging.core.MockMessageConnection:Message was sent."
+                    "INFO:iotswarm.messaging.core.MockMessageConnection:Message was sent."
                 ],
             )
 
@@ -219,7 +219,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             self.assertEqual(
                 cm.output,
                 [
-                    f"ERROR:iotdevicesimulator.messaging.aws.IotCoreMQTTConnection.client-test_id:{expected}"
+                    f"ERROR:iotswarm.messaging.aws.IotCoreMQTTConnection.client-test_id:{expected}"
                 ],
             )
 

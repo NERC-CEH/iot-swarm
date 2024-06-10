@@ -14,7 +14,7 @@ dependencies = [
     "oracledb",
     "backoff",
 ]
-name = "iot-device-simulator"
+name = "iot-swarm"
 dynamic = ["version"]
 authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
 description = "Package for simulating a net of IoT devices for stress testing."
@@ -24,9 +24,9 @@ test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized"]
 docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 
 [project.scripts]
-iot-swarm = "iotdevicesimulator.scripts.cli:main"
+iot-swarm = "iotswarm.scripts.cli:main"
 [tool.setuptools.dynamic]
-version = { attr = "iotdevicesimulator.__version__" }
+version = { attr = "iotswarm.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -40,7 +40,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:autosemver.*:",
     "ignore::DeprecationWarning:pkg_resources.*:",
 ]
-addopts = "--cov=iotdevicesimulator"
+addopts = "--cov=iotswarm"
 markers = [
     "asyncio: Tests asynchronous functions.",
     "oracle: Requires oracle connection and required config credentials",

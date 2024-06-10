@@ -2,11 +2,11 @@
 
 import asyncio
 import logging
-from iotdevicesimulator import __version__ as package_version
-from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.db import BaseDatabase, Oracle
-from iotdevicesimulator.messaging.core import MessagingBaseClass
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
+from iotswarm import __version__ as package_version
+from iotswarm.queries import CosmosQuery
+from iotswarm.db import BaseDatabase, Oracle
+from iotswarm.messaging.core import MessagingBaseClass
+from iotswarm.messaging.aws import IotCoreMQTTConnection
 import random
 import abc
 from datetime import datetime
@@ -296,7 +296,7 @@ class CR1000XDevice(BaseDevice):
     os_version: str = f"{device_type}.Std.07.02"
     """Operating system installed on the device."""
 
-    program_name: str = f"CPU:iotdevicesimulator-{package_version}.CR1X"
+    program_name: str = f"CPU:iotswarm-{package_version}.CR1X"
     """Name of logger program being run."""
 
     table_name: str = "default"

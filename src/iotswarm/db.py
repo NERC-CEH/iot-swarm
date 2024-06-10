@@ -4,7 +4,7 @@ import oracledb
 import getpass
 import logging
 import abc
-from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm.queries import CosmosQuery, CosmosSiteQuery
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class BaseDatabase(abc.ABC):
             self._instance_logger = logger.getChild(self.__class__.__name__)
 
     def __repr__(self):
-        if self._instance_logger.parent.name == "iotdevicesimulator.db":
+        if self._instance_logger.parent.name == "iotswarm.db":
             logger_arg = ""
         else:
             logger_arg = f"inherit_logger={self._instance_logger.parent}"

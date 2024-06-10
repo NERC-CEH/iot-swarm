@@ -1,6 +1,6 @@
 """This is the core module for orchestrating swarms of IoT devices. One swarm defined currently for using COSMOS data."""
 
-from iotdevicesimulator.devices import BaseDevice
+from iotswarm.devices import BaseDevice
 import logging.config
 from typing import List
 import asyncio

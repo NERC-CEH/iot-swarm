@@ -3,12 +3,12 @@ import asyncio
 import pytest
 import logging
 import json
-from iotdevicesimulator.utils import json_serial
-from iotdevicesimulator.devices import BaseDevice, CR1000XDevice, CR1000XField
-from iotdevicesimulator.db import Oracle, BaseDatabase, MockDB
-from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
-from iotdevicesimulator.messaging.core import MockMessageConnection, MessagingBaseClass
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
+from iotswarm.utils import json_serial
+from iotswarm.devices import BaseDevice, CR1000XDevice, CR1000XField
+from iotswarm.db import Oracle, BaseDatabase, MockDB
+from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm.messaging.core import MockMessageConnection, MessagingBaseClass
+from iotswarm.messaging.aws import IotCoreMQTTConnection
 from parameterized import parameterized
 from unittest.mock import patch
 import pathlib
@@ -16,7 +16,7 @@ import config
 from datetime import datetime, timedelta
 
 CONFIG_PATH = pathlib.Path(
-    pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+    pathlib.Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
@@ -192,7 +192,7 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
 
     @parameterized.expand(
         [
-            [None, logging.getLogger("iotdevicesimulator.devices")],
+            [None, logging.getLogger("iotswarm.devices")],
             [logging.getLogger("name"), logging.getLogger("name")],
         ]
     )
@@ -417,7 +417,7 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
             )
             site._get_payload = self.return_list
             await site.run()
-            expected = "DEBUG:iotdevicesimulator.devices.BaseDevice-site:Requesting payload submission."
+            expected = "DEBUG:iotswarm.devices.BaseDevice-site:Requesting payload submission."
             self.assertIn(expected, cm.output)
 
     @pytest.mark.asyncio

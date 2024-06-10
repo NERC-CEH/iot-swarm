@@ -5,8 +5,8 @@ from awscrt import mqtt
 import awscrt.io
 import json
 from awscrt.exceptions import AwsCrtError
-from iotdevicesimulator.messaging.core import MessagingBaseClass
-from iotdevicesimulator.utils import json_serial
+from iotswarm.messaging.core import MessagingBaseClass
+from iotswarm.utils import json_serial
 import backoff
 import logging
 import sys

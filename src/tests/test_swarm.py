@@ -1,9 +1,9 @@
 import unittest
 from parameterized import parameterized
-from iotdevicesimulator.swarm import Swarm
-from iotdevicesimulator.devices import BaseDevice, CR1000XDevice
-from iotdevicesimulator.messaging.core import MockMessageConnection
-from iotdevicesimulator.db import MockDB
+from iotswarm.swarm import Swarm
+from iotswarm.devices import BaseDevice, CR1000XDevice
+from iotswarm.messaging.core import MockMessageConnection
+from iotswarm.db import MockDB
 
 
 class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
@@ -72,7 +72,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
         swarm = Swarm([], name=name)
 
         self.assertEqual(
-            swarm._instance_logger.name, f"iotdevicesimulator.swarm.Swarm.{name}"
+            swarm._instance_logger.name, f"iotswarm.swarm.Swarm.{name}"
         )
 
     @parameterized.expand(

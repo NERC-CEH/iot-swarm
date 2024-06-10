@@ -2,14 +2,14 @@ import unittest
 import pytest
 import config
 import pathlib
-from iotdevicesimulator import db
-from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm import db
+from iotswarm.queries import CosmosQuery, CosmosSiteQuery
 from parameterized import parameterized
 import logging
 from unittest.mock import patch
 
 CONFIG_PATH = pathlib.Path(
-    pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
+    pathlib.Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
@@ -48,7 +48,7 @@ class TestMockDB(unittest.TestCase):
 
     @parameterized.expand(
         [
-            [None, logging.getLogger("iotdevicesimulator.db")],
+            [None, logging.getLogger("iotswarm.db")],
             [logging.getLogger("name"), logging.getLogger("name")],
         ]
     )
