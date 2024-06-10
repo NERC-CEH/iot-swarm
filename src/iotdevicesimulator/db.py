@@ -147,7 +147,10 @@ class Oracle(BaseDatabase):
             await cursor.execute(query.value)
 
             data = await cursor.fetchall()
-            data = [x[0] for x in data[:max_sites]]
+            if max_sites == 0:
+                data = [x[0] for x in data]
+            else:
+                data = [x[0] for x in data[:max_sites]]
 
             if not data:
                 data = []

@@ -44,23 +44,15 @@ async def main(config_path: str):
         client_id="fdri_swarm",
     )
 
-    device = devices.DeviceFactory.create_device(
-        MockMessageConnection(),
-        data_source,
-        query,
-        "site_id",
-        device_type="cr1000x",
-    )
+    device_objs = [
+        devices.CR1000XDevice(
+            site, data_source, mqtt_connection, query=query, sleep_time=5
+        )
+        for site in device_ids
+    ]
 
-    # devices = [
-    #     MQTTCosmosDevice(
-    #         query, site, data_source, mqtt_connection, topic_prefix="fdri/cosmos_sites"
-    #     )
-    #     for site in device_ids
-    # ]
-
-    # swarm = Swarm(devices, name="soilmet")
-    # await swarm.run()
+    swarm = Swarm(device_objs, name="soilmet")
+    await swarm.run()
 
 
 if __name__ == "__main__":
