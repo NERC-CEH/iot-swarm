@@ -285,25 +285,6 @@ class BaseDevice(abc.ABC):
         return payload
 
 
-class XsdTypes(enum.Enum):
-
-    null = {"schema": "xsi:nil", "rank": 0}
-    string = {"schema": "xsd:string", "rank": 1}
-    boolean = {"schema": "xsd:boolean", "rank": 2}
-    dateTime = {"schema": "xsd:dateTime", "rank": 3}
-
-    short = {"schema": "xsd:short", "rank": 4}
-    int = {"schema": "xsd:int", "rank": 5}
-    long = {"schema": "xsd:long", "rank": 6}
-    integer = {"schema": "xsd:integer", "rank": 7}
-
-    float = {"schema": "xsd:float", "rank": 8}
-    double = {"schema": "xsd:double", "rank": 9}
-
-    def __str__(self):
-        return self.value["schema"]
-
-
 class CR1000XDevice(BaseDevice):
     "Represents a CR1000X datalogger."
 
@@ -330,7 +311,15 @@ class CR1000XDevice(BaseDevice):
         table_name: str | None = None,
         **kwargs,
     ):
-        """Initialises the class"""
+        """Initialises the class.
+
+        Args:
+            serial_number: Serial number of the device instance.
+            os_version: Version of operating system used by device.
+            program_name: Name of the program running on the datalogger.
+            table_name: Name of the datalogger table being sent from datalogger.
+        """
+
         super().__init__(*args, **kwargs)
 
         if serial_number is not None:
@@ -432,6 +421,27 @@ class CR1000XDevice(BaseDevice):
         return f_payload
 
 
+class XMLDataTypes(enum.Enum):
+    """Enum class representing XML datatypes with rankings used for selecting
+    maximum type needed for a range of values."""
+
+    null = {"schema": "xsi:nil", "rank": 0}
+    string = {"schema": "xsd:string", "rank": 1}
+    boolean = {"schema": "xsd:boolean", "rank": 2}
+    dateTime = {"schema": "xsd:dateTime", "rank": 3}
+
+    short = {"schema": "xsd:short", "rank": 4}
+    int = {"schema": "xsd:int", "rank": 5}
+    long = {"schema": "xsd:long", "rank": 6}
+    integer = {"schema": "xsd:integer", "rank": 7}
+
+    float = {"schema": "xsd:float", "rank": 8}
+    double = {"schema": "xsd:double", "rank": 9}
+
+    def __str__(self):
+        return self.value["schema"]
+
+
 class CR1000XField:
     """Represents the field part of a CR1000X payload. Each sensor gets a field."""
 
@@ -458,6 +468,20 @@ class CR1000XField:
         settable: bool | None = None,
         data_values: list[any] | None = None,
     ):
+        """Intializes the instance.
+
+        Args:
+            name: Name of the field variable.
+            data_type: XML type of the data. `data_type` or `data_values` must
+            be provided.
+            units: Scientific unit of the measurement.
+            process: Process used for data aggregation.
+            settable: Defines whether the sensor measurment can be set.
+            data_values: Used to calculate XML data type. Can be supplied
+            instead of `data_type`. `data_type` or `data_values` must
+            be provided.
+        """
+
         self.name = str(name)
 
         if not data_type is None:
@@ -479,7 +503,7 @@ class CR1000XField:
             self.settable = settable
 
     def __json__(self):
-        """Helps convert the object to json."""
+        """Custom dunder method for converting instance to JSON representation."""
 
         return {
             "name": self.name,
@@ -522,12 +546,18 @@ class CR1000XField:
         )
 
     @staticmethod
-    def _get_avg_xsd_type(values: list) -> str:
+    def _get_avg_xsd_type(values: list) -> XMLDataTypes:
+        """Calculates the most likely XML data type from a list of values.
+
+        Args:
+            values: The list of values to assess.
+        Returns:
+            XMLDataType: The resultant type."""
 
         if not hasattr(values, "__iter__"):
             values = [values]
 
-        highest = XsdTypes.null
+        highest = XMLDataTypes.null
         for item in values:
             level = CR1000XField._get_xsd_type(item)
 
@@ -537,56 +567,56 @@ class CR1000XField:
         return highest
 
     @staticmethod
-    def _get_xsd_type(value: str | int | float | bool | object) -> str:
+    def _get_xsd_type(value: str | int | float | bool | object) -> XMLDataTypes:
         """Converts a value to the XML data type expected.
         Args:
             value: The item to convert.
 
         Returns:
-            str: A string of the XML datatype.
+            XMLDataTypes: The XML datatype.
         """
         if value is None:
-            return XsdTypes.null
+            return XMLDataTypes.null
 
         if isinstance(value, datetime):
-            return XsdTypes.dateTime
+            return XMLDataTypes.dateTime
 
         if isinstance(value, bool):
-            return XsdTypes.boolean
+            return XMLDataTypes.boolean
 
         if isinstance(value, str):
             try:
                 datetime.fromisoformat(value)
-                return XsdTypes.dateTime
+                return XMLDataTypes.dateTime
             except ValueError:
                 pass
 
-            return XsdTypes.string
+            return XMLDataTypes.string
 
         if isinstance(value, int):
             if (value > 0 and value <= 32767) or (value < 0 and value >= -32768):
-                return XsdTypes.short
+                return XMLDataTypes.short
             if (
                 value == 0
                 or (value < 0 and value >= -2147483648)
                 or (value > 0 and value <= 2147483647)
             ):
-                return XsdTypes.int
+                return XMLDataTypes.int
             if (value > 0 and value <= 9223372036854775807) or (
                 value < 0 and value >= -9223372036854775808
             ):
-                return XsdTypes.long
+                return XMLDataTypes.long
             else:
-                return XsdTypes.integer
+                return XMLDataTypes.integer
 
         if isinstance(value, float):
             if abs(value) > 0 and (
                 abs(value) < 1.1754943508222875e-38
                 or abs(value) > 3.4028234663852886e38
             ):
-                return XsdTypes.double
+                return XMLDataTypes.double
             else:
-                return XsdTypes.float
+                return XMLDataTypes.float
 
         if hasattr(value, "__iter__"):
             return CR1000XField._get_avg_xsd_type(value)
