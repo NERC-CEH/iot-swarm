@@ -13,7 +13,7 @@ sys.path.append(path)
 print(path)
 import iotswarm
 
-project = "IoT Thing Swarm"
+project = "IoT Swarm"
 copyright = "2024, Lewis Chambers"
 author = "Lewis Chambers"
 release = iotswarm.__version__

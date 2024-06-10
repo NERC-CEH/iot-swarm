@@ -1,20 +1,20 @@
-iotdevicesimulator.scripts package
+iotswarm.scripts package
 ==================================
 
 Submodules
 ----------
 
-iotdevicesimulator.scripts.cli module
+iotswarm.scripts.cli module
 -------------------------------------
 
-.. click:: iotdevicesimulator.scripts.cli:main
+.. click:: iotswarm.scripts.cli:main
    :prog: iot-swarm
    :nested: full
 
 Module contents
 ---------------
 
-.. automodule:: iotdevicesimulator.scripts
+.. automodule:: iotswarm.scripts
    :members:
    :undoc-members:
    :show-inheritance:

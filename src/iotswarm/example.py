@@ -3,7 +3,6 @@
 from iotswarm.queries import CosmosQuery, CosmosSiteQuery
 from iotswarm.swarm import Swarm
 from iotswarm import devices
-from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 from iotswarm import db
 import asyncio

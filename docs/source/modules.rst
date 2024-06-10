@@ -1,7 +1,7 @@
-iotdevicesimulator
-==================
+iotswarm
+========
 
 .. toctree::
    :maxdepth: 4
 
-   iotdevicesimulator
+   iotswarm
