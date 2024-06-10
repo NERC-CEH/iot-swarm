@@ -10,6 +10,8 @@ from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
 import random
 import abc
 from datetime import datetime
+import enum
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +285,25 @@ class BaseDevice(abc.ABC):
         return payload
 
 
+class XsdTypes(enum.Enum):
+
+    null = {"schema": "xsi:nil", "rank": 0}
+    string = {"schema": "xsd:string", "rank": 1}
+    boolean = {"schema": "xsd:boolean", "rank": 2}
+    dateTime = {"schema": "xsd:dateTime", "rank": 3}
+
+    short = {"schema": "xsd:short", "rank": 4}
+    int = {"schema": "xsd:int", "rank": 5}
+    long = {"schema": "xsd:long", "rank": 6}
+    integer = {"schema": "xsd:integer", "rank": 7}
+
+    float = {"schema": "xsd:float", "rank": 8}
+    double = {"schema": "xsd:double", "rank": 9}
+
+    def __str__(self):
+        return self.value["schema"]
+
+
 class CR1000XDevice(BaseDevice):
     "Represents a CR1000X datalogger."
 
@@ -325,90 +346,34 @@ class CR1000XDevice(BaseDevice):
             self.table_name = str(table_name)
 
     @staticmethod
-    def _get_xsd_type(value: str | int | float | bool | object) -> str:
-        """Converts a value to the XML data type expected.
-        Args:
-            value: The item to convert.
+    def _steralize_payload(values: List[object] | object) -> List[dict]:
+        """Converts an object or list of objects into a list of payloads."""
 
-        Returns:
-            str: A string of the XML datatype.
-        """
+        if isinstance(values, dict):
+            return [values]
 
-        if isinstance(value, datetime):
-            return "xsd:dateTime"
+        if not hasattr(values, "__iter__"):
+            values = [values]
 
-        if isinstance(value, bool):
-            return "xsd:boolean"
+        if all([isinstance(x, dict) for x in values]):
+            return values
 
-        if isinstance(value, str):
-            try:
-                datetime.fromisoformat(value)
-                return "xsd:dateTime"
-            except ValueError:
-                pass
+        if any(not hasattr(v, "__iter__") for v in values):
+            values = [values]
 
-            return "xsd:string"
+        values = [[v] if not hasattr(v, "__iter__") else v for v in values]
 
-        if isinstance(value, int):
-            if (value > 0 and value <= 32767) or (value < 0 and value >= -32768):
-                return "xsd:short"
-            if (
-                value == 0
-                or (value < 0 and value >= -2147483648)
-                or (value > 0 and value <= 2147483647)
-            ):
-                return "xsd:int"
-            if (value > 0 and value <= 9223372036854775807) or (
-                value < 0 and value >= -9223372036854775808
-            ):
-                return "xsd:long"
-            else:
-                return "xsd:integer"
+        keys = [f"_{i}" for i in range(len(values[0]))]
 
-        if isinstance(value, float):
-            if abs(value) > 0 and (
-                abs(value) < 1.1754943508222875e-38
-                or abs(value) > 3.4028234663852886e38
-            ):
-                return "xsd:double"
-            else:
-                return "xsd:float"
+        dict_list = []
+        for row in values:
+            dict_list.append({k: v for k, v in zip(keys, row)})
 
-        raise TypeError(
-            f"Couldnt find XML datatype for value `{value}` and type: `{type(value)}`."
-        )
-
-    @staticmethod
-    def _build_field(
-        name: str,
-        data_type: str = "",
-        units: str = "",
-        process: str = "",
-        settable: bool = False,
-    ) -> dict:
-        """Returns a field dict. Will be expanded to guess data_type in future.
-
-        Args:
-            name: Name of the field.
-            data_type: Identifier of the type of data, such as 'xsd:float'.
-            units: Units used by field, such as 'Deg C', 'Volts.'
-            process: Data aggregation process used, such as 'Avg', 'Smp'.
-            settable: Defines whether the value is settable.
-
-        Returns:
-            dict: A dictionary of the field.
-        """
-
-        return {
-            "name": str(name),
-            "type": str(data_type),
-            "units": str(units),
-            "process": str(process),
-            "settable": bool(settable),
-        }
+        return dict_list
 
     def _format_payload(self, payload: dict) -> dict:
-        """Formats the payload into datalogger method.
+        """Formats the payload into datalogger method. Currently only suppports
+        a single row of data.
 
         Args:
             payload: The payload object to format.
@@ -432,32 +397,200 @@ class CR1000XDevice(BaseDevice):
             },
         }
 
-        if isinstance(payload, dict):
-            keys = []
-            vals = []
-            date_found = False
-            for k, v in payload.items():
-                if k.lower() != "date_time":
-                    keys.append(k)
-                    vals.append(v)
-                else:
-                    date_found = True
-                    time = v
+        payload = self._steralize_payload(payload)
 
-            if not date_found:
-                time = datetime.now().isoformat()
+        if len(set([len(p) for p in payload])) > 1:
+            raise ValueError("Each payload row must be equal in length.")
 
-            f_payload["head"]["fields"] = [
-                self._build_field(k, data_type=self._get_xsd_type(v))
-                for k, v in zip(keys, vals)
-            ]
-            f_payload["data"] = {"time": time, "vals": vals}
+        collected = dict()
+        for i, row in enumerate(payload):
+            for key in row.keys():
+                if key not in collected:
+                    collected[key] = [row[key]]
+                    continue
+                collected[key].append(row[key])
 
-        elif hasattr(payload, "__iter__"):
-            f_payload["head"]["fields"] = [
-                self._build_field(f"_{i}", data_type=self._get_xsd_type(payload[i]))
-                for i in range(len(payload))
-            ]
-            f_payload["data"] = {"time": datetime.now().isoformat(), "vals": payload}
+        time = None
+        for i, k in enumerate(collected.keys()):
+            if k.lower() == "date_time":
+                time = collected.pop(k)
+                break
+
+        if time is None:
+            time = [datetime.now().isoformat()] * len(payload)
+
+        f_payload["data"] = []
+        keys = list(collected.keys())
+        vals = list(collected.values())
+        for i in range(len(payload)):
+            f_payload["data"].append({"time": time[i], "vals": [x[i] for x in vals]})
+
+        f_payload["head"]["fields"] = [
+            CR1000XField(k, data_values=v) for k, v in zip(keys, vals)
+        ]
 
         return f_payload
+
+
+class CR1000XField:
+    """Represents the field part of a CR1000X payload. Each sensor gets a field."""
+
+    name: str = ""
+    """Name of the field."""
+
+    data_type: str
+    """XML datatype of the field."""
+
+    units: str = ""
+    """Scientific units of the field."""
+
+    process: str = "Smp"
+    """Process used for aggregating the data. Defaults to \"Smp\" meaning \"Sample\"."""
+
+    settable: bool = False
+
+    def __init__(
+        self,
+        name: str,
+        data_type: str | None = None,
+        units: str | None = None,
+        process: str | None = None,
+        settable: bool | None = None,
+        data_values: list[any] | None = None,
+    ):
+        self.name = str(name)
+
+        if not data_type is None:
+            self.data_type = str(data_type)
+        elif data_values is not None:
+            self.data_type = self._get_xsd_type(data_values).value["schema"]
+        else:
+            raise ValueError("`data_type` or `data_values` argument must be given.")
+
+        if not units is None:
+            self.units = str(units)
+        if not process is None:
+            self.process = str(process)
+        if settable is not None:
+            if not isinstance(settable, bool):
+                raise TypeError(
+                    f"`settable` argument must be a `bool`, not: `{type(settable)}`."
+                )
+            self.settable = settable
+
+    def __json__(self):
+        """Helps convert the object to json."""
+
+        return {
+            "name": self.name,
+            "type": self.data_type,
+            "units": self.units,
+            "process": self.process,
+            "settable": self.settable,
+        }
+
+    def __repr__(self):
+        settable_arg = (
+            f", settable={self.settable}"
+            if self.settable != self.__class__.settable
+            else ""
+        )
+        process_arg = (
+            f', process="{self.process}'
+            if self.process != self.__class__.process
+            else ""
+        )
+        units_arg = (
+            f', process="{self.units}' if self.units != self.__class__.units else ""
+        )
+        return (
+            f'{self.__class__.__name__}("{self.name}"'
+            f', data_type="{self.data_type}"'
+            f"{units_arg}"
+            f"{process_arg}"
+            f"{settable_arg}"
+            f")"
+        )
+
+    def __eq__(self, other):
+        return (
+            self.name == other.name,
+            self.data_type == other.data_type,
+            self.units == other.units,
+            self.process == other.process,
+            self.settable == other.settable,
+        )
+
+    @staticmethod
+    def _get_avg_xsd_type(values: list) -> str:
+
+        if not hasattr(values, "__iter__"):
+            values = [values]
+
+        highest = XsdTypes.null
+        for item in values:
+            level = CR1000XField._get_xsd_type(item)
+
+            if level.value["rank"] > highest.value["rank"]:
+                highest = level
+
+        return highest
+
+    @staticmethod
+    def _get_xsd_type(value: str | int | float | bool | object) -> str:
+        """Converts a value to the XML data type expected.
+        Args:
+            value: The item to convert.
+
+        Returns:
+            str: A string of the XML datatype.
+        """
+        if value is None:
+            return XsdTypes.null
+
+        if isinstance(value, datetime):
+            return XsdTypes.dateTime
+
+        if isinstance(value, bool):
+            return XsdTypes.boolean
+
+        if isinstance(value, str):
+            try:
+                datetime.fromisoformat(value)
+                return XsdTypes.dateTime
+            except ValueError:
+                pass
+
+            return XsdTypes.string
+
+        if isinstance(value, int):
+            if (value > 0 and value <= 32767) or (value < 0 and value >= -32768):
+                return XsdTypes.short
+            if (
+                value == 0
+                or (value < 0 and value >= -2147483648)
+                or (value > 0 and value <= 2147483647)
+            ):
+                return XsdTypes.int
+            if (value > 0 and value <= 9223372036854775807) or (
+                value < 0 and value >= -9223372036854775808
+            ):
+                return XsdTypes.long
+            else:
+                return XsdTypes.integer
+
+        if isinstance(value, float):
+            if abs(value) > 0 and (
+                abs(value) < 1.1754943508222875e-38
+                or abs(value) > 3.4028234663852886e38
+            ):
+                return XsdTypes.double
+            else:
+                return XsdTypes.float
+
+        if hasattr(value, "__iter__"):
+            return CR1000XField._get_avg_xsd_type(value)
+
+        raise TypeError(
+            f"Couldnt find XML datatype for value `{value}` and type: `{type(value)}`."
+        )

@@ -3,11 +3,10 @@
 import awscrt
 from awscrt import mqtt
 import awscrt.io
-import time
 import json
 from awscrt.exceptions import AwsCrtError
 from iotdevicesimulator.messaging.core import MessagingBaseClass
-from iotdevicesimulator.messaging.utils import json_serial
+from iotdevicesimulator.utils import json_serial
 import backoff
 import logging
 import sys

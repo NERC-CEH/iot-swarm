@@ -2,7 +2,9 @@ import unittest
 import asyncio
 import pytest
 import logging
-from iotdevicesimulator.devices import BaseDevice, CR1000XDevice
+import json
+from iotdevicesimulator.utils import json_serial
+from iotdevicesimulator.devices import BaseDevice, CR1000XDevice, CR1000XField
 from iotdevicesimulator.db import Oracle, BaseDatabase, MockDB
 from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
 from iotdevicesimulator.messaging.core import MockMessageConnection, MessagingBaseClass
@@ -11,7 +13,7 @@ from parameterized import parameterized
 from unittest.mock import patch
 import pathlib
 import config
-from datetime import datetime
+from datetime import datetime, timedelta
 
 CONFIG_PATH = pathlib.Path(
     pathlib.Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
@@ -492,10 +494,24 @@ class TestCr1000xDevice(unittest.TestCase):
 
         self.assertEqual(inst.table_name, str(arg))
 
-    def test_list_payload_formatting(self):
-        payload = [1,"data", 0.0, True]
+    @parameterized.expand([
+        [
+            [1,"data", 0.0, True],
+            [[1,"data", 0.0, True]]
+        ],
+        [
+            [[50,"short", -7, False],[1,"data", 0.0, True]],
+            [[50,"short", -7, False], [1, "data", 0.0, True]]
+        ]
+    ])
+    def test_list_payload_formatting(self, payload, expected_vals):
 
         device = CR1000XDevice("my_device", self.db, self.conn)
+
+        keys = [f"_{i}" for i in range(len(expected_vals[0]))]
+        collected_vals = []
+        for i in range(len(expected_vals[0])):
+            collected_vals.append([x[i] for x in expected_vals])
 
         formatted = device._format_payload(payload)
 
@@ -511,126 +527,248 @@ class TestCr1000xDevice(unittest.TestCase):
                     "os_version": device.os_version,
                     "prog_name": device.program_name
                 },
-                "fields": [
-                    {
-                        "name": "_0",
-                        "type": "xsd:short",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    },
-                    {
-                        "name": "_1",
-                        "type": "xsd:string",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    },
-                    {
-                        "name": "_2",
-                        "type": "xsd:float",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    },
-                    {
-                        "name": "_3",
-                        "type": "xsd:boolean",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    }
-                ]
+                "fields": [CR1000XField(k, data_values=v) for k,v in zip(keys, collected_vals)]
             },
-            "data": {
-                "time": "",
-                "vals": payload
-            }
+            "data": [
+                {}
+            ]
         }
 
         self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
         self.assertDictEqual(formatted["head"], expected["head"], "head of payload must be equal")
-        self.assertEqual(formatted["data"].keys(), expected["data"].keys(), "Data segment must have same keys.")
-        self.assertListEqual(formatted["data"]["vals"], expected["data"]["vals"])
+        
+        for f_row, e_row in zip(formatted["data"], expected_vals):
+            self.assertEqual(list(f_row.keys()), ["time", "vals"], "Data segment must have same keys.")
+            self.assertListEqual(f_row["vals"], e_row)
+            # Error if not isoformat
+            datetime.fromisoformat(f_row["time"])
 
-        # Error if not isoformat
-        datetime.fromisoformat(formatted["data"]["time"])
+    @parameterized.expand([
+        [
+            {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50},
+            [[17.16, False, int(1e20), 1e-50]],
+         ],
+         [
+             [{"temp": 20.0, "door_open": True, "BattV": int(5e20), "BattLevel": 4e-50},
+              {"temp": True, "door_open": None, "BattV": int(5), "BattLevel": 1.2},
+              {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50}],
+              [[20.0, True, 5e20, 4e-50],[True, None, int(5), 1.2],[17.16, False, int(1e20), 1e-50]],
+        ],
 
-    def test_dict_payload_formatting(self):
-        payload = {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50}
+         ])
+    def test_dict_payload_formatting(self, payload, expected_data_vals):
+
+        device = CR1000XDevice("my_dict_device", self.db, self.conn)
+
+        keys = payload.keys() if isinstance(payload, dict) else payload[0].keys()
+
+        collected_vals = []
+        for i in range(len(expected_data_vals[0])):
+            collected_vals.append([x[i] for x in expected_data_vals])
+
+        formatted = device._format_payload(payload)
+
+        expected = {
+            "head": {
+                "transaction": 0,
+                "signature": 111111,
+                "environment": {
+                    "station_name": device.device_id,
+                    "table_name": device.table_name,
+                    "model": device.device_type,
+                    "serial_no": device.serial_number,
+                    "os_version": device.os_version,
+                    "prog_name": device.program_name
+                },
+                "fields": [CR1000XField(k, data_values=v) for k,v in zip(keys, collected_vals)]
+            },
+            "data": {}
+        }
+
+        self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
+        self.assertDictEqual(formatted["head"], expected["head"])
+
+        for f_row, e_row in zip(formatted["data"], expected_data_vals):
+            self.assertEqual(list(f_row.keys()), ["time", "vals"], "Data segment must have same keys.")
+            self.assertListEqual(f_row["vals"], e_row)
+            # Error if not isoformat
+            datetime.fromisoformat(f_row["time"])
+
+    @parameterized.expand([
+        [{"a": 1, "date_time": datetime.now()}],
+        [
+            [
+                {"a": 1, "date_time": datetime.now()},
+                {"a": 2, "date_time": datetime.now()+timedelta(days=1)}
+            ]
+        ]
+    ])
+    def test_payload_with_datetime_included(self, payload):
+        """Tests that datetime is popped if included in payload"""
 
         device = CR1000XDevice("my_dict_device", self.db, self.conn)
 
         formatted = device._format_payload(payload)
 
-        expected = {
-            "head": {
-                "transaction": 0,
-                "signature": 111111,
-                "environment": {
-                    "station_name": device.device_id,
-                    "table_name": device.table_name,
-                    "model": device.device_type,
-                    "serial_no": device.serial_number,
-                    "os_version": device.os_version,
-                    "prog_name": device.program_name
-                },
-                "fields": [
-                    {
-                        "name": "temp",
-                        "type": "xsd:float",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    },
-                    {
-                        "name": "door_open",
-                        "type": "xsd:boolean",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    },
-                    {
-                        "name": "BattV",
-                        "type": "xsd:integer",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    },
-                    {
-                        "name": "BattLevel",
-                        "type": "xsd:double",
-                        "units": "",
-                        "process": "",
-                        "settable": False
-                    }
-                ]
-            },
-            "data": {
-                "time": "",
-                "vals": list(payload.values())
-            }
-        }
+        for item in formatted["data"]:
 
-        self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
-        self.assertDictEqual(formatted["head"], expected["head"], "head of payload must be equal")
-        self.assertEqual(formatted["data"].keys(), expected["data"].keys(), "Data segment must have same keys.")
-        self.assertListEqual(formatted["data"]["vals"], expected["data"]["vals"])
+            self.assertIsInstance(item["time"], datetime)
 
-        # Error if not isoformat
-        datetime.fromisoformat(formatted["data"]["time"])
+    
+    @parameterized.expand([
+        [{"a": 1, "date_time": '2024-06-10T10:20:41.540116'}],
+        [
+            [
+                {"a": 1, "date_time": '2024-06-10T10:20:41.540116'},
+                {"a": 2, "date_time": '2024-06-10T09:20:41.540116'}
+            ]
+        ]
+    ])
+    def test_payload_with_datetime_included(self, payload):
+        """Tests that datetime is popped if included in payload"""
 
-        # Testing with date provided
-        payload["DATE_TIME"] = datetime.now().isoformat()
+        device = CR1000XDevice("my_dict_device", self.db, self.conn)
 
         formatted = device._format_payload(payload)
-        datetime.fromisoformat(formatted["data"]["time"])
 
-        # Testing with lowercase date provided
-        payload["date_time"] = datetime.now().isoformat()
+        for item in formatted["data"]:
 
+            self.assertIsInstance(item["time"], str)
+            datetime.fromisoformat(item["time"])
+
+
+
+    @parameterized.expand([
+        [1, [[1]]],
+        [[1,2,3], [[1,2,3]]],
+        [
+            [[1,2,3], [4,5,6]], [[1,2,3], [4,5,6]]
+        ],
+        [{"a": 1, "b": 2}, [[1,2]]],
+        [[{"a": 1, "b": 2, "c": 3}], [[1,2,3]]],
+        [
+            [{"a": 1, "b": 2, "c": 3}, {"a": 4, "b": 5, "c": 6}],
+            [[1,2,3], [4,5,6]]
+        ]
+    ])
+    def test_payload_data(self, payload, expected):
+        device = CR1000XDevice("my_dict_device", self.db, self.conn)
         formatted = device._format_payload(payload)
-        datetime.fromisoformat(formatted["data"]["time"])
+
+        for f_row, e_row in zip(formatted["data"], expected):
+
+            self.assertListEqual(f_row["vals"], e_row)
+    
+    @parameterized.expand([
+        [1, [{"_0": 1}]],
+        [[1,2,3], [{"_0": 1, "_1": 2, "_2": 3}]],
+        [
+            [[1,2,3], [4,5,6]],
+            [{"_0": 1, "_1": 2, "_2": 3}, {"_0": 4, "_1": 5, "_2": 6}]
+        ],
+        [{"a": 1}, [{"a": 1}]],
+        [
+            [{"a": 1, "b": 2}, {"a": 3, "b": 4}],
+            [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+        ]
+    ])
+    def test_conversion_to_payload(self,values, expected):
+        """Test that values can be converted to payload"""
+        result = CR1000XDevice._steralize_payload(values)
+
+        self.assertEqual(result, expected)
+
+
+    def test_format_payload_errors(self):
+        """Tests that errors during formatting are raised."""
+
+        device = CR1000XDevice("my_dict_device", self.db, self.conn)
+
+        bad_key_payload = [
+            {"a":1, "b":2, "c":3},
+            {"a":4}
+        ]
+        with self.assertRaises(ValueError):
+            device._format_payload(bad_key_payload)
+
+
+class TestCR1000XField(unittest.TestCase):
+    """Tests the datalogger field objects."""
+
+    @parameterized.expand(["myfield","my field","myfield!","myfield123","myfield~"])
+    def test_name_set(self, name):
+        """Tests that the object fields are set."""
+
+        obj = CR1000XField(name, data_type="xsd:float")
+
+        self.assertEqual(obj.name, name)
+        self.assertEqual(obj.data_type, "xsd:float")
+        self.assertEqual(obj.units, "")
+        self.assertEqual(obj.process, "Smp")
+        self.assertFalse(obj.settable)
+
+    @parameterized.expand(["xsd:float", "xsd:double"])
+    def test_type_set(self, data_type):
+        """Tests that the object fields are set."""
+
+        obj = CR1000XField("name", data_type=data_type)
+
+        self.assertEqual(obj.data_type, data_type)
+
+    @parameterized.expand(["Volts", "Deg C"])
+    def test_units_set(self, units):
+        """Tests that the object fields are set."""
+
+        obj = CR1000XField("name", data_type="xsd:float", units=units)
+
+        self.assertEqual(obj.units, units)
+    
+    @parameterized.expand(["Avg", "Std"])
+    def test_process_set(self, process):
+        """Tests that the object fields are set."""
+
+        obj = CR1000XField("name", data_type="xsd:float", process=process)
+
+        self.assertEqual(obj.process, process)
+    
+    def test_data_type_errors(self):
+        """Tests that erros are raised"""
+
+        with self.assertRaises(ValueError):
+            CR1000XField("name")
+
+    @parameterized.expand([
+        [[1,2,3,4], "xsd:short"],
+        ["strr", "xsd:string"],
+        [[1.2,4.9,2], "xsd:float"]
+    ])
+    def test_data_values_generates_type(self, values, expected):
+        """Tests that providing data values autogenerates type."""
+        obj = CR1000XField("name", data_values=values)
+
+        self.assertEqual(obj.data_type, expected)
+
+    def test_data_type_priority(self):
+        """Tests that the the data_type argument takes preference over data_values."""
+
+        obj = CR1000XField("name", data_type="xsd:string", data_values=[1,2,3])
+
+        self.assertEqual(obj.data_type, "xsd:string")
+
+    @parameterized.expand([True, False])
+    def test_settable_set(self, settable):
+        """Tests that the object fields are set."""
+
+        obj = CR1000XField("name", data_type="xsd:float", settable=settable)
+
+        self.assertEqual(obj.settable, settable)
+
+    @parameterized.expand([1, "yes", 1.75])
+    def test_non_bool_settable_error(self, value):
+        """Ensures that non bool arguments for `settable` raises error."""
+        
+        with self.assertRaises(TypeError):
+            CR1000XField("name", data_type="xsd:float", settable=value)
 
     @parameterized.expand([
         [0, "xsd:int"],
@@ -661,14 +799,20 @@ class TestCr1000xDevice(unittest.TestCase):
     def test_data_type_matching(self, value, expected):
         """Tests that the `xsd` data type can be extracted."""
 
-        result = CR1000XDevice._get_xsd_type(value)
+        result = CR1000XField._get_xsd_type(value)
 
-        self.assertEqual(result, expected)
+        self.assertEqual(result.value["schema"], expected)
 
     def test_error_if_xsd_type_not_valid(self):
 
         with self.assertRaises(TypeError):
-            CR1000XDevice._get_xsd_type(None)
-            
+            CR1000XField._get_xsd_type(BaseDevice)
+
+    def test_json_serialisation(self):
+        obj = CR1000XField("fieldname", data_type="xsd:string", units="Volts", process="Std")
+        expected = '{"name": "fieldname", "type": "xsd:string", "units": "Volts", "process": "Std", "settable": false}'
+
+        self.assertEqual(json.dumps(obj, default=json_serial), expected)
+
 if __name__ == "__main__":
     unittest.main()
