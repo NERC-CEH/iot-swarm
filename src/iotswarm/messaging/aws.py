@@ -20,6 +20,9 @@ class IotCoreMQTTConnection(MessagingBaseClass):
     connection: awscrt.mqtt.Connection | None = None
     """A connection to the MQTT endpoint."""
 
+    connected_flag: bool = False
+    """Tracks whether connected."""
+
     def __init__(
         self,
         endpoint: str,
@@ -127,6 +130,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         """Callback when connection accidentally lost."""
         self._instance_logger.debug("Connection interrupted. error: {}".format(error))
 
+        self.connected_flag = False
+
     def _on_connection_resumed(
         self, connection, return_code, session_present, **kwargs
     ):  # pragma: no cover
@@ -138,6 +143,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             )
         )
 
+        self.connected_flag = True
+
     def _on_connection_success(self, connection, callback_data):  # pragma: no cover
         """Callback when the connection successfully connects."""
 
@@ -147,6 +154,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 callback_data.return_code, callback_data.session_present
             )
         )
+
+        self.connected_flag = True
 
     def _on_connection_failure(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection attempt fails."""
@@ -159,6 +168,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
     def _on_connection_closed(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection has been disconnected or shutdown successfully"""
         self._instance_logger.debug("Connection closed")
+        self.connected_flag = False
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _connect(self):  # pragma: no cover
@@ -191,7 +201,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             use_logger.error(f'No message to send for topic: "{topic}".')
             return
 
-        self._connect()
+        if self.connected_flag == False:
+            self._connect()
 
         if message:  # pragma: no cover
             payload = json.dumps(message, default=json_serial)
@@ -203,4 +214,4 @@ class IotCoreMQTTConnection(MessagingBaseClass):
 
         use_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
 
-        self._disconnect()
+        # self._disconnect()
