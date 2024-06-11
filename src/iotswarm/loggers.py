@@ -16,7 +16,7 @@ class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     def __init__(self, *args, **kwargs):
 
         logpath = Path(
-            platformdirs.user_data_dir("iot_device_simulator"),
+            platformdirs.user_data_dir("iot_swarm"),
             "log.log",
         )
 

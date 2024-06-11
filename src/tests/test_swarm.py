@@ -1,256 +1,146 @@
 import unittest
-import pytest
 from parameterized import parameterized
-from iotdevicesimulator.swarm import CosmosSwarm
-from iotdevicesimulator.db import Oracle
-from iotdevicesimulator.devices import SensorSite
-from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
-from iotdevicesimulator.messaging.core import MockMessageConnection
-
-from pathlib import Path
-from config import Config
-
-CONFIG_PATH = Path(
-    Path(__file__).parents[1], "iotdevicesimulator", "__assets__", "config.cfg"
-)
-config_exists = pytest.mark.skipif(
-    not CONFIG_PATH.exists(),
-    reason="Config file `config.cfg` not found in root directory.",
-)
+from iotswarm.swarm import Swarm
+from iotswarm.devices import BaseDevice, CR1000XDevice
+from iotswarm.messaging.core import MockMessageConnection
+from iotswarm.db import MockDB
 
 
 class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.config_path = str(CONFIG_PATH)
-        self.config = Config(self.config_path)["oracle"]
+
+        site_ids = list(range(10))
+
+        self.base_devices = [
+            BaseDevice(site, MockDB(), MockMessageConnection()) for site in site_ids
+        ]
+
+        self.cr1000x_devices = [
+            CR1000XDevice(site, MockDB(), MockMessageConnection()) for site in site_ids
+        ]
+
+    def test_instantiation(self):
+
+        # Test that BaseDevice list is compatible
+        swarm = Swarm(self.base_devices)
+        self.assertListEqual(swarm.devices, self.base_devices)
+
+    def test_device_subclass_compatible(self):
+        swarm = Swarm(self.cr1000x_devices)
+        self.assertListEqual(swarm.devices, self.cr1000x_devices)
+
+    def test_mixed_device_types_instantiated(self):
+        swarm = Swarm(self.base_devices + self.cr1000x_devices)
+        self.assertListEqual(swarm.devices, self.base_devices + self.cr1000x_devices)
+
+    def test_single_device_converts_to_list(self):
+        swarm = Swarm(self.base_devices[0])
+        self.assertListEqual(swarm.devices, [self.base_devices[0]])
+
+    @parameterized.expand(["myswarm", "another swarm", 1234])
+    def test_swarm_name_given(self, name):
+        swarm = Swarm(self.base_devices, name=name)
+
+        self.assertEqual(swarm.name, str(name))
+
+    @parameterized.expand(
+        ["123", 45, [[BaseDevice(1, MockDB(), MockMessageConnection()), 7]]]
+    )
+    def test_devices_type_check(self, devices):
+        """Tests that a TypeError is raised if non-device passed to Swarm."""
+        print(devices)
+        with self.assertRaises(TypeError):
+            Swarm(devices)
+
+    @parameterized.expand([0, 1, 4, 6, 10])
+    def test__len__(self, count):
+        """Test that __len__ method functions."""
+
+        devices = [
+            BaseDevice(c, MockDB(), MockMessageConnection()) for c in range(count)
+        ]
+
+        swarm = Swarm(devices)
+
+        self.assertEqual(len(swarm), count)
+
+    @parameterized.expand(["swarm1", "MYSWARM", "Creative Name"])
+    def test_logger_set(self, name):
+        """Tests that the logger name gets set correctly."""
+
+        swarm = Swarm([], name=name)
+
+        self.assertEqual(
+            swarm._instance_logger.name, f"iotswarm.swarm.Swarm.{name}"
+        )
 
     @parameterized.expand(
         [
-            ["ALIC1", CosmosQuery.LEVEL_1_SOILMET_30MIN, 1, 0, 0],
-            [["ALIC1"], CosmosQuery.LEVEL_1_NMDB_1HOUR, 10, 1, 2],
-            [["ALIC1", "PORTN"], CosmosQuery.LEVEL_1_PRECIP_1MIN, 12.2, 45, 8],
+            [[], None, "Swarm([])"],
+            [
+                BaseDevice("test_swarm", MockDB(), MockMessageConnection()),
+                None,
+                'Swarm(BaseDevice("test_swarm", MockDB(), MockMessageConnection()))',
+            ],
+            [
+                CR1000XDevice("site", MockDB(), MockMessageConnection()),
+                "swarm-1",
+                'Swarm(CR1000XDevice("site", MockDB(), MockMessageConnection()), name="swarm-1")',
+            ],
+            [
+                [BaseDevice(x, MockDB(), MockMessageConnection()) for x in range(2)],
+                "swarm-2",
+                'Swarm([BaseDevice("0", MockDB(), MockMessageConnection()), BaseDevice("1", MockDB(), MockMessageConnection())], name="swarm-2")',
+            ],
+            [
+                [CR1000XDevice(x, MockDB(), MockMessageConnection()) for x in range(2)],
+                None,
+                'Swarm([CR1000XDevice("0", MockDB(), MockMessageConnection()), CR1000XDevice("1", MockDB(), MockMessageConnection())])',
+            ],
         ]
     )
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_instantiation(
-        self, site_ids, query, sleep_time, max_cycles, max_sites
-    ):
-        swarm = await CosmosSwarm.create(
-            query,
-            MockMessageConnection(),
-            self.config,
-            site_ids=site_ids,
-            sleep_time=sleep_time,
-            max_cycles=max_cycles,
-            max_sites=max_sites,
-        )
+    def test__repr__(self, devices, name, expected):
+        """Tests that __repr__ returns right value."""
 
-        for site, site_id in zip(swarm.sites, site_ids):
-            self.assertEqual(site.site_id, site_id)
-            self.assertEqual(site.max_cycles, int(max_cycles))
-            self.assertEqual(site.sleep_time, int(sleep_time))
+        swarm = Swarm(devices, name=name)
 
-        self.assertEqual(swarm.max_cycles, int(max_cycles))
-        self.assertEqual(swarm.sleep_time, int(sleep_time))
-        self.assertEqual(swarm.max_sites, max_sites)
+        self.assertEqual(swarm.__repr__(), expected)
 
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_config_from_dict(self):
-        await CosmosSwarm.create(
-            CosmosQuery.LEVEL_1_NMDB_1HOUR, MockMessageConnection(), self.config
-        )
 
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_config_from_path(self):
-        await CosmosSwarm.create(
-            CosmosQuery.LEVEL_1_NMDB_1HOUR, MockMessageConnection(), self.config_path
-        )
+class TestSwarmRunning(unittest.IsolatedAsyncioTestCase):
 
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_delay_set(self):
-        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
-        swarm = await CosmosSwarm.create(
-            query,
-            MockMessageConnection(),
-            self.config,
-            site_ids="MORLY",
-            delay_start=True,
-        )
+    def setUp(self):
 
-        self.assertTrue(swarm.delay_start)
+        site_ids = list(range(10))
 
-        swarm = await CosmosSwarm.create(
-            query,
-            MockMessageConnection(),
-            self.config,
-            site_ids="MORLY",
-            delay_start=False,
-        )
-
-        self.assertFalse(swarm.delay_start)
-
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_error_if_delay_set_not_bool(self):
-        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
-
-        with self.assertRaises(TypeError):
-            await CosmosSwarm.create(
-                query,
-                MockMessageConnection(),
-                self.config,
-                site_ids="MORLY",
-                delay_start=4,
+        self.base_devices = [
+            BaseDevice(
+                site, MockDB(), MockMessageConnection(), max_cycles=5, sleep_time=0
             )
+            for site in site_ids
+        ]
 
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_swarm_name_given(self):
-        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
-        swarm = await CosmosSwarm.create(
-            query, MockMessageConnection(), self.config, swarm_name="myswarm"
-        )
-
-        self.assertEqual(swarm.swarm_name, "myswarm")
-
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_swarm_name_not_given(self):
-        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
-        swarm = await CosmosSwarm.create(query, MockMessageConnection(), self.config)
-
-        self.assertIsInstance(swarm.swarm_name, str)
-
-    @parameterized.expand([0, 1, 10, 35.52])
-    @pytest.mark.asyncio
-    @pytest.mark.oracle
-    @config_exists
-    async def test_good_max_sites(self, max_sites):
-        sites = [f"Site {x}" for x in range(10)]
-
-        swarm = await CosmosSwarm.create(
-            CosmosQuery.LEVEL_1_SOILMET_30MIN,
-            MockMessageConnection(),
-            self.config,
-            site_ids=sites,
-            max_sites=max_sites,
-        )
-
-        expected_length = int(max_sites)
-
-        if max_sites == 0:
-            expected_length = len(sites)
-
-        if expected_length > len(sites):
-            expected_length = len(sites)
-
-        self.assertEqual(len(swarm), expected_length)
-
-    @parameterized.expand(["Four", -3, -1])
-    @pytest.mark.asyncio
-    @pytest.mark.oracle
-    @config_exists
-    async def test_bad_max_sites(self, max_sites):
-        sites = [f"Site {x}" for x in range(10)]
-
-        with self.assertRaises(ValueError):
-            await CosmosSwarm.create(
-                CosmosQuery.LEVEL_1_SOILMET_30MIN,
-                MockMessageConnection(),
-                self.config,
-                site_ids=sites,
-                max_sites=max_sites,
+        self.cr1000x_devices = [
+            CR1000XDevice(
+                site, MockDB(), MockMessageConnection(), max_cycles=3, sleep_time=0
             )
+            for site in site_ids
+        ]
 
-    @pytest.mark.asyncio
-    @pytest.mark.oracle
-    @config_exists
-    async def test_get_oracle(self):
-        oracle = await CosmosSwarm._get_oracle(self.config)
+    async def test_run_single_device_type(self):
 
-        self.assertIsInstance(oracle, Oracle)
+        swarm = Swarm(self.base_devices + self.cr1000x_devices, "base-swarm")
+        log_base = f"{swarm.__class__.__module__}.{swarm.__class__.__name__}.base-swarm"
+        with self.assertLogs(level="INFO") as cm:
+            await swarm.run()
 
-    @pytest.mark.asyncio
-    @config_exists
-    @pytest.mark.oracle
-    async def test_site_ids_from_db(self):
+            self.assertEqual(cm.output[0], f"INFO:{log_base}:Running main loop.")
+            self.assertEqual(cm.output[-1], f"INFO:{log_base}:Terminated.")
 
-        swarm = await CosmosSwarm.create(
-            CosmosQuery.LEVEL_1_SOILMET_30MIN, MockMessageConnection(), self.config
-        )
-
-        self.assertGreater(len(swarm.sites), 0)
-
-    @pytest.mark.asyncio
-    @pytest.mark.oracle
-    @config_exists
-    async def test__len__(self):
-        """Tests the __len__ method."""
-
-        for site_count in [1, 3, 10, 100, 1000]:
-            site_ids = ["SITE_ID"] * site_count
-            swarm = await CosmosSwarm.create(
-                CosmosQuery.LEVEL_1_SOILMET_30MIN,
-                MockMessageConnection(),
-                self.config,
-                site_ids=site_ids,
-                max_sites=0,
-            )
-
-            self.assertEqual(len(swarm), site_count)
-
-
-class TestCosmosSwarmStatic(unittest.IsolatedAsyncioTestCase):
-    @parameterized.expand([-1, 1, 3, 5, 7.2])
-    def test_list_restriction_method(self, max_count):
-
-        list_in = list(range(20))
-
-        list_out = CosmosSwarm._random_list_items(list_in, max_count)
-
-        expected_length = int(max_count)
-
-        if max_count == -1:
-            expected_length = len(list_in)
-
-        self.assertEqual(len(list_out), expected_length)
-
-    @parameterized.expand(["one", -2])
-    def test_list_restriction_method_error(self, max_count):
-
-        list_in = list(range(20))
-
-        with self.assertRaises(ValueError):
-            CosmosSwarm._random_list_items(list_in, max_count)
-
-    @pytest.mark.asyncio
-    @pytest.mark.oracle
-    @pytest.mark.slow
-    @config_exists
-    async def test_sites_grabbed_from_db(self):
-        """Tests that site IDs are returned from database."""
-
-        config = Config(str(CONFIG_PATH))["oracle"]
-        oracle = await CosmosSwarm._get_oracle(config)
-
-        for query in CosmosSiteQuery:
-            sites = await CosmosSwarm._get_sites_from_db(oracle, query)
-
-            self.assertIsInstance(sites, list)
-            [self.assertIsInstance(site, str) for site in sites]
-            self.assertGreater(len(sites), 0)
+        # Sanity check that all devices reach max cycles.
+        for device in swarm.devices:
+            self.assertEqual(device.cycle, device.max_cycles)
 
 
 if __name__ == "__main__":

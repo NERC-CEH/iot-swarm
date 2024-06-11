@@ -1,8 +1,10 @@
 """Module for demonstrating invocation of a swarm."""
 
-from iotdevicesimulator.queries import CosmosQuery
-from iotdevicesimulator.swarm import CosmosSwarm
-from iotdevicesimulator.messaging.aws import IotCoreMQTTConnection
+from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm.swarm import Swarm
+from iotswarm import devices
+from iotswarm.messaging.aws import IotCoreMQTTConnection
+from iotswarm import db
 import asyncio
 import config
 from pathlib import Path
@@ -24,6 +26,15 @@ async def main(config_path: str):
     iot_config = app_config["iot_core"]
     oracle_config = app_config["oracle"]
 
+    data_source = await db.Oracle.create(
+        oracle_config["dsn"], oracle_config["user"], oracle_config["password"]
+    )
+
+    site_query = CosmosSiteQuery.LEVEL_1_SOILMET_30MIN
+    query = CosmosQuery[site_query.name]
+
+    device_ids = await data_source.query_site_ids(site_query, max_sites=5)
+
     mqtt_connection = IotCoreMQTTConnection(
         endpoint=iot_config["endpoint"],
         cert_path=iot_config["cert_path"],
@@ -31,17 +42,15 @@ async def main(config_path: str):
         ca_cert_path=iot_config["ca_cert_path"],
         client_id="fdri_swarm",
     )
-    swarm = await CosmosSwarm.create(
-        CosmosQuery.LEVEL_1_SOILMET_30MIN,
-        mqtt_connection,
-        oracle_config,
-        swarm_name="soilmet",
-        delay_start=False,
-        max_cycles=5,
-        max_sites=5,
-        sleep_time=30,
-        site_ids="MORLY",
-    )
+
+    device_objs = [
+        devices.CR1000XDevice(
+            site, data_source, mqtt_connection, query=query, sleep_time=5
+        )
+        for site in device_ids
+    ]
+
+    swarm = Swarm(device_objs, name="soilmet")
     await swarm.run()
 
 

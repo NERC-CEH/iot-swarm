@@ -3,29 +3,68 @@
 import oracledb
 import getpass
 import logging
-
-from iotdevicesimulator.queries import CosmosQuery, CosmosSiteQuery
+import abc
+from iotswarm.queries import CosmosQuery, CosmosSiteQuery
 
 logger = logging.getLogger(__name__)
 
 
-class Oracle:
-    """Class for handling oracledb logic and retrieving values from DB."""
+class BaseDatabase(abc.ABC):
+    """Base class for implementing database objects
+
+    Args:
+        inherit_logger: Assigns the passed logger to instance.
+    """
 
     _instance_logger: logging.Logger
     """Logger handle for the instance."""
 
+    def __init__(self, inherit_logger: logging.Logger | None = None):
+        if inherit_logger is not None:
+            self._instance_logger = inherit_logger.getChild(self.__class__.__name__)
+        else:
+            self._instance_logger = logger.getChild(self.__class__.__name__)
+
+    def __repr__(self):
+        if self._instance_logger.parent.name == "iotswarm.db":
+            logger_arg = ""
+        else:
+            logger_arg = f"inherit_logger={self._instance_logger.parent}"
+        return f"{self.__class__.__name__}({logger_arg})"
+
+    @abc.abstractmethod
+    def query_latest_from_site(self):
+        pass
+
+
+class MockDB(BaseDatabase):
+
+    @staticmethod
+    def query_latest_from_site():
+        return []
+
+
+class Oracle(BaseDatabase):
+    """Class for handling oracledb logic and retrieving values from DB."""
+
     connection: oracledb.Connection
     """Connection to oracle database."""
 
+    def __repr__(self):
+        parent_repr = (
+            super().__repr__().lstrip(f"{self.__class__.__name__}(").rstrip(")")
+        )
+        if len(parent_repr) > 0:
+            parent_repr = ", " + parent_repr
+        return (
+            f"{self.__class__.__name__}("
+            f'"{self.connection.dsn}"'
+            f"{parent_repr}"
+            f")"
+        )
+
     @classmethod
-    async def create(
-        cls,
-        dsn: str,
-        user: str,
-        password: str = None,
-        inherit_logger: logging.Logger | None = None,
-    ):
+    async def create(cls, dsn: str, user: str, password: str = None, **kwargs):
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `Oracle.create(...)`.
 
@@ -38,12 +77,7 @@ class Oracle:
         if not password:
             password = getpass.getpass("Enter Oracle password: ")
 
-        self = cls()
-
-        if inherit_logger is not None:
-            self._instance_logger = inherit_logger.getChild("db")
-        else:
-            self._instance_logger = logger
+        self = cls(**kwargs)
 
         self.connection = await oracledb.connect_async(
             dsn=dsn, user=user, password=password
@@ -84,11 +118,14 @@ class Oracle:
 
             return dict(zip(columns, data))
 
-    async def query_site_ids(self, query: CosmosSiteQuery) -> list:
+    async def query_site_ids(
+        self, query: CosmosSiteQuery, max_sites: int | None = None
+    ) -> list:
         """query_site_ids returns a list of site IDs from COSMOS database
 
         Args:
-            query (CosmosSiteQuery): The query to run.
+            query: The query to run.
+            max_sites: Maximum number of sites to retreive
 
         Returns:
             List[str]: A list of site ID strings.
@@ -99,11 +136,21 @@ class Oracle:
                 f"`query` must be a `CosmosSiteQuery` Enum, not a `{type(query)}`"
             )
 
+        if max_sites is not None:
+            max_sites = int(max_sites)
+            if max_sites < 0:
+                raise ValueError(
+                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
+                )
+
         async with self.connection.cursor() as cursor:
             await cursor.execute(query.value)
 
             data = await cursor.fetchall()
-            data = [x[0] for x in data]
+            if max_sites == 0:
+                data = [x[0] for x in data]
+            else:
+                data = [x[0] for x in data[:max_sites]]
 
             if not data:
                 data = []

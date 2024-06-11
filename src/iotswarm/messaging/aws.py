@@ -3,13 +3,13 @@
 import awscrt
 from awscrt import mqtt
 import awscrt.io
-import time
 import json
 from awscrt.exceptions import AwsCrtError
-from iotdevicesimulator.messaging.core import MessagingBaseClass
-from iotdevicesimulator.messaging.utils import json_serial
+from iotswarm.messaging.core import MessagingBaseClass
+from iotswarm.utils import json_serial
 import backoff
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
     connection: awscrt.mqtt.Connection | None = None
     """A connection to the MQTT endpoint."""
 
-    _instance_logger: logging.Logger
-    """Logger handle used by instance."""
+    connected_flag: bool = False
+    """Tracks whether connected."""
 
     def __init__(
         self,
@@ -120,13 +120,17 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             on_connection_closed=self._on_connection_closed,
         )
 
-        self._instance_logger = logger.getChild(f"client-{client_id}")
+        self._instance_logger = logger.getChild(
+            f"{self.__class__.__name__}.client-{client_id}"
+        )
 
     def _on_connection_interrupted(
         self, connection, error, **kwargs
     ):  # pragma: no cover
         """Callback when connection accidentally lost."""
         self._instance_logger.debug("Connection interrupted. error: {}".format(error))
+
+        self.connected_flag = False
 
     def _on_connection_resumed(
         self, connection, return_code, session_present, **kwargs
@@ -139,6 +143,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             )
         )
 
+        self.connected_flag = True
+
     def _on_connection_success(self, connection, callback_data):  # pragma: no cover
         """Callback when the connection successfully connects."""
 
@@ -148,6 +154,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 callback_data.return_code, callback_data.session_present
             )
         )
+
+        self.connected_flag = True
 
     def _on_connection_failure(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection attempt fails."""
@@ -159,7 +167,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
 
     def _on_connection_closed(self, connection, callback_data):  # pragma: no cover
         """Callback when a connection has been disconnected or shutdown successfully"""
-        self._instance_logger.debug("Connection closed\n")
+        self._instance_logger.debug("Connection closed")
+        self.connected_flag = False
 
     @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
     def _connect(self):  # pragma: no cover
@@ -173,21 +182,29 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(self, message: dict, topic: str) -> None:  # pragma: no cover
+    def send_message(
+        self, message: dict, topic: str, use_logger: logging.Logger | None = None
+    ) -> None:
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
+            use_logger: Sends log message with requested logger.
         """
+        if use_logger is not None and isinstance(use_logger, logging.Logger):
+            use_logger = use_logger
+        else:
+            use_logger = self._instance_logger
 
         if not message:
-            logging.error(f"No message to send for topic: {topic}")
+            use_logger.error(f'No message to send for topic: "{topic}".')
             return
 
-        self._connect()
+        if self.connected_flag == False:
+            self._connect()
 
-        if message:
+        if message:  # pragma: no cover
             payload = json.dumps(message, default=json_serial)
             self.connection.publish(
                 topic=topic,
@@ -195,4 +212,6 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
 
-        self._disconnect()
+        use_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
+
+        # self._disconnect()

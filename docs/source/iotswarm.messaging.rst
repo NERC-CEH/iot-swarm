@@ -1,7 +1,7 @@
-iotdevicesimulator.messaging package
+iotswarm.messaging package
 ====================================
 
-.. automodule:: iotdevicesimulator.messaging
+.. automodule:: iotswarm.messaging
    :members:
    :undoc-members:
    :show-inheritance:
@@ -9,18 +9,18 @@ iotdevicesimulator.messaging package
 Submodules
 ----------
 
-iotdevicesimulator.messaging.aws module
+iotswarm.messaging.aws module
 ---------------------------------------
 
-.. automodule:: iotdevicesimulator.messaging.aws
+.. automodule:: iotswarm.messaging.aws
    :members:
    :undoc-members:
    :show-inheritance:
 
-iotdevicesimulator.messaging.core module
+iotswarm.messaging.core module
 ----------------------------------------
 
-.. automodule:: iotdevicesimulator.messaging.core
+.. automodule:: iotswarm.messaging.core
    :members:
    :undoc-members:
    :show-inheritance:

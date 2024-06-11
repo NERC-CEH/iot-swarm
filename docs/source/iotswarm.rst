@@ -1,7 +1,7 @@
-iotdevicesimulator package
+iotswarm package
 ==========================
 
-.. automodule:: iotdevicesimulator
+.. automodule:: iotswarm
    :members:
    :undoc-members:
    :show-inheritance:
@@ -12,56 +12,56 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   iotdevicesimulator.messaging
-   iotdevicesimulator.scripts
+   iotswarm.messaging
+   iotswarm.scripts
 
 Submodules
 ----------
 
-iotdevicesimulator.db module
+iotswarm.db module
 ----------------------------
 
-.. automodule:: iotdevicesimulator.db
+.. automodule:: iotswarm.db
    :members:
    :undoc-members:
    :show-inheritance:
 
-iotdevicesimulator.devices module
+iotswarm.devices module
 ---------------------------------
 
-.. automodule:: iotdevicesimulator.devices
+.. automodule:: iotswarm.devices
    :members:
    :undoc-members:
    :show-inheritance:
 
-iotdevicesimulator.example module
+iotswarm.example module
 ---------------------------------
 
-.. automodule:: iotdevicesimulator.example
+.. automodule:: iotswarm.example
    :members:
    :undoc-members:
    :show-inheritance:
 
-iotdevicesimulator.loggers module
+iotswarm.loggers module
 ---------------------------------
 
-.. automodule:: iotdevicesimulator.loggers
+.. automodule:: iotswarm.loggers
    :members:
    :undoc-members:
    :show-inheritance:
 
-iotdevicesimulator.queries module
+iotswarm.queries module
 ---------------------------------
 
-.. automodule:: iotdevicesimulator.queries
+.. automodule:: iotswarm.queries
    :members:
    :undoc-members:
    :show-inheritance:
 
-iotdevicesimulator.swarm module
+iotswarm.swarm module
 -------------------------------
 
-.. automodule:: iotdevicesimulator.swarm
+.. automodule:: iotswarm.swarm
    :members:
    :undoc-members:
    :show-inheritance:

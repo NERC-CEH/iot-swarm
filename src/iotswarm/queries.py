@@ -6,6 +6,8 @@ from enum import StrEnum
 
 @enum.unique
 class CosmosQuery(StrEnum):
+    """Class containing permitted SQL queries for retrieving sensor data."""
+
     LEVEL_1_SOILMET_30MIN = """SELECT * FROM COSMOS.LEVEL1_SOILMET_30MIN
 WHERE site_id = :mysite 
 ORDER BY date_time DESC 
@@ -73,6 +75,8 @@ FETCH NEXT 1 ROWS ONLY"""
 
 @enum.unique
 class CosmosSiteQuery(StrEnum):
+    """Contains permitted SQL queries for extracting site IDs from database."""
+
     LEVEL_1_SOILMET_30MIN = "SELECT UNIQUE(site_id) FROM COSMOS.LEVEL1_SOILMET_30MIN"
 
     """Queries unique site IDs from LEVEL1_SOILMET_30MIN.

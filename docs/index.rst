@@ -44,7 +44,7 @@ Install this package via pip:
 
    pip install git+https://github.com/NERC-CEH/iot-swarm.git
 
-This installs the package :python:`iotdevicesimulator` into your python environment.
+This installs the package :python:`iotswarm` into your python environment.
 
 -------------
 Using The CLI
@@ -94,9 +94,11 @@ To create an IoT Swarm you must write a script such as the following:
 
 .. code-block:: python
 
-   from iotdevicesimulator.queries import CosmosQuery
-   from iotdevicesimulator.swarm import CosmosSwarm
-   from iotdevicesimulator.mqtt.aws import IotCoreMQTTConnection
+   from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+   from iotswarm.swarm import Swarm
+   from iotswarm import devices
+   from iotswarm.messaging.aws import IotCoreMQTTConnection
+   from iotswarm import db
    import asyncio
    import config
    from pathlib import Path
@@ -118,6 +120,15 @@ To create an IoT Swarm you must write a script such as the following:
       iot_config = app_config["iot_core"]
       oracle_config = app_config["oracle"]
 
+      data_source = await db.Oracle.create(
+         oracle_config["dsn"], oracle_config["user"], oracle_config["password"]
+      )
+
+      site_query = CosmosSiteQuery.LEVEL_1_SOILMET_30MIN
+      query = CosmosQuery[site_query.name]
+
+      device_ids = await data_source.query_site_ids(site_query, max_sites=5)
+
       mqtt_connection = IotCoreMQTTConnection(
          endpoint=iot_config["endpoint"],
          cert_path=iot_config["cert_path"],
@@ -125,16 +136,15 @@ To create an IoT Swarm you must write a script such as the following:
          ca_cert_path=iot_config["ca_cert_path"],
          client_id="fdri_swarm",
       )
-      swarm = await CosmosSwarm.create(
-         CosmosQuery.LEVEL_1_SOILMET_30MIN,
-         mqtt_connection,
-         swarm_name="soilmet",
-         delay_start=True,
-         max_cycles=5,
-         max_sites=5,
-         sleep_time=30,
-         credentials=oracle_config,
-      )
+
+      device_objs = [
+         devices.CR1000XDevice(
+               site, data_source, mqtt_connection, query=query, sleep_time=5
+         )
+         for site in device_ids
+      ]
+
+      swarm = Swarm(device_objs, name="soilmet")
       await swarm.run()
 
 
@@ -142,6 +152,7 @@ To create an IoT Swarm you must write a script such as the following:
 
       config_path = str(Path(Path(__file__).parent, "__assets__", "config.cfg"))
       asyncio.run(main(config_path))
+
 
 
 This instantiates and runs a swarm of 5 sites from the COSMOS database that
