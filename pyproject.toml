@@ -13,6 +13,7 @@ dependencies = [
     "awscrt",
     "oracledb",
     "backoff",
+    "click",
 ]
 name = "iot-swarm"
 dynamic = ["version"]
