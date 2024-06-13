@@ -41,6 +41,65 @@ def main(ctx: click.Context, log_config: Path):
 main.add_command(test)
 
 
+@main.command()
+@click.pass_context
+@click.argument(
+    "client-id",
+    type=click.STRING,
+)
+@click.argument("topic", type=click.STRING)
+@click.argument("message", type=click.STRING)
+@click.option(
+    "--endpoint",
+    type=click.STRING,
+    required=True,
+    envvar="IOT_SWARM_MQTT_ENDPOINT",
+    help="Endpoint of the MQTT receiving host.",
+)
+@click.option(
+    "--cert-path",
+    type=click.Path(exists=True),
+    required=True,
+    envvar="IOT_SWARM_MQTT_CERT_PATH",
+    help="Path to public key certificate for the device. Must match key assigned to the `--client-id` in the cloud provider.",
+)
+@click.option(
+    "--key-path",
+    type=click.Path(exists=True),
+    required=True,
+    envvar="IOT_SWARM_MQTT_KEY_PATH",
+    help="Path to the private key that pairs with the `--cert-path`.",
+)
+@click.option(
+    "--ca-cert-path",
+    type=click.Path(exists=True),
+    required=True,
+    envvar="IOT_SWARM_MQTT_CA_CERT_PATH",
+    help="Path to the root Certificate Authority (CA) for the MQTT host.",
+)
+def test_mqtt(
+    ctx: click.Context,
+    message,
+    topic,
+    client_id: str,
+    endpoint: str,
+    cert_path: str,
+    key_path: str,
+    ca_cert_path: str,
+):
+    """Tests that a basic message can be sent via mqtt."""
+
+    connection = IotCoreMQTTConnection(
+        endpoint=endpoint,
+        cert_path=cert_path,
+        key_path=key_path,
+        ca_cert_path=ca_cert_path,
+        client_id=client_id,
+    )
+
+    connection.send_message(message, topic)
+
+
 @main.group()
 @click.pass_context
 @click.option(
