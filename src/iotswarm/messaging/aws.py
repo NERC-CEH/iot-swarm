@@ -2,6 +2,7 @@
 
 import awscrt
 from awscrt import mqtt
+from awsiot import mqtt_connection_builder
 import awscrt.io
 import json
 from awscrt.exceptions import AwsCrtError
@@ -95,26 +96,18 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         socket_options.keep_alive_interval_secs = 0
         socket_options.keep_alive_max_probes = 0
 
-        client_bootstrap = awscrt.io.ClientBootstrap.get_or_create_static_default()
-
-        tls_ctx = awscrt.io.ClientTlsContext(tls_ctx_options)
-        mqtt_client = awscrt.mqtt.Client(client_bootstrap, tls_ctx)
-
-        self.connection = awscrt.mqtt.Connection(
-            client=mqtt_client,
+        self.connection = mqtt_connection_builder.mtls_from_path(
+            endpoint=endpoint,
+            port=port,
+            cert_filepath=cert_path,
+            pri_key_filepath=key_path,
+            ca_filepath=ca_cert_path,
             on_connection_interrupted=self._on_connection_interrupted,
             on_connection_resumed=self._on_connection_resumed,
             client_id=client_id,
-            host_name=endpoint,
-            port=port,
-            clean_session=clean_session,
-            reconnect_min_timeout_secs=5,
-            reconnect_max_timeout_secs=60,
-            keep_alive_secs=keep_alive_secs,
-            ping_timeout_ms=3000,
-            protocol_operation_timeout_ms=0,
-            socket_options=socket_options,
-            use_websockets=False,
+            proxy_options=None,
+            clean_session=False,
+            keep_alive_secs=30,
             on_connection_success=self._on_connection_success,
             on_connection_failure=self._on_connection_failure,
             on_connection_closed=self._on_connection_closed,
@@ -215,3 +208,16 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         use_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
 
         # self._disconnect()
+
+
+if __name__ == "__main__":
+
+    conn = IotCoreMQTTConnection(
+        endpoint="a10mem0twl4qxt-ats.iot.eu-west-2.amazonaws.com",
+        cert_path="C:/Users/lewcha/OneDrive - UKCEH/Documents/FDRI/projects/iot-device-simulator/src/iotswarm/__assets__/.certs/cosmos_soilmet-certificate.pem.crt",
+        key_path="C:/Users/lewcha/OneDrive - UKCEH/Documents/FDRI/projects/iot-device-simulator/src/iotswarm/__assets__/.certs/cosmos_soilmet-private.pem.key",
+        ca_cert_path="C:/Users/lewcha/OneDrive - UKCEH/Documents/FDRI/projects/iot-device-simulator/src/iotswarm/__assets__/.certs/AmazonRootCA1.pem",
+        client_id="cosmos_soilmet",
+    )
+
+    conn.send_message("hello there", "test/topic")

@@ -8,9 +8,11 @@ dependencies = [
     "boto3",
     "autosemver",
     "config",
+    "click",
     "docutils<0.17",
     "awscli",
     "awscrt",
+    "awsiotsdk",
     "oracledb",
     "backoff",
 ]
