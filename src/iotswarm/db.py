@@ -5,6 +5,8 @@ import getpass
 import logging
 import abc
 from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+import pandas as pd
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -156,3 +158,38 @@ class Oracle(BaseDatabase):
                 data = []
 
             return data
+
+
+class LoopingCsvDB(BaseDatabase):
+    """A database that reads from csv files and loops through items
+    for a given table or site. The site and index is remembered via a
+    dictionary key and incremented each time data is requested."""
+
+    connection: pd.DataFrame
+    """Connection to the pd object holding data."""
+
+    cache: dict
+    """Cache object containing current index of each site queried."""
+
+    def __init__(self, csv_file: str | Path, *args, **kwargs):
+        """Initialises the database object.
+
+        Args:
+            csv_file: A pathlike object pointing to the datafile.
+        """
+
+        super().__init__(*args, **kwargs)
+
+        self.connection = pd.read_csv(csv_file)
+        self.cache = dict()
+
+    def query_latest_from_site(self, site_id: str) -> list:
+
+        data = self.connection.query("SITE_ID == @site_id")
+
+        if site_id not in self.cache or self.cache[site_id] >= len(data):
+            self.cache[site_id] = 1
+        else:
+            self.cache[site_id] += 1
+
+        return data.iloc[self.cache[site_id] - 1].to_dict()

@@ -15,6 +15,7 @@ dependencies = [
     "awsiotsdk",
     "oracledb",
     "backoff",
+    "pandas",
 ]
 name = "iot-swarm"
 dynamic = ["version"]

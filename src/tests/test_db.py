@@ -1,15 +1,18 @@
 import unittest
 import pytest
 import config
-import pathlib
+from pathlib import Path
 from iotswarm import db
 from iotswarm.queries import CosmosQuery, CosmosSiteQuery
 from parameterized import parameterized
 import logging
 from unittest.mock import patch
+import pandas as pd
+from glob import glob
+from math import isnan
 
-CONFIG_PATH = pathlib.Path(
-    pathlib.Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
+CONFIG_PATH = Path(
+    Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
@@ -206,6 +209,101 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             oracle2.__repr__(), expected2
         )
+
+CSV_PATH = Path(Path(__file__).parents[1], "iotswarm", "__assets__")
+CSV_DATA_FILES = [Path(x) for x in glob(str(Path(CSV_PATH, "*.csv")))]
+
+data_files_exist = pytest.mark.skipif(
+    not CSV_PATH.exists() or len(CSV_DATA_FILES) == 0,
+    reason="No data files are present"
+)
+class TestLoopingCsvDB(unittest.TestCase):
+    """Tests the LoopingCsvDB class."""
+
+    def setUp(self):
+        self.data_path = {v.name.removesuffix("_DATA_TABLE.csv"):v for v in CSV_DATA_FILES}
+        self.maxDiff = None
+    
+    @data_files_exist
+    def test_instantiation(self):
+        """Tests that the database can be instantiated."""
+
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+
+        self.assertIsInstance(database, db.LoopingCsvDB)
+        self.assertIsInstance(database, db.BaseDatabase)
+
+
+        self.assertIsInstance(database.cache, dict)
+        self.assertIsInstance(database.connection, pd.DataFrame)
+
+    @data_files_exist
+    def test_site_data_return_value(self):
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+
+        site = "MORLY"
+
+        data = database.query_latest_from_site(site)
+
+        expected_cache = {site: 1}
+        self.assertDictEqual(database.cache, expected_cache)
+
+        self.assertIsInstance(data, dict)
+    
+    @data_files_exist
+    def test_multiple_sites_added_to_cache(self):
+        sites = ["ALIC1", "MORLY", "HOLLN","EUSTN"]
+
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+
+        data = [database.query_latest_from_site(x) for x in sites]
+        
+        for i, site in enumerate(sites):
+            self.assertEqual(site, data[i]["SITE_ID"])
+            self.assertIn(site, database.cache)
+            self.assertEqual(database.cache[site], 1)
+
+    @data_files_exist
+    def test_cache_incremented_on_each_request(self):
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+
+        site = "MORLY"
+
+        expected = 1
+
+        last_data = None
+        for _ in range(10):
+            data = database.query_latest_from_site(site)
+            self.assertNotEqual(last_data, data)
+            self.assertEqual(expected, database.cache[site])
+            
+            last_data = data
+            expected += 1
+        
+        self.assertEqual(expected, 11)
+
+    @data_files_exist
+    def test_cache_counter_restarts_at_end(self):
+
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN_SHORT"])
+
+        site = "ALIC1"
+
+        expected = [1,2,3,4,1]
+        data = []
+        for e in expected:
+            data.append(database.query_latest_from_site(site))
+
+            self.assertEqual(database.cache[site], e)
+
+        for key in data[0].keys():
+            try:
+                self.assertEqual(data[0][key], data[-1][key])
+            except AssertionError as err:
+                if not isnan(data[0][key]) and isnan(data[-1][key]):
+                    raise(err)
+
+        self.assertEqual(len(expected), len(data))
 
 
 if __name__ == "__main__":
