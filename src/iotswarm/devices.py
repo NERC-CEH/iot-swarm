@@ -275,12 +275,10 @@ class BaseDevice:
             return await self.data_source.query_latest_from_site(
                 self.device_id, self.query
             )
-
-        elif isinstance(self.data_source, BaseDatabase):
-            return self.data_source.query_latest_from_site()
-
         elif isinstance(self.data_source, LoopingCsvDB):
             return self.data_source.query_latest_from_site(self.device_id)
+        elif isinstance(self.data_source, BaseDatabase):
+            return self.data_source.query_latest_from_site()
 
     def _format_payload(self, payload):
         """Oranises payload into correct structure."""

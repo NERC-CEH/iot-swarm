@@ -7,6 +7,7 @@ import abc
 from iotswarm.queries import CosmosQuery, CosmosSiteQuery
 import pandas as pd
 from pathlib import Path
+from math import nan
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +194,7 @@ class LoopingCsvDB(BaseDatabase):
             A dict of the data row.
         """
 
-        data = self.connection.query("SITE_ID == @site_id")
+        data = self.connection.query("SITE_ID == @site_id").replace({nan: None})
 
         if site_id not in self.cache or self.cache[site_id] >= len(data):
             self.cache[site_id] = 1
@@ -201,3 +202,26 @@ class LoopingCsvDB(BaseDatabase):
             self.cache[site_id] += 1
 
         return data.iloc[self.cache[site_id] - 1].to_dict()
+
+    def query_site_ids(self, max_sites: int | None = None) -> list:
+        """query_site_ids returns a list of site IDs from the database
+
+        Args:
+            max_sites: Maximum number of sites to retreive
+
+        Returns:
+            List[str]: A list of site ID strings.
+        """
+        if max_sites is not None:
+            max_sites = int(max_sites)
+            if max_sites < 0:
+                raise ValueError(
+                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
+                )
+
+        sites = self.connection["SITE_ID"].drop_duplicates().to_list()
+
+        if max_sites is not None and max_sites > 0:
+            sites = sites[:max_sites]
+
+        return sites

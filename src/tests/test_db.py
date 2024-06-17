@@ -308,6 +308,30 @@ class TestLoopingCsvDB(unittest.TestCase):
 
         self.assertEqual(len(expected), len(data))
 
+    @data_files_exist
+    def test_site_ids_can_be_retrieved(self):
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+
+        site_ids_full = database.query_site_ids()
+        site_ids_exp_full = database.query_site_ids(max_sites=0)
+
+
+        self.assertIsInstance(site_ids_full, list)
+
+        self.assertGreater(len(site_ids_full), 0)
+        for site in site_ids_full:
+            self.assertIsInstance(site, str)
+
+        self.assertEqual(len(site_ids_full), len(site_ids_exp_full))
+
+        site_ids_limit = database.query_site_ids(max_sites=5)
+
+        self.assertEqual(len(site_ids_limit), 5)
+        self.assertGreater(len(site_ids_full), len(site_ids_limit))
+
+        with self.assertRaises(ValueError):
+
+            database.query_site_ids(max_sites=-1)
 
 class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
     """Tests the LoopingCsvDB class."""
