@@ -12,3 +12,4 @@ aws-auth
 !.github/*
 docs/_*
 *.sh
+**/__assets__/**/*.csv

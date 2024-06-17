@@ -3,7 +3,10 @@ import pytest
 import config
 from pathlib import Path
 from iotswarm import db
+from iotswarm.devices import BaseDevice
+from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm.swarm import Swarm
 from parameterized import parameterized
 import logging
 from unittest.mock import patch
@@ -305,6 +308,41 @@ class TestLoopingCsvDB(unittest.TestCase):
 
         self.assertEqual(len(expected), len(data))
 
+
+class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
+    """Tests the LoopingCsvDB class."""
+
+    def setUp(self):
+        self.data_path = {v.name.removesuffix("_DATA_TABLE.csv"):v for v in CSV_DATA_FILES}
+        self.maxDiff = None
+
+    @data_files_exist
+    async def test_flow_with_device_attached(self):
+        """Tests that data is looped through with a device making requests."""
+
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+        device = BaseDevice("ALIC1", database, MockMessageConnection(), sleep_time=0, max_cycles=5)
+
+        await device.run()
+
+        self.assertDictEqual(database.cache, {"ALIC1": 6})
+
+    async def test_flow_with_swarm_attached(self):
+        """Tests that the database is looped through correctly with multiple sites in a swarm."""
+        
+        database = db.LoopingCsvDB(self.data_path["LEVEL1_SOILMET_30MIN"])
+        sites = ["MORLY", "ALIC1", "EUSTN"]
+        cycles = [1, 4, 6]
+        devices = [
+            BaseDevice(s, database, MockMessageConnection(), sleep_time=0, max_cycles=c)
+            for (s,c) in zip(sites, cycles)
+            ]
+        
+        swarm = Swarm(devices)
+
+        await swarm.run()
+
+        self.assertDictEqual(database.cache, {"MORLY": 2, "ALIC1": 5, "EUSTN": 7})
 
 if __name__ == "__main__":
     unittest.main()

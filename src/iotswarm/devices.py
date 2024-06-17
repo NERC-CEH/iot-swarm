@@ -4,7 +4,7 @@ import asyncio
 import logging
 from iotswarm import __version__ as package_version
 from iotswarm.queries import CosmosQuery
-from iotswarm.db import BaseDatabase, Oracle
+from iotswarm.db import BaseDatabase, Oracle, LoopingCsvDB
 from iotswarm.messaging.core import MessagingBaseClass
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 import random
@@ -278,6 +278,9 @@ class BaseDevice:
 
         elif isinstance(self.data_source, BaseDatabase):
             return self.data_source.query_latest_from_site()
+
+        elif isinstance(self.data_source, LoopingCsvDB):
+            return self.data_source.query_latest_from_site(self.device_id)
 
     def _format_payload(self, payload):
         """Oranises payload into correct structure."""

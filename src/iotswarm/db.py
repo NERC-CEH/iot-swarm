@@ -183,7 +183,15 @@ class LoopingCsvDB(BaseDatabase):
         self.connection = pd.read_csv(csv_file)
         self.cache = dict()
 
-    def query_latest_from_site(self, site_id: str) -> list:
+    def query_latest_from_site(self, site_id: str) -> dict:
+        """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
+        for a specific site. If the end is reached, it loops back to the start.
+
+        Args:
+            site_id: ID of the site to query for.
+        Returns:
+            A dict of the data row.
+        """
 
         data = self.connection.query("SITE_ID == @site_id")
 

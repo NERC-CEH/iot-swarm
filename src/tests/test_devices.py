@@ -217,6 +217,7 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(inst.__repr__(), expected)
 
+
 class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -289,6 +290,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
         self.assertEqual(inst.__repr__(), expected)
 
+
 class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         cred_path = str(CONFIG_PATH)
@@ -350,6 +352,7 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
         payload = await inst._get_payload()
 
         self.assertIsInstance(payload, dict)
+
 
 class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
     """Tests the active behaviour of Device objects."""
@@ -447,6 +450,7 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(payload, list)
         self.assertEqual(len(payload),0)
+
 
 class TestCr1000xDevice(unittest.TestCase):
     """Test suite for the CR1000X Device."""
