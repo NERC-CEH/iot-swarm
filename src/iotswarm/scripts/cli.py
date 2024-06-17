@@ -1,6 +1,7 @@
 """CLI exposed when the package is installed."""
 
 import click
+from iotswarm import __version__ as package_version
 from iotswarm import queries
 from iotswarm.devices import BaseDevice, CR1000XDevice
 from iotswarm.swarm import Swarm
@@ -39,6 +40,12 @@ def main(ctx: click.Context, log_config: Path):
 
 
 main.add_command(test)
+
+
+@main.command
+def get_version():
+    """Gets the package version"""
+    click.echo(package_version)
 
 
 @main.command()
