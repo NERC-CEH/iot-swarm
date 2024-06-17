@@ -351,6 +351,7 @@ class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
         self.assertDictEqual(database.cache, {"ALIC1": 6})
 
+    @data_files_exist
     async def test_flow_with_swarm_attached(self):
         """Tests that the database is looped through correctly with multiple sites in a swarm."""
         
