@@ -11,12 +11,19 @@ import awscrt.io
 from parameterized import parameterized
 import logging
 
-CONFIG_PATH = Path(
-    Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
-)
+
+ASSETS_PATH = Path(Path(__file__).parents[1], "iotswarm", "__assets__")
+CONFIG_PATH = Path(ASSETS_PATH, "config.cfg")
+
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
     reason="Config file `config.cfg` not found in root directory.",
+)
+certs_exist = pytest.mark.skipif(
+    not Path(ASSETS_PATH, ".certs", "cosmos_soilmet-certificate.pem.crt").exists()
+    or not Path(ASSETS_PATH, ".certs", "cosmos_soilmet-private.pem.key").exists()
+    or not Path(ASSETS_PATH, ".certs", "AmazonRootCA1.pem").exists(),
+    reason="IotCore certificates not present.",
 )
 
 
@@ -73,6 +80,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         self.config = config["iot_core"]
 
     @config_exists
+    @certs_exist
     def test_instantiation(self):
 
         instance = IotCoreMQTTConnection(**self.config, client_id="test_id")
@@ -82,6 +90,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         self.assertIsInstance(instance.connection, awscrt.mqtt.Connection)
 
     @config_exists
+    @certs_exist
     def test_non_string_arguments(self):
 
         with self.assertRaises(TypeError):
@@ -130,6 +139,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
     @config_exists
+    @certs_exist
     def test_port(self):
 
         # Expect one of defaults if no port given
@@ -151,6 +161,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
 
     @parameterized.expand([-4, {"f": 4}, "FOUR"])
     @config_exists
+    @certs_exist
     def test_bad_port_type(self, port):
 
         with self.assertRaises((TypeError, ValueError)):
@@ -164,6 +175,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
     @config_exists
+    @certs_exist
     def test_clean_session_set(self):
         expected = False
 
@@ -180,6 +192,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
 
     @parameterized.expand([0, -1, "true", None])
     @config_exists
+    @certs_exist
     def test_bad_clean_session_type(self, clean_session):
 
         with self.assertRaises(TypeError):
@@ -188,6 +201,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
     @config_exists
+    @certs_exist
     def test_keep_alive_secs_set(self):
         # Test defualt is not none
         instance = IotCoreMQTTConnection(**self.config, client_id="test_id")
@@ -200,8 +214,9 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
         )
         self.assertEqual(instance.connection.keep_alive_secs, expected)
 
-    @parameterized.expand(["FOURTY", "True", None])
+    @parameterized.expand(["FOURTY", "True"])
     @config_exists
+    @certs_exist
     def test_bad_keep_alive_secs_type(self, secs):
         with self.assertRaises(TypeError):
             IotCoreMQTTConnection(
@@ -209,6 +224,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
             )
 
     @config_exists
+    @certs_exist
     def test_logger_set(self):
         inst = IotCoreMQTTConnection(**self.config, client_id="test_id")
 

@@ -5,21 +5,15 @@ from iotswarm import __version__ as package_version
 from iotswarm import queries
 from iotswarm.devices import BaseDevice, CR1000XDevice
 from iotswarm.swarm import Swarm
-from iotswarm.db import Oracle, LoopingCsvDB
+from iotswarm.db import Oracle, LoopingCsvDB, LoopingSQLite3
 from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.messaging.aws import IotCoreMQTTConnection
+import iotswarm.scripts.common as cli_common
 import asyncio
 from pathlib import Path
 import logging
 
 TABLES = [table.name for table in queries.CosmosQuery]
-
-
-@click.command
-@click.pass_context
-def test(ctx: click.Context):
-    """Enables testing of cosmos group arguments."""
-    print(ctx.obj)
 
 
 @click.group()
@@ -39,7 +33,7 @@ def main(ctx: click.Context, log_config: Path):
     logging.config.fileConfig(fname=log_config)
 
 
-main.add_command(test)
+main.add_command(cli_common.test)
 
 
 @main.command
@@ -50,40 +44,7 @@ def get_version():
 
 @main.command()
 @click.pass_context
-@click.argument(
-    "client-id",
-    type=click.STRING,
-)
-@click.argument("topic", type=click.STRING)
-@click.argument("message", type=click.STRING)
-@click.option(
-    "--endpoint",
-    type=click.STRING,
-    required=True,
-    envvar="IOT_SWARM_MQTT_ENDPOINT",
-    help="Endpoint of the MQTT receiving host.",
-)
-@click.option(
-    "--cert-path",
-    type=click.Path(exists=True),
-    required=True,
-    envvar="IOT_SWARM_MQTT_CERT_PATH",
-    help="Path to public key certificate for the device. Must match key assigned to the `--client-id` in the cloud provider.",
-)
-@click.option(
-    "--key-path",
-    type=click.Path(exists=True),
-    required=True,
-    envvar="IOT_SWARM_MQTT_KEY_PATH",
-    help="Path to the private key that pairs with the `--cert-path`.",
-)
-@click.option(
-    "--ca-cert-path",
-    type=click.Path(exists=True),
-    required=True,
-    envvar="IOT_SWARM_MQTT_CA_CERT_PATH",
-    help="Path to the root Certificate Authority (CA) for the MQTT host.",
-)
+@cli_common.iotcore_options
 def test_mqtt(
     ctx: click.Context,
     message,
@@ -144,7 +105,7 @@ def cosmos(ctx: click.Context, site: str, dsn: str, user: str, password: str):
     ctx.obj["sites"] = site
 
 
-cosmos.add_command(test)
+cosmos.add_command(cli_common.test)
 
 
 @cosmos.command()
@@ -168,107 +129,14 @@ def list_sites(ctx, query, max_sites):
     click.echo(asyncio.run(_list_sites(ctx, query)))
 
 
-def common_device_options(function):
-    click.option(
-        "--sleep-time",
-        type=click.INT,
-        help="The number of seconds each site goes idle after sending a message.",
-    )(function)
-
-    click.option(
-        "--max-cycles",
-        type=click.IntRange(0),
-        help="Maximum number message sending cycles. Runs forever if set to 0.",
-    )(function)
-
-    click.option(
-        "--max-sites",
-        type=click.IntRange(0),
-        help="Maximum number of sites allowed to initialize. No limit if set to 0.",
-    )(function)
-
-    click.option(
-        "--swarm-name",
-        type=click.STRING,
-        help="Name given to swarm. Appears in the logs.",
-    )(function)
-
-    click.option(
-        "--delay-start",
-        is_flag=True,
-        default=False,
-        help="Adds a random delay before the first message from each site up to `--sleep-time`.",
-    )(function)
-
-    click.option(
-        "--device-type", type=click.Choice(["basic", "cr1000x"]), default="basic"
-    )(function)
-
-    return function
-
-
-def common_iotcore_options(function):
-    click.argument(
-        "client-id",
-        type=click.STRING,
-        required=True,
-    )(function)
-
-    click.option(
-        "--endpoint",
-        type=click.STRING,
-        required=True,
-        envvar="IOT_SWARM_MQTT_ENDPOINT",
-        help="Endpoint of the MQTT receiving host.",
-    )(function)
-
-    click.option(
-        "--cert-path",
-        type=click.Path(exists=True),
-        required=True,
-        envvar="IOT_SWARM_MQTT_CERT_PATH",
-        help="Path to public key certificate for the device. Must match key assigned to the `--client-id` in the cloud provider.",
-    )(function)
-
-    click.option(
-        "--key-path",
-        type=click.Path(exists=True),
-        required=True,
-        envvar="IOT_SWARM_MQTT_KEY_PATH",
-        help="Path to the private key that pairs with the `--cert-path`.",
-    )(function)
-
-    click.option(
-        "--ca-cert-path",
-        type=click.Path(exists=True),
-        required=True,
-        envvar="IOT_SWARM_MQTT_CA_CERT_PATH",
-        help="Path to the root Certificate Authority (CA) for the MQTT host.",
-    )(function)
-
-    click.option(
-        "--mqtt-prefix",
-        type=click.STRING,
-        help="Prefixes the MQTT topic with a string. Can augment the calculated MQTT topic returned by each site.",
-    )(function)
-
-    click.option(
-        "--mqtt-suffix",
-        type=click.STRING,
-        help="Suffixes the MQTT topic with a string. Can augment the calculated MQTT topic returned by each site.",
-    )(function)
-
-    return function
-
-
 @cosmos.command()
 @click.pass_context
 @click.argument(
     "query",
     type=click.Choice(TABLES),
 )
-@common_device_options
-@common_iotcore_options
+@cli_common.device_options
+@cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
 def mqtt(
     ctx,
@@ -369,23 +237,14 @@ def looping_csv(ctx, site, file):
     ctx.obj["sites"] = site
 
 
-looping_csv.add_command(test)
-
-
-@looping_csv.command
-@click.pass_context
-@click.option("--max-sites", type=click.IntRange(min=0), default=0)
-def list_sites(ctx, max_sites):
-    """Prints the sites present in database."""
-
-    sites = ctx.obj["db"].query_site_ids(max_sites=max_sites)
-    click.echo(sites)
+looping_csv.add_command(cli_common.test)
+looping_csv.add_command(cli_common.list_sites)
 
 
 @looping_csv.command()
 @click.pass_context
-@common_device_options
-@common_iotcore_options
+@cli_common.device_options
+@cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
 def mqtt(
     ctx,
@@ -442,6 +301,121 @@ def mqtt(
                 delay_start=delay_start,
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
+            )
+            for site in sites
+        ]
+
+        swarm = Swarm(site_devices, swarm_name)
+
+        await swarm.run()
+
+    asyncio.run(_mqtt())
+
+
+@main.group()
+@click.pass_context
+@click.option(
+    "--site",
+    type=click.STRING,
+    multiple=True,
+    help="Adds a site to be initialized. Can be invoked multiple times for other sites."
+    " Grabs all sites from database query if none provided",
+)
+@click.option(
+    "--file",
+    type=click.Path(exists=True),
+    required=True,
+    envvar="IOT_SWARM_LOCAL_DB",
+    help="*.db file used to instantiate a sqlite3 database.",
+)
+def looping_sqlite3(ctx, site, file):
+    """Instantiates a sqlite3 database as sensor source.."""
+    ctx.obj["db"] = LoopingSQLite3(file)
+    ctx.obj["sites"] = site
+
+
+looping_sqlite3.add_command(cli_common.test)
+
+
+@looping_sqlite3.command
+@click.pass_context
+@click.option("--max-sites", type=click.IntRange(min=0), default=0)
+@click.argument(
+    "query",
+    type=click.Choice(TABLES),
+)
+def list_sites(ctx, max_sites, query):
+    """Prints the sites present in database."""
+    query = queries.CosmosSiteSqliteQuery[query]
+    sites = ctx.obj["db"].query_site_ids(max_sites=max_sites, query=query)
+    click.echo(sites)
+
+
+@looping_sqlite3.command()
+@click.pass_context
+@cli_common.device_options
+@cli_common.iotcore_options
+@click.argument("query", type=click.Choice(TABLES))
+@click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
+def mqtt(
+    ctx,
+    query,
+    endpoint,
+    cert_path,
+    key_path,
+    ca_cert_path,
+    client_id,
+    sleep_time,
+    max_cycles,
+    max_sites,
+    swarm_name,
+    delay_start,
+    mqtt_prefix,
+    mqtt_suffix,
+    dry,
+    device_type,
+):
+    """Sends The cosmos data via MQTT protocol using IoT Core.
+    Data is collected from the db using QUERY and sent using CLIENT_ID.
+
+    Currently only supports sending through AWS IoT Core."""
+
+    async def _mqtt():
+
+        sites = ctx.obj["sites"]
+        db = ctx.obj["db"]
+        if len(sites) == 0:
+            sites = db.query_site_ids(
+                max_sites=max_sites, query=queries.CosmosSiteSqliteQuery[query]
+            )
+
+        if dry == True:
+            connection = MockMessageConnection()
+        else:
+            connection = IotCoreMQTTConnection(
+                endpoint=endpoint,
+                cert_path=cert_path,
+                key_path=key_path,
+                ca_cert_path=ca_cert_path,
+                client_id=client_id,
+            )
+
+        if device_type == "basic":
+            DeviceClass = BaseDevice
+        elif device_type == "cr1000x":
+            DeviceClass = CR1000XDevice
+
+        site_devices = [
+            DeviceClass(
+                site,
+                db,
+                connection,
+                sleep_time=sleep_time,
+                max_cycles=max_cycles,
+                delay_start=delay_start,
+                mqtt_prefix=mqtt_prefix,
+                mqtt_suffix=mqtt_suffix,
+                query=queries.CosmosSqliteQuery[query],
             )
             for site in sites
         ]

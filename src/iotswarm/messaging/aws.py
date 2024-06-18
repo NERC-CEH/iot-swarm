@@ -89,13 +89,6 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             if port < 0:
                 raise ValueError(f"`port` cannot be less than 0. Received: {port}.")
 
-        socket_options = awscrt.io.SocketOptions()
-        socket_options.connect_timeout_ms = 5000
-        socket_options.keep_alive = False
-        socket_options.keep_alive_timeout_secs = 0
-        socket_options.keep_alive_interval_secs = 0
-        socket_options.keep_alive_max_probes = 0
-
         self.connection = mqtt_connection_builder.mtls_from_path(
             endpoint=endpoint,
             port=port,
@@ -106,8 +99,8 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             on_connection_resumed=self._on_connection_resumed,
             client_id=client_id,
             proxy_options=None,
-            clean_session=False,
-            keep_alive_secs=30,
+            clean_session=clean_session,
+            keep_alive_secs=keep_alive_secs,
             on_connection_success=self._on_connection_success,
             on_connection_failure=self._on_connection_failure,
             on_connection_closed=self._on_connection_closed,

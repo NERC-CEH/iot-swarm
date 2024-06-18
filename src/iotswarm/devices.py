@@ -3,8 +3,8 @@
 import asyncio
 import logging
 from iotswarm import __version__ as package_version
-from iotswarm.queries import CosmosQuery
-from iotswarm.db import BaseDatabase, Oracle, LoopingCsvDB
+from iotswarm.queries import CosmosQuery, CosmosSqliteQuery
+from iotswarm.db import BaseDatabase, Oracle, LoopingCsvDB, LoopingSQLite3
 from iotswarm.messaging.core import MessagingBaseClass
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 import random
@@ -111,7 +111,7 @@ class BaseDevice:
             raise TypeError(
                 f"`data_source` must be a `BaseDatabase`. Received: {data_source}."
             )
-        if isinstance(data_source, Oracle) and query is None:
+        if isinstance(data_source, (Oracle, LoopingSQLite3)) and query is None:
             raise ValueError(
                 f"`query` must be provided if `data_source` is type `Oracle`."
             )
@@ -148,6 +148,13 @@ class BaseDevice:
             if not isinstance(query, CosmosQuery):
                 raise TypeError(
                     f"`query` must be a `CosmosQuery`. Received: {type(query)}."
+                )
+            self.query = query
+
+        if query is not None and isinstance(self.data_source, LoopingSQLite3):
+            if not isinstance(query, CosmosSqliteQuery):
+                raise TypeError(
+                    f"`query` must be a `CosmosSqliteQuery`. Received: {type(query)}."
                 )
             self.query = query
 
@@ -275,6 +282,8 @@ class BaseDevice:
             return await self.data_source.query_latest_from_site(
                 self.device_id, self.query
             )
+        elif isinstance(self.data_source, LoopingSQLite3):
+            return self.data_source.query_latest_from_site(self.device_id, self.query)
         elif isinstance(self.data_source, LoopingCsvDB):
             return self.data_source.query_latest_from_site(self.device_id)
         elif isinstance(self.data_source, BaseDatabase):
