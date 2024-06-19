@@ -4,13 +4,14 @@ import asyncio
 import logging
 from iotswarm import __version__ as package_version
 from iotswarm.queries import CosmosTable
-from iotswarm.db import BaseDatabase,CosmosDB, Oracle, LoopingCsvDB, LoopingSQLite3
+from iotswarm.db import BaseDatabase, CosmosDB, Oracle, LoopingCsvDB, LoopingSQLite3
 from iotswarm.messaging.core import MessagingBaseClass, MockMessageConnection
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 from typing import List
 from datetime import datetime
 import random
 import enum
+
 logger = logging.getLogger(__name__)
 
 
@@ -260,7 +261,9 @@ class BaseDevice:
             if payload:
                 self._instance_logger.debug("Requesting payload submission.")
                 self._send_payload(payload)
-                self._instance_logger.info(f"Message sent{f" to topic: {self.mqtt_topic}" if self.mqtt_topic else ""}")
+                self._instance_logger.info(
+                    f'Message sent{f" to topic: {self.mqtt_topic}" if self.mqtt_topic else ""}'
+                )
             else:
                 self._instance_logger.warning(f"No data found.")
 
