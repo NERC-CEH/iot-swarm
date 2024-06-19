@@ -50,24 +50,20 @@ class TestMockMessageConnection(unittest.TestCase):
 
         self.assertIsInstance(mock, MessagingBaseClass)
 
+    def test_no_logger_used(self):
+
+        with self.assertNoLogs():
+            mock = MockMessageConnection()
+            mock.send_message("")
+
     def test_logger_used(self):
-
-        mock = MockMessageConnection()
-
-        with self.assertLogs() as cm:
-            mock.send_message()
+        logger = logging.getLogger("testlogger")
+        with self.assertLogs(logger=logger, level=logging.DEBUG) as cm:
+            mock = MockMessageConnection(inherit_logger=logger)
+            mock.send_message("")
             self.assertEqual(
                 cm.output,
-                [
-                    "INFO:iotswarm.messaging.core.MockMessageConnection:Message was sent."
-                ],
-            )
-
-        with self.assertLogs() as cm:
-            mock.send_message(use_logger=logging.getLogger("mine"))
-            self.assertEqual(
-                cm.output,
-                ["INFO:mine:Message was sent."],
+                ["DEBUG:testlogger.MockMessageConnection:Message was sent."],
             )
 
 
@@ -225,7 +221,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
 
     @config_exists
     @certs_exist
-    def test_logger_set(self):
+    def test_no_logger_set(self):
         inst = IotCoreMQTTConnection(**self.config, client_id="test_id")
 
         expected = 'No message to send for topic: "mytopic".'
@@ -239,12 +235,21 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
                 ],
             )
 
-        with self.assertLogs() as cm:
-            inst.send_message(None, "mytopic", use_logger=logging.getLogger("mine"))
+    @config_exists
+    @certs_exist
+    def test_logger_set(self):
+        logger = logging.getLogger("mine")
+        inst = IotCoreMQTTConnection(
+            **self.config, client_id="test_id", inherit_logger=logger
+        )
+
+        expected = 'No message to send for topic: "mytopic".'
+        with self.assertLogs(logger=logger, level=logging.INFO) as cm:
+            inst.send_message(None, "mytopic")
 
             self.assertEqual(
                 cm.output,
-                [f"ERROR:mine:{expected}"],
+                [f"ERROR:mine.IotCoreMQTTConnection.client-test_id:{expected}"],
             )
 
 

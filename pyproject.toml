@@ -56,7 +56,7 @@ omit = [
     "*__init__.py",
     "queries.py",
     "loggers.py",
-    "scripts/*",
+    "**/scripts/*.py",
     "**/build_database.py",
     "utils.py",
 ]

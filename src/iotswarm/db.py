@@ -6,15 +6,12 @@ import logging
 import abc
 from iotswarm.queries import (
     CosmosQuery,
-    CosmosSiteQuery,
-    CosmosSiteSqliteQuery,
-    CosmosSqliteQuery,
+    CosmosTable,
 )
 import pandas as pd
 from pathlib import Path
 from math import nan
 import sqlite3
-from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -60,30 +57,28 @@ class CosmosDB(BaseDatabase):
     connection: object
     """Connection to database."""
 
+    site_data_query: CosmosQuery
+    """SQL query for retrieving a single record."""
+
+    site_id_query: CosmosQuery
+    """SQL query for retrieving list of site IDs"""
+
     @staticmethod
-    def _validate_query(
-        query: (
-            CosmosQuery | CosmosSiteQuery | CosmosSqliteQuery | CosmosSiteSqliteQuery
-        ),
-        expected: (
-            CosmosQuery
-            | CosmosSiteQuery
-            | CosmosSqliteQuery
-            | CosmosSiteSqliteQuery
-            | List[
-                CosmosQuery
-                | CosmosSiteQuery
-                | CosmosSqliteQuery
-                | CosmosSiteSqliteQuery
-            ]
-        ),
-    ) -> None:
+    def _validate_table(table: CosmosTable) -> None:
         """Validates that the query is legal"""
 
-        if not isinstance(query, expected):
+        if not isinstance(table, CosmosTable):
             raise TypeError(
-                f"`query` must be one of {expected} Enum, not a `{type(query)}`"
+                f"`table` must be a `{CosmosTable.__class__}` Enum, not a `{type(table)}`"
             )
+
+    @staticmethod
+    def _fill_query(query: str, table: CosmosTable) -> str:
+        """Fills a query string with a CosmosTable enum."""
+
+        CosmosDB._validate_table(table)
+
+        return query.format(table=table.value)
 
     @staticmethod
     def _validate_max_sites(max_sites: int) -> int:
@@ -111,6 +106,10 @@ class Oracle(CosmosDB):
     connection: oracledb.Connection
     """Connection to oracle database."""
 
+    site_data_query = CosmosQuery.ORACLE_LATEST_DATA
+
+    site_id_query = CosmosQuery.ORACLE_SITE_IDS
+
     def __repr__(self):
         parent_repr = (
             super().__repr__().lstrip(f"{self.__class__.__name__}(").rstrip(")")
@@ -125,7 +124,14 @@ class Oracle(CosmosDB):
         )
 
     @classmethod
-    async def create(cls, dsn: str, user: str, password: str = None, **kwargs):
+    async def create(
+        cls,
+        dsn: str,
+        user: str,
+        password: str = None,
+        inherit_logger: logging.Logger | None = None,
+        **kwargs,
+    ):
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `Oracle.create(...)`.
 
@@ -133,6 +139,7 @@ class Oracle(CosmosDB):
             dsn: Oracle data source name.
             user: Username used for query.
             pw: User password for auth.
+            inherit_logger: Uses the given logger if provided
         """
 
         if not password:
@@ -144,26 +151,31 @@ class Oracle(CosmosDB):
             dsn=dsn, user=user, password=password
         )
 
+        if inherit_logger is not None:
+            self._instance_logger = inherit_logger.getChild(self.__class__.__name__)
+        else:
+            self._instance_logger = logger.getChild(self.__class__.__name__)
+
         self._instance_logger.info("Initialized Oracle connection.")
 
         return self
 
-    async def query_latest_from_site(self, site_id: str, query: CosmosQuery) -> dict:
+    async def query_latest_from_site(self, site_id: str, table: CosmosTable) -> dict:
         """Requests the latest data from a table for a specific site.
 
         Args:
             site_id: ID of the site to retrieve records from.
-            query: Query to parse and submit.
+            table: A valid table from the database
 
         Returns:
             dict | None: A dict containing the database columns as keys, and the values as values.
                 Returns `None` if no data retrieved.
         """
 
-        self._validate_query(query, CosmosQuery)
+        query = self._fill_query(self.site_data_query, table)
 
         with self.connection.cursor() as cursor:
-            await cursor.execute(query.value, site_id=site_id)
+            await cursor.execute(query, site_id=site_id)
 
             columns = [i[0] for i in cursor.description]
             data = await cursor.fetchone()
@@ -174,24 +186,24 @@ class Oracle(CosmosDB):
             return dict(zip(columns, data))
 
     async def query_site_ids(
-        self, query: CosmosSiteQuery, max_sites: int | None = None
+        self, table: CosmosTable, max_sites: int | None = None
     ) -> list:
         """query_site_ids returns a list of site IDs from COSMOS database
 
         Args:
-            query: The query to run.
+            table: A valid table from the database
             max_sites: Maximum number of sites to retreive
 
         Returns:
             List[str]: A list of site ID strings.
         """
 
-        self._validate_query(query, CosmosSiteQuery)
-
         max_sites = self._validate_max_sites(max_sites)
 
+        query = self._fill_query(self.site_id_query, table)
+
         async with self.connection.cursor() as cursor:
-            await cursor.execute(query.value)
+            await cursor.execute(query)
 
             data = await cursor.fetchall()
             if max_sites == 0:
@@ -282,6 +294,10 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
     connection: sqlite3.Connection
     """Connection to the database."""
 
+    site_data_query = CosmosQuery.SQLITE_LOOPED_DATA
+
+    site_id_query = CosmosQuery.SQLITE_SITE_IDS
+
     @staticmethod
     def _get_connection(*args) -> sqlite3.Connection:
         """Gets a database connection."""
@@ -298,17 +314,17 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
 
         self.cursor = self.connection.cursor()
 
-    def query_latest_from_site(self, site_id: str, query: CosmosSqliteQuery) -> dict:
+    def query_latest_from_site(self, site_id: str, table: CosmosTable) -> dict:
         """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
         for a specific site. If the end is reached, it loops back to the start.
 
         Args:
             site_id: ID of the site to query for.
-            query: A valid query object.
+            table: A valid table from the database
         Returns:
             A dict of the data row.
         """
-        self._validate_query(query, CosmosSqliteQuery)
+        query = self._fill_query(self.site_data_query, table)
 
         if site_id not in self.cache:
             self.cache[site_id] = 0
@@ -328,11 +344,11 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
 
         return data
 
-    def _query_latest_from_site(self, query: CosmosQuery, arg_dict) -> dict:
+    def _query_latest_from_site(self, query, arg_dict: dict) -> dict:
         """Requests the latest data from a table for a specific site.
 
         Args:
-            query: Query to parse and submit.
+            table: A valid table from the database
             arg_dict: Dictionary of query arguments.
 
         Returns:
@@ -340,7 +356,7 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
                 Returns `None` if no data retrieved.
         """
 
-        self.cursor.execute(query.value, arg_dict)
+        self.cursor.execute(query, arg_dict)
 
         columns = [i[0] for i in self.cursor.description]
         data = self.cursor.fetchone()
@@ -350,26 +366,24 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
 
         return dict(zip(columns, data))
 
-    def query_site_ids(
-        self, query: CosmosSiteSqliteQuery, max_sites: int | None = None
-    ) -> list:
+    def query_site_ids(self, table: CosmosTable, max_sites: int | None = None) -> list:
         """query_site_ids returns a list of site IDs from COSMOS database
 
         Args:
-            query: The query to run.
+            table: A valid table from the database
             max_sites: Maximum number of sites to retreive
 
         Returns:
             List[str]: A list of site ID strings.
         """
 
-        self._validate_query(query, CosmosSiteSqliteQuery)
+        query = self._fill_query(self.site_id_query, table)
 
         max_sites = self._validate_max_sites(max_sites)
 
         try:
             cursor = self.connection.cursor()
-            cursor.execute(query.value)
+            cursor.execute(query)
 
             data = cursor.fetchall()
             if max_sites == 0:

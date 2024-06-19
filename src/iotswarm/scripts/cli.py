@@ -2,7 +2,7 @@
 
 import click
 from iotswarm import __version__ as package_version
-from iotswarm import queries
+from iotswarm.queries import CosmosTable
 from iotswarm.devices import BaseDevice, CR1000XDevice
 from iotswarm.swarm import Swarm
 from iotswarm.db import Oracle, LoopingCsvDB, LoopingSQLite3
@@ -13,7 +13,7 @@ import asyncio
 from pathlib import Path
 import logging
 
-TABLES = [table.name for table in queries.CosmosQuery]
+TABLE_NAMES = [table.name for table in CosmosTable]
 
 
 @click.group()
@@ -23,14 +23,31 @@ TABLES = [table.name for table in queries.CosmosQuery]
     type=click.Path(exists=True),
     help="Path to a logging config file. Uses default if not given.",
 )
-def main(ctx: click.Context, log_config: Path):
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    help="Overrides the logging level.",
+    envvar="IOT_SWARM_LOG_LEVEL",
+)
+def main(ctx: click.Context, log_config: Path, log_level: str):
     """Core group of the cli."""
     ctx.ensure_object(dict)
 
-    if not log_config:
+    if log_config:
+        click.echo("Using supplied logger.")
+    else:
         log_config = Path(Path(__file__).parents[1], "__assets__", "loggers.ini")
 
     logging.config.fileConfig(fname=log_config)
+    logger = logging.getLogger(__name__)
+
+    if log_level:
+        logger.setLevel(log_level)
+        click.echo(f"Set log level to {log_level}.")
+
+    ctx.obj["logger"] = logger
 
 
 main.add_command(cli_common.test)
@@ -46,7 +63,7 @@ def get_version():
 @click.pass_context
 @cli_common.iotcore_options
 def test_mqtt(
-    ctx: click.Context,
+    ctx,
     message,
     topic,
     client_id: str,
@@ -63,6 +80,7 @@ def test_mqtt(
         key_path=key_path,
         ca_cert_path=ca_cert_path,
         client_id=client_id,
+        inherit_logger=ctx.obj["logger"],
     )
 
     connection.send_message(message, topic)
@@ -110,37 +128,36 @@ cosmos.add_command(cli_common.test)
 
 @cosmos.command()
 @click.pass_context
-@click.argument("query", type=click.Choice(TABLES))
+@click.argument("table", type=click.Choice(TABLE_NAMES))
 @click.option("--max-sites", type=click.IntRange(min=0), default=0)
-def list_sites(ctx, query, max_sites):
-    """Lists site IDs from the database from table QUERY."""
+def list_sites(ctx, table, max_sites):
+    """Lists unique `site_id` from an oracle database table."""
 
-    async def _list_sites(ctx, query):
+    async def _list_sites():
         oracle = await Oracle.create(
             dsn=ctx.obj["credentials"]["dsn"],
             user=ctx.obj["credentials"]["user"],
             password=ctx.obj["credentials"]["password"],
+            inherit_logger=ctx.obj["logger"],
         )
-        sites = await oracle.query_site_ids(
-            queries.CosmosSiteQuery[query], max_sites=max_sites
-        )
+        sites = await oracle.query_site_ids(CosmosTable[table], max_sites=max_sites)
         return sites
 
-    click.echo(asyncio.run(_list_sites(ctx, query)))
+    click.echo(asyncio.run(_list_sites()))
 
 
 @cosmos.command()
 @click.pass_context
 @click.argument(
-    "query",
-    type=click.Choice(TABLES),
+    "table",
+    type=click.Choice(TABLE_NAMES),
 )
 @cli_common.device_options
 @cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
 def mqtt(
     ctx,
-    query,
+    table,
     endpoint,
     cert_path,
     key_path,
@@ -157,26 +174,25 @@ def mqtt(
     device_type,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
-    Data is collected from the db using QUERY and sent using CLIENT_ID.
+    Data is from the cosmos database TABLE and sent using CLIENT_ID.
 
     Currently only supports sending through AWS IoT Core."""
+    table = CosmosTable[table]
 
     async def _mqtt():
         oracle = await Oracle.create(
             dsn=ctx.obj["credentials"]["dsn"],
             user=ctx.obj["credentials"]["user"],
             password=ctx.obj["credentials"]["password"],
+            inherit_logger=ctx.obj["logger"],
         )
-
-        data_query = queries.CosmosQuery[query]
-        site_query = queries.CosmosSiteQuery[query]
 
         sites = ctx.obj["sites"]
         if len(sites) == 0:
-            sites = await oracle.query_site_ids(site_query, max_sites=max_sites)
+            sites = await oracle.query_site_ids(table, max_sites=max_sites)
 
         if dry == True:
-            connection = MockMessageConnection()
+            connection = MockMessageConnection(inherit_logger=ctx.obj["logger"])
         else:
             connection = IotCoreMQTTConnection(
                 endpoint=endpoint,
@@ -184,6 +200,7 @@ def mqtt(
                 key_path=key_path,
                 ca_cert_path=ca_cert_path,
                 client_id=client_id,
+                inherit_logger=ctx.obj["logger"],
             )
 
         if device_type == "basic":
@@ -197,11 +214,12 @@ def mqtt(
                 oracle,
                 connection,
                 sleep_time=sleep_time,
-                query=data_query,
+                table=table,
                 max_cycles=max_cycles,
                 delay_start=delay_start,
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
+                inherit_logger=ctx.obj["logger"],
             )
             for site in sites
         ]
@@ -268,6 +286,8 @@ def mqtt(
 
     Currently only supports sending through AWS IoT Core."""
 
+    table = CosmosTable[table]
+
     async def _mqtt():
 
         sites = ctx.obj["sites"]
@@ -276,7 +296,7 @@ def mqtt(
             sites = db.query_site_ids(max_sites=max_sites)
 
         if dry == True:
-            connection = MockMessageConnection()
+            connection = MockMessageConnection(inherit_logger=ctx.obj["logger"])
         else:
             connection = IotCoreMQTTConnection(
                 endpoint=endpoint,
@@ -284,6 +304,7 @@ def mqtt(
                 key_path=key_path,
                 ca_cert_path=ca_cert_path,
                 client_id=client_id,
+                inherit_logger=ctx.obj["logger"],
             )
 
         if device_type == "basic":
@@ -301,6 +322,7 @@ def mqtt(
                 delay_start=delay_start,
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
+                inherit_logger=ctx.obj["logger"],
             )
             for site in sites
         ]
@@ -341,13 +363,12 @@ looping_sqlite3.add_command(cli_common.test)
 @click.pass_context
 @click.option("--max-sites", type=click.IntRange(min=0), default=0)
 @click.argument(
-    "query",
-    type=click.Choice(TABLES),
+    "table",
+    type=click.Choice(TABLE_NAMES),
 )
-def list_sites(ctx, max_sites, query):
+def list_sites(ctx, max_sites, table):
     """Prints the sites present in database."""
-    query = queries.CosmosSiteSqliteQuery[query]
-    sites = ctx.obj["db"].query_site_ids(max_sites=max_sites, query=query)
+    sites = ctx.obj["db"].query_site_ids(table, max_sites=max_sites)
     click.echo(sites)
 
 
@@ -355,11 +376,11 @@ def list_sites(ctx, max_sites, query):
 @click.pass_context
 @cli_common.device_options
 @cli_common.iotcore_options
-@click.argument("query", type=click.Choice(TABLES))
+@click.argument("table", type=click.Choice(TABLE_NAMES))
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
 def mqtt(
     ctx,
-    query,
+    table,
     endpoint,
     cert_path,
     key_path,
@@ -380,17 +401,17 @@ def mqtt(
 
     Currently only supports sending through AWS IoT Core."""
 
+    table = CosmosTable[table]
+
     async def _mqtt():
 
         sites = ctx.obj["sites"]
         db = ctx.obj["db"]
         if len(sites) == 0:
-            sites = db.query_site_ids(
-                max_sites=max_sites, query=queries.CosmosSiteSqliteQuery[query]
-            )
+            sites = db.query_site_ids(table, max_sites=max_sites)
 
         if dry == True:
-            connection = MockMessageConnection()
+            connection = MockMessageConnection(inherit_logger=ctx.obj["logger"])
         else:
             connection = IotCoreMQTTConnection(
                 endpoint=endpoint,
@@ -398,6 +419,7 @@ def mqtt(
                 key_path=key_path,
                 ca_cert_path=ca_cert_path,
                 client_id=client_id,
+                inherit_logger=ctx.obj["logger"],
             )
 
         if device_type == "basic":
@@ -415,7 +437,8 @@ def mqtt(
                 delay_start=delay_start,
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
-                query=queries.CosmosSqliteQuery[query],
+                table=table,
+                inherit_logger=ctx.obj["logger"],
             )
             for site in sites
         ]

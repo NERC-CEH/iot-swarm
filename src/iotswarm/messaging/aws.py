@@ -35,6 +35,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         port: int | None = None,
         clean_session: bool = False,
         keep_alive_secs: int = 1200,
+        inherit_logger: logging.Logger | None = None,
         **kwargs,
     ) -> None:
         """Initializes the class.
@@ -48,7 +49,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             port: Port used by endpoint. Guesses correct port if not given.
             clean_session: Builds a clean MQTT session if true. Defaults to False.
             keep_alive_secs: Time to keep connection alive. Defaults to 1200.
-            topic_prefix: A topic prefixed to MQTT topic, useful for attaching a "Basic Ingest" rule. Defaults to None.
+            inherit_logger: Override for the module logger.
         """
 
         if not isinstance(endpoint, str):
@@ -106,9 +107,14 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             on_connection_closed=self._on_connection_closed,
         )
 
-        self._instance_logger = logger.getChild(
-            f"{self.__class__.__name__}.client-{client_id}"
-        )
+        if inherit_logger is not None:
+            self._instance_logger = inherit_logger.getChild(
+                f"{self.__class__.__name__}.client-{client_id}"
+            )
+        else:
+            self._instance_logger = logger.getChild(
+                f"{self.__class__.__name__}.client-{client_id}"
+            )
 
     def _on_connection_interrupted(
         self, connection, error, **kwargs
@@ -168,23 +174,15 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(
-        self, message: dict, topic: str, use_logger: logging.Logger | None = None
-    ) -> None:
+    def send_message(self, message: dict, topic: str) -> None:
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
-            use_logger: Sends log message with requested logger.
         """
-        if use_logger is not None and isinstance(use_logger, logging.Logger):
-            use_logger = use_logger
-        else:
-            use_logger = self._instance_logger
-
         if not message:
-            use_logger.error(f'No message to send for topic: "{topic}".')
+            self._instance_logger.error(f'No message to send for topic: "{topic}".')
             return
 
         if self.connected_flag == False:
@@ -198,19 +196,4 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
 
-        use_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
-
-        # self._disconnect()
-
-
-if __name__ == "__main__":
-
-    conn = IotCoreMQTTConnection(
-        endpoint="a10mem0twl4qxt-ats.iot.eu-west-2.amazonaws.com",
-        cert_path="C:/Users/lewcha/OneDrive - UKCEH/Documents/FDRI/projects/iot-device-simulator/src/iotswarm/__assets__/.certs/cosmos_soilmet-certificate.pem.crt",
-        key_path="C:/Users/lewcha/OneDrive - UKCEH/Documents/FDRI/projects/iot-device-simulator/src/iotswarm/__assets__/.certs/cosmos_soilmet-private.pem.key",
-        ca_cert_path="C:/Users/lewcha/OneDrive - UKCEH/Documents/FDRI/projects/iot-device-simulator/src/iotswarm/__assets__/.certs/AmazonRootCA1.pem",
-        client_id="cosmos_soilmet",
-    )
-
-    conn.send_message("hello there", "test/topic")
+        self._instance_logger.debug(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')

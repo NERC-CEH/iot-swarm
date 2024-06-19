@@ -5,7 +5,7 @@ from pathlib import Path
 from iotswarm import db
 from iotswarm.devices import BaseDevice
 from iotswarm.messaging.core import MockMessageConnection
-from iotswarm.queries import CosmosQuery, CosmosSiteQuery, CosmosSqliteQuery, CosmosSiteSqliteQuery
+from iotswarm.queries import CosmosTable
 from iotswarm.swarm import Swarm
 from parameterized import parameterized
 import logging
@@ -23,6 +23,7 @@ config_exists = pytest.mark.skipif(
     reason="Config file `config.cfg` not found in root directory.",
 )
 
+COSMOS_TABLES = list(CosmosTable)
 class TestBaseDatabase(unittest.TestCase):
 
     @patch.multiple(db.BaseDatabase, __abstractmethods__=set())
@@ -66,22 +67,23 @@ class TestMockDB(unittest.TestCase):
 
         self.assertEqual(inst._instance_logger.parent, expected)
 
-    @parameterized.expand(
-        [
-            [None, "MockDB()"],
-            [
-                logging.getLogger("notroot"),
-                "MockDB(inherit_logger=<Logger notroot (WARNING)>)",
-            ],
-        ]
-    )
-    def test__repr__(self, logger, expected):
+    
+    def test__repr__no_logger(self):
 
-        inst = db.MockDB(inherit_logger=logger)
+        inst = db.MockDB()
 
-        self.assertEqual(inst.__repr__(), expected)
+        self.assertEqual(inst.__repr__(), "MockDB()")
 
+    def test__repr__logger_given(self):
+        logger = logging.getLogger("testdblogger")
+        logger.setLevel(logging.CRITICAL)
 
+        expected = "MockDB(inherit_logger=<Logger testdblogger (CRITICAL)>)"
+
+        mock = db.MockDB(inherit_logger=logger)
+        self.assertEqual(mock.__repr__(), expected)
+
+        
 class TestOracleDB(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
@@ -94,6 +96,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
             creds["user"],
             password=creds["password"],
         )
+        self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
 
     async def asyncTearDown(self) -> None:
         await self.oracle.connection.close()
@@ -111,25 +114,19 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
     async def test_latest_data_query(self):
 
         site_id = "MORLY"
-        query = CosmosQuery.LEVEL_1_SOILMET_30MIN
 
-        row = await self.oracle.query_latest_from_site(site_id, query)
+        row = await self.oracle.query_latest_from_site(site_id, self.table)
 
         self.assertEqual(row["SITE_ID"], site_id)
 
-    @parameterized.expand([
-            CosmosSiteQuery.LEVEL_1_NMDB_1HOUR,
-            CosmosSiteQuery.LEVEL_1_SOILMET_30MIN,
-            CosmosSiteQuery.LEVEL_1_PRECIP_1MIN,
-            CosmosSiteQuery.LEVEL_1_PRECIP_RAINE_1MIN,
-        ])
+    @parameterized.expand(COSMOS_TABLES)
     @pytest.mark.oracle
     @pytest.mark.asyncio
     @pytest.mark.slow
     @config_exists
-    async def test_site_id_query(self,query):
+    async def test_site_id_query(self, table):
 
-        sites = await self.oracle.query_site_ids(query)
+        sites = await self.oracle.query_site_ids(table)
 
         self.assertIsInstance(sites, list)
 
@@ -145,9 +142,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
     @config_exists
     async def test_site_id_query_max_sites(self, max_sites):
 
-        query = CosmosSiteQuery.LEVEL_1_SOILMET_30MIN
-
-        sites = await self.oracle.query_site_ids(query, max_sites=max_sites)
+        sites = await self.oracle.query_site_ids(self.table, max_sites=max_sites)
 
         self.assertEqual(len(sites), max_sites)
 
@@ -155,33 +150,33 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists
-    async def test_bad_latest_data_query_type(self):
+    async def test_bad_latest_data_table_type(self):
 
         site_id = "MORLY"
-        query = "sql injection goes brr"
+        table = "sql injection goes brr"
 
         with self.assertRaises(TypeError):
-            await self.oracle.query_latest_from_site(site_id, query)
+            await self.oracle.query_latest_from_site(site_id, table)
 
     @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists
-    async def test_bad_site_query_type(self):
+    async def test_bad_site_table_type(self):
 
-        query = "sql injection goes brr"
+        table = "sql injection goes brr"
 
         with self.assertRaises(TypeError):
-            await self.oracle.query_site_ids(query)
+            await self.oracle.query_site_ids(table)
 
     @parameterized.expand([-1, -100, "STRING"])
     @pytest.mark.asyncio
     @pytest.mark.oracle
     @config_exists
-    async def test_bad_site_query_max_sites_type(self, max_sites):
+    async def test_bad_site_table_max_sites_type(self, max_sites):
         """Tests bad values for max_sites."""
 
         with self.assertRaises((TypeError,ValueError)):
-            await self.oracle.query_site_ids(CosmosSiteQuery.LEVEL_1_SOILMET_30MIN, max_sites=max_sites)
+            await self.oracle.query_site_ids(self.table, max_sites=max_sites)
 
     @pytest.mark.asyncio
     @pytest.mark.oracle
@@ -189,7 +184,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
     async def test__repr__(self):
         """Tests string representation."""
 
-        oracle1 = self.oracle = await db.Oracle.create(
+        oracle1 = await db.Oracle.create(
             self.creds["dsn"],
             self.creds["user"],
             password=self.creds["password"],
@@ -200,7 +195,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
             oracle1.__repr__(), expected1
         )
 
-        oracle2 = self.oracle = await db.Oracle.create(
+        oracle2 = await db.Oracle.create(
             self.creds["dsn"],
             self.creds["user"],
             password=self.creds["password"],
@@ -387,6 +382,7 @@ class TestSqliteDB(unittest.TestCase):
 
     def setUp(self):
         self.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
+        self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
         self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None
     
@@ -397,19 +393,16 @@ class TestSqliteDB(unittest.TestCase):
     @pytest.mark.slow
     def test_latest_data(self):
 
-        query = CosmosSqliteQuery.LEVEL_1_SOILMET_30MIN
         site_id = "MORLY"
 
-        data = self.database.query_latest_from_site(site_id, query)
+        data = self.database.query_latest_from_site(site_id, self.table)
 
         self.assertIsInstance(data, dict)
 
     @pytest.mark.slow
     def test_site_id_query(self):
 
-        query = CosmosSiteSqliteQuery.LEVEL_1_SOILMET_30MIN
-
-        sites = self.database.query_site_ids(query)
+        sites = self.database.query_site_ids(self.table)
 
         self.assertGreater(len(sites), 0)
 
@@ -422,7 +415,7 @@ class TestSqliteDB(unittest.TestCase):
     def test_multiple_sites_added_to_cache(self):
         sites = ["ALIC1", "MORLY", "HOLLN","EUSTN"]
 
-        data = [self.database.query_latest_from_site(x, CosmosSqliteQuery.LEVEL_1_SOILMET_30MIN) for x in sites]
+        data = [self.database.query_latest_from_site(x, self.table) for x in sites]
         
         for i, site in enumerate(sites):
             self.assertEqual(site, data[i]["SITE_ID"])
@@ -439,7 +432,7 @@ class TestSqliteDB(unittest.TestCase):
                 self.assertEqual(self.database.cache, {})
             else:
                 self.assertEqual(i-1, self.database.cache[site])
-            data = self.database.query_latest_from_site(site, CosmosSqliteQuery.LEVEL_1_PRECIP_1MIN)
+            data = self.database.query_latest_from_site(site, self.table)
             self.assertNotEqual(last_data, data)
             
             last_data = data
@@ -453,7 +446,7 @@ class TestSqliteDB(unittest.TestCase):
         expected = [0,1,2,3,0]
         data = []
         for e in expected:
-            data.append(database.query_latest_from_site(site, CosmosSqliteQuery.LEVEL_1_SOILMET_30MIN))
+            data.append(database.query_latest_from_site(site, self.table))
 
             self.assertEqual(database.cache[site], e)
 
@@ -468,12 +461,13 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
         self.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
         self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None
+        self.table = CosmosTable.LEVEL_1_PRECIP_1MIN
 
     @pytest.mark.slow
     async def test_flow_with_device_attached(self):
         """Tests that data is looped through with a device making requests."""
 
-        device = BaseDevice("ALIC1", self.database, MockMessageConnection(), query=CosmosSqliteQuery.LEVEL_1_SOILMET_30MIN, sleep_time=0, max_cycles=5)
+        device = BaseDevice("ALIC1", self.database, MockMessageConnection(), table=self.table, sleep_time=0, max_cycles=5)
 
         await device.run()
 
@@ -486,7 +480,7 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
         sites = ["MORLY", "ALIC1", "EUSTN"]
         cycles = [1, 2, 3]
         devices = [
-            BaseDevice(s, self.database, MockMessageConnection(), sleep_time=0, max_cycles=c,query=CosmosSqliteQuery.LEVEL_1_SOILMET_30MIN)
+            BaseDevice(s, self.database, MockMessageConnection(), sleep_time=0, max_cycles=c,table=self.table)
             for (s,c) in zip(sites, cycles)
             ]
         
