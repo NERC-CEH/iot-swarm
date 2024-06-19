@@ -29,10 +29,6 @@ docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 [project.scripts]
 iot-swarm = "iotswarm.scripts.cli:main"
 
-[tool.setuptools]
-include-package-data = false
-package-data = {}
-
 [tool.setuptools.dynamic]
 version = { attr = "iotswarm.__version__" }
 
@@ -41,6 +37,9 @@ version = { attr = "iotswarm.__version__" }
 where = ["src"]
 include = ["iotswarm*"]
 exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"iotswarm.__assets__" = ["loggers.ini"]
 
 [tool.pytest.ini_options]
 
