@@ -1,1 +1,9 @@
 *.db filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+src/iotswarm/__assets__/data/LEVEL_1_PRECIP_RAINE_1MIN_DATA_TABLE.csv filter=lfs diff=lfs merge=lfs -text
+src/iotswarm/__assets__/data/LEVEL_1_SOILMET_30MIN_DATA_TABLE.csv filter=lfs diff=lfs merge=lfs -text
+src/iotswarm/__assets__/data/LEVEL_1_NMDB_1HOUR_DATA_TABLE.csv filter=lfs diff=lfs merge=lfs -text
+src/iotswarm/__assets__/data/LEVEL_1_PRECIP_1MIN_DATA_TABLE.csv filter=lfs diff=lfs merge=lfs -text
+src/tests/data/ALIC1_4_ROWS.csv filter=lfs diff=lfs merge=lfs -text
+src/tests/data/database.db filter=lfs diff=lfs merge=lfs -text
+src/iotswarm/__assets__/data/cosmos.db filter=lfs diff=lfs merge=lfs -text
