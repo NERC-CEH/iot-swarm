@@ -286,8 +286,6 @@ def mqtt(
 
     Currently only supports sending through AWS IoT Core."""
 
-    table = CosmosTable[table]
-
     async def _mqtt():
 
         sites = ctx.obj["sites"]
