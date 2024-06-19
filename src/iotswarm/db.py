@@ -289,7 +289,9 @@ class LoopingCsvDB(BaseDatabase):
 
 class LoopingSQLite3(CosmosDB, LoopingCsvDB):
     """A database that reads from .db files using sqlite3 and loops through
-    entries in datetime order."""
+    entries in sequential order. There is a script that generates the .db file
+    in the `__assets__/data` directory relative to this file. .csv datasets should
+    be downloaded from the accompanying S3 bucket before running."""
 
     connection: sqlite3.Connection
     """Connection to the database."""

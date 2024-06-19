@@ -14,6 +14,7 @@
    :caption: Contents:
 
    self
+   source/cli
    source/modules
    genindex
    modindex
@@ -57,7 +58,7 @@ intialise a swarm with data sent every 30 minutes like so:
 .. code-block:: shell
 
    iot-swarm cosmos --dsn="xxxxxx" --user="xxxxx" --password="*****" \
-      mqtt "aws" LEVEL_1_SOILMET_30MIN "client_id" \
+      mqtt LEVEL_1_SOILMET_30MIN "client_id" \
          --endpoint="xxxxxxx" \
          --cert-path="C:\path\..." \
          --key-path="C:\path\..." \
@@ -84,7 +85,7 @@ Then the CLI can be called more cleanly:
 
 .. code-block:: shell
 
-   iot-swarm cosmos mqtt "aws" LEVEL_1_SOILMET_30MIN "client_id" --sleep-time=1800 --swarm-name="my-swarm"
+   iot-swarm cosmos mqtt LEVEL_1_SOILMET_30MIN "client_id" --sleep-time=1800 --swarm-name="my-swarm"
 
 ------------------------
 Using the Python Modules
@@ -162,6 +163,31 @@ The system expects config credentials for the MQTT endpoint and the COSMOS Oracl
 
 .. include:: example-config.cfg
 
+
+-------------------------------------------
+Looping Through a local database / csv file
+-------------------------------------------
+
+This package now supports using a CSV file or local SQLite database as the data source.
+There are 2 modules to support it: `db.LoopingCsvDB` and `db.LoopingSQLite3`. Each of them
+initializes from a local file and loops through the data for a given site id. The database
+objects store an in memory cache of each site ID and it's current index in the database.
+Once the end is reached, it loops back to the start for that site.
+
+For use in FDRI, 6 months of data was downloaded to CSV from the COSMOS-UK database, but
+the files are too large to be included in this repo, so they are stored in the `ukceh-fdri`
+`S3` bucket on AWS. There are scripts for regenerating the `.db` file in this repo:
+
+* `./src/iotswarm/__assets__/data/build_database.py`
+* `./src/tests/data/build_database.py`
+
+To use the 'official' data, it should be downloaded from the `S3` bucket and placed in
+`./src/iotswarm/__assets__/data` before running the script. This will build a `.db` file
+sorted in datetime order that the `LoopingSQLite3` class can operate with.
+
+.. warning:: 
+   The looping database classes assume that their data files are sorted, and make no
+   attempt to sort it themselves.
 
 Indices and tables
 ==================

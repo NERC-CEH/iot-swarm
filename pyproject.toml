@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools >= 61.0", "autosemver"]
-build-backend = "setuptools.build_meta"
+# build-backend = "setuptools.build_meta"
 
 [project]
 dependencies = [
@@ -28,14 +28,19 @@ docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 
 [project.scripts]
 iot-swarm = "iotswarm.scripts.cli:main"
+
+[tool.setuptools]
+include-package-data = false
+package-data = {}
+
 [tool.setuptools.dynamic]
 version = { attr = "iotswarm.__version__" }
 
+
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-"*" = ["*.*"]
+include = ["iotswarm*"]
+exclude = ["tests*"]
 
 [tool.pytest.ini_options]
 

@@ -1,3 +1,16 @@
+"""This script is responsible for building an SQL data file from the CSV files used
+by the cosmos network.
+
+The files are stored in AWS S3 and should be downloaded into this directory before continuing.
+They are:
+    * LEVEL_1_NMDB_1HOUR_DATA_TABLE.csv
+    * LEVEL_1_SOILMET_30MIN_DATA_TABLE.csv
+    * LEVEL_1_PRECIP_1MIN_DATA_TABLE.csv
+    * LEVEL_1_PRECIP_RAINE_1MIN_DATA_TABLE.csv
+
+Once installed, run this script to generate the .db file.
+"""
+
 from iotswarm.utils import build_database_from_csv
 from pathlib import Path
 from glob import glob

@@ -1,3 +1,6 @@
+"""This script generates a .db SQLite file from the accompanying .csv data file.
+It contains just a few rows of data and is used for testing purposes only."""
+
 from iotswarm.utils import build_database_from_csv
 from pathlib import Path
 from iotswarm.queries import CosmosTable
