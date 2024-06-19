@@ -17,17 +17,24 @@ from glob import glob
 from iotswarm.queries import CosmosTable
 
 
-def main():
-    data_dir = Path(__file__).parent
-    csv_files = glob("*.csv", root_dir=data_dir)
+def main(
+    csv_dir: str | Path = Path(__file__).parent,
+    database_output: str | Path = Path(Path(__file__).parent, "cosmos.db"),
+):
+    """Reads exported cosmos DB files from CSV format. Assumes that the files
+    look like: LEVEL_1_SOILMET_30MIN_DATA_TABLE.csv
+
+    Args:
+        csv_dir: Directory where the csv files are stored.
+        database_output: Output destination of the csv_data.
+    """
+    csv_files = glob("*.csv", root_dir=csv_dir)
 
     tables = [CosmosTable[x.removesuffix("_DATA_TABLE.csv")] for x in csv_files]
 
-    database_file = Path(data_dir, "cosmos.db")
-
     for table, file in zip(tables, csv_files):
-        file = Path(data_dir, file)
-        build_database_from_csv(file, database_file, table.value, sort_by="DATE_TIME")
+        file = Path(csv_dir, file)
+        build_database_from_csv(file, database_output, table.value, sort_by="DATE_TIME")
 
 
 if __name__ == "__main__":
