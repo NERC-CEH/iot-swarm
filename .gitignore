@@ -13,3 +13,4 @@ aws-auth
 docs/_*
 *.sh
 **/*.csv
+**/*.db

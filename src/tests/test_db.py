@@ -386,11 +386,11 @@ class TestSqliteDB(unittest.TestCase):
         self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None
     
-    @pytest.mark.slow
+
     def test_instantiation(self):
         self.assertIsInstance(self.database, db.LoopingSQLite3)
         self.assertIsInstance(self.database.connection, sqlite3.Connection)
-    @pytest.mark.slow
+
     def test_latest_data(self):
 
         site_id = "MORLY"
@@ -399,7 +399,6 @@ class TestSqliteDB(unittest.TestCase):
 
         self.assertIsInstance(data, dict)
 
-    @pytest.mark.slow
     def test_site_id_query(self):
 
         sites = self.database.query_site_ids(self.table)
@@ -411,7 +410,6 @@ class TestSqliteDB(unittest.TestCase):
         for site in sites:
             self.assertIsInstance(site, str)
 
-    @pytest.mark.slow
     def test_multiple_sites_added_to_cache(self):
         sites = ["ALIC1", "MORLY", "HOLLN","EUSTN"]
 
@@ -422,7 +420,6 @@ class TestSqliteDB(unittest.TestCase):
             self.assertIn(site, self.database.cache)
             self.assertEqual(self.database.cache[site], 0)
 
-    @pytest.mark.slow
     def test_cache_incremented_on_each_request(self):
         site = "MORLY"
 
@@ -437,7 +434,6 @@ class TestSqliteDB(unittest.TestCase):
             
             last_data = data
     
-    @pytest.mark.slow
     def test_cache_counter_restarts_at_end(self):
         database = db.LoopingSQLite3(Path(Path(__file__).parent, "data", "database.db"))
 
@@ -463,7 +459,6 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
         self.maxDiff = None
         self.table = CosmosTable.LEVEL_1_PRECIP_1MIN
 
-    @pytest.mark.slow
     async def test_flow_with_device_attached(self):
         """Tests that data is looped through with a device making requests."""
 
@@ -473,7 +468,6 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
         self.assertDictEqual(self.database.cache, {"ALIC1": 4})
 
-    @pytest.mark.slow
     async def test_flow_with_swarm_attached(self):
         """Tests that the database is looped through correctly with multiple sites in a swarm."""
         
