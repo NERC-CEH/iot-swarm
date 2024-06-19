@@ -40,10 +40,7 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s"""
             )
         result = RUNNER.invoke(cli.main, ["--log-config", "logger.ini", "test"])
         assert not result.exception
-        assert (
-            result.output
-            == "Using supplied logger.\n{'logger': <Logger iotswarm.scripts.cli (INFO)>}\n"
-        )
+        assert result.output == "{'logger': <Logger iotswarm.scripts.cli (INFO)>}\n"
 
 
 @parameterized.expand(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])

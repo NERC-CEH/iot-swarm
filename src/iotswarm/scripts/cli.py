@@ -22,6 +22,7 @@ TABLE_NAMES = [table.name for table in CosmosTable]
     "--log-config",
     type=click.Path(exists=True),
     help="Path to a logging config file. Uses default if not given.",
+    default=Path(Path(__file__).parents[1], "__assets__", "loggers.ini"),
 )
 @click.option(
     "--log-level",
@@ -34,11 +35,6 @@ TABLE_NAMES = [table.name for table in CosmosTable]
 def main(ctx: click.Context, log_config: Path, log_level: str):
     """Core group of the cli."""
     ctx.ensure_object(dict)
-
-    if log_config:
-        click.echo("Using supplied logger.")
-    else:
-        log_config = Path(Path(__file__).parents[1], "__assets__", "loggers.ini")
 
     logging.config.fileConfig(fname=log_config)
     logger = logging.getLogger(__name__)

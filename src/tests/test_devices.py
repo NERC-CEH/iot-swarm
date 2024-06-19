@@ -23,6 +23,10 @@ config_exists = pytest.mark.skipif(
     reason="Config file `config.cfg` not found in root directory.",
 )
 
+DATA_DIR = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data")
+sqlite_db_exist = pytest.mark.skipif(not Path(DATA_DIR, "cosmos.db").exists(), reason="Local cosmos.db does not exist.")
+
+
 
 class TestBaseClass(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -327,19 +331,22 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(payload, dict)
 
 class TestBaseDevicesSQLite3Used(unittest.IsolatedAsyncioTestCase):
+    
     def setUp(self):
         db_path = Path(Path(__file__).parents[1], "iotswarm","__assets__", "data", "cosmos.db")
-        self.db = LoopingSQLite3(db_path)
+        if db_path.exists():
+            self.db = LoopingSQLite3(db_path)
         self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
     
     @parameterized.expand([-1, -423.78, CosmosQuery.ORACLE_LATEST_DATA, "Four", MockDB(), {"a": 1}])
+    @sqlite_db_exist
     def test_table_value_check(self, table):
-
         with self.assertRaises(TypeError):
             BaseDevice(
                 "test_id", self.db, MockMessageConnection(), table=table
             )
 
+    @sqlite_db_exist
     def test_error_if_table_not_given(self):
 
         with self.assertRaises(ValueError):
@@ -350,6 +357,7 @@ class TestBaseDevicesSQLite3Used(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(inst.table, self.table)
 
+    @sqlite_db_exist
     async def test__get_payload(self):
         """Tests that Cosmos payload retrieved."""
 

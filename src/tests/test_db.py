@@ -212,6 +212,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
 
 CSV_PATH = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data")
 CSV_DATA_FILES = [Path(x) for x in glob(str(Path(CSV_PATH, "*.csv")))]
+sqlite_db_exist = pytest.mark.skipif(not Path(CSV_PATH, "cosmos.db").exists(), reason="Local cosmos.db does not exist.")
 
 data_files_exist = pytest.mark.skipif(
     not CSV_PATH.exists() or len(CSV_DATA_FILES) == 0,
@@ -380,17 +381,21 @@ class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
 class TestSqliteDB(unittest.TestCase):
 
+    @sqlite_db_exist
     def setUp(self):
         self.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
         self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
-        self.database = db.LoopingSQLite3(self.db_path)
+        
+        if self.db_path.exists():
+            self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None
     
-
+    @sqlite_db_exist
     def test_instantiation(self):
         self.assertIsInstance(self.database, db.LoopingSQLite3)
         self.assertIsInstance(self.database.connection, sqlite3.Connection)
 
+    @sqlite_db_exist
     def test_latest_data(self):
 
         site_id = "MORLY"
@@ -399,6 +404,7 @@ class TestSqliteDB(unittest.TestCase):
 
         self.assertIsInstance(data, dict)
 
+    @sqlite_db_exist
     def test_site_id_query(self):
 
         sites = self.database.query_site_ids(self.table)
@@ -408,8 +414,9 @@ class TestSqliteDB(unittest.TestCase):
         self.assertIsInstance(sites, list)
 
         for site in sites:
-            self.assertIsInstance(site, str)
+             self.assertIsInstance(site, str)
 
+    @sqlite_db_exist
     def test_multiple_sites_added_to_cache(self):
         sites = ["ALIC1", "MORLY", "HOLLN","EUSTN"]
 
@@ -419,7 +426,8 @@ class TestSqliteDB(unittest.TestCase):
             self.assertEqual(site, data[i]["SITE_ID"])
             self.assertIn(site, self.database.cache)
             self.assertEqual(self.database.cache[site], 0)
-
+    
+    @sqlite_db_exist
     def test_cache_incremented_on_each_request(self):
         site = "MORLY"
 
@@ -434,6 +442,7 @@ class TestSqliteDB(unittest.TestCase):
             
             last_data = data
     
+    @sqlite_db_exist
     def test_cache_counter_restarts_at_end(self):
         database = db.LoopingSQLite3(Path(Path(__file__).parent, "data", "database.db"))
 
@@ -453,12 +462,15 @@ class TestSqliteDB(unittest.TestCase):
 class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
     """Tests the LoopingCsvDB class."""
 
+    @sqlite_db_exist
     def setUp(self):
         self.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
-        self.database = db.LoopingSQLite3(self.db_path)
+        if self.db_path.exists():
+            self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None
         self.table = CosmosTable.LEVEL_1_PRECIP_1MIN
 
+    @sqlite_db_exist
     async def test_flow_with_device_attached(self):
         """Tests that data is looped through with a device making requests."""
 
@@ -468,6 +480,7 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
         self.assertDictEqual(self.database.cache, {"ALIC1": 4})
 
+    @sqlite_db_exist
     async def test_flow_with_swarm_attached(self):
         """Tests that the database is looped through correctly with multiple sites in a swarm."""
         
