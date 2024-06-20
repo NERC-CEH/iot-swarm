@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools >= 61.0", "autosemver"]
-build-backend = "setuptools.build_meta"
+# build-backend = "setuptools.build_meta"
 
 [project]
 dependencies = [
@@ -8,12 +8,14 @@ dependencies = [
     "boto3",
     "autosemver",
     "config",
+    "click",
     "docutils<0.17",
     "awscli",
     "awscrt",
+    "awsiotsdk",
     "oracledb",
     "backoff",
-    "click",
+    "pandas",
 ]
 name = "iot-swarm"
 dynamic = ["version"]
@@ -26,14 +28,18 @@ docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 
 [project.scripts]
 iot-swarm = "iotswarm.scripts.cli:main"
+
 [tool.setuptools.dynamic]
 version = { attr = "iotswarm.__version__" }
 
+
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["iotswarm*"]
+exclude = ["tests*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.*"]
+"iotswarm.__assets__" = ["loggers.ini"]
 
 [tool.pytest.ini_options]
 
@@ -49,4 +55,12 @@ markers = [
 ]
 
 [tool.coverage.run]
-omit = ["*example.py", "*__init__.py", "queries.py", "loggers.py", "cli.py"]
+omit = [
+    "*example.py",
+    "*__init__.py",
+    "queries.py",
+    "loggers.py",
+    "**/scripts/*.py",
+    "**/build_database.py",
+    "utils.py",
+]

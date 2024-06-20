@@ -5,23 +5,27 @@ import logging
 import json
 from iotswarm.utils import json_serial
 from iotswarm.devices import BaseDevice, CR1000XDevice, CR1000XField
-from iotswarm.db import Oracle, BaseDatabase, MockDB
-from iotswarm.queries import CosmosQuery, CosmosSiteQuery
+from iotswarm.db import Oracle, BaseDatabase, MockDB, LoopingSQLite3
+from iotswarm.queries import CosmosQuery, CosmosTable
 from iotswarm.messaging.core import MockMessageConnection, MessagingBaseClass
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 from parameterized import parameterized
 from unittest.mock import patch
-import pathlib
+from pathlib import Path
 import config
 from datetime import datetime, timedelta
 
-CONFIG_PATH = pathlib.Path(
-    pathlib.Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
+CONFIG_PATH = Path(
+    Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
     reason="Config file `config.cfg` not found in root directory.",
 )
+
+DATA_DIR = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data")
+sqlite_db_exist = pytest.mark.skipif(not Path(DATA_DIR, "cosmos.db").exists(), reason="Local cosmos.db does not exist.")
+
 
 
 class TestBaseClass(unittest.IsolatedAsyncioTestCase):
@@ -169,26 +173,12 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(repr(instance), expected)
 
-    def test_query_not_set_for_non_oracle_db(self):
+    def test_table_not_set_for_non_oracle_db(self):
         
-        inst = BaseDevice("test", MockDB(), MockMessageConnection(), query=CosmosQuery.LEVEL_1_SOILMET_30MIN)
+        inst = BaseDevice("test", MockDB(), MockMessageConnection(), table=CosmosTable.LEVEL_1_NMDB_1HOUR)
 
         with self.assertRaises(AttributeError):
-            inst.query
-    
-    def test_prefix_suffix_not_set_for_non_mqtt(self):
-        "Tests that mqtt prefix and suffix not set for non MQTT messaging."
-
-        inst = BaseDevice("site-1", self.data_source, MockMessageConnection(), mqtt_prefix="prefix", mqtt_suffix="suffix")
-
-        with self.assertRaises(AttributeError):
-            inst.mqtt_topic
-        
-        with self.assertRaises(AttributeError):
-            inst.mqtt_prefix
-
-        with self.assertRaises(AttributeError):
-            inst.mqtt_suffix
+            inst.table
 
     @parameterized.expand(
         [
@@ -203,19 +193,6 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(inst._instance_logger.parent, expected)
-
-    @parameterized.expand([
-        [None, None, None],
-        ["topic", None, None],
-        ["topic", "prefix", None],
-        ["topic", "prefix", "suffix"],
-    ])
-    def test__repr__mqtt_opts_no_mqtt_connection(self, topic, prefix, suffix):
-        """Tests that the __repr__ method returns correctly with MQTT options set."""
-        expected = 'BaseDevice("site-id", MockDB(), MockMessageConnection())'
-        inst = BaseDevice("site-id", MockDB(), MockMessageConnection(), mqtt_topic=topic, mqtt_prefix=prefix, mqtt_suffix=suffix)
-
-        self.assertEqual(inst.__repr__(), expected)
 
 class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
@@ -244,7 +221,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site", self.db, self.conn, mqtt_prefix=topic)
 
         self.assertEqual(inst.mqtt_prefix, topic)
-        self.assertEqual(inst.mqtt_topic, f"{topic}/base-device/site")
+        self.assertEqual(inst.mqtt_topic, f"{topic}/site")
 
     @parameterized.expand(["this/topic", "1/1/1", "TOPICO!"])
     @config_exists
@@ -254,7 +231,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site", self.db, self.conn, mqtt_suffix=topic)
 
         self.assertEqual(inst.mqtt_suffix, topic)
-        self.assertEqual(inst.mqtt_topic, f"base-device/site/{topic}")
+        self.assertEqual(inst.mqtt_topic, f"site/{topic}")
 
     @parameterized.expand([["this/prefix", "this/suffix"], ["1/1/1", "2/2/2"], ["TOPICO!", "FOUR"]])
     @config_exists
@@ -265,7 +242,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
         self.assertEqual(inst.mqtt_suffix, suffix)
         self.assertEqual(inst.mqtt_prefix, prefix)
-        self.assertEqual(inst.mqtt_topic, f"{prefix}/base-device/site/{suffix}")
+        self.assertEqual(inst.mqtt_topic, f"{prefix}/site/{suffix}")
 
     @config_exists
     def test_default_mqtt_topic_set(self):
@@ -273,7 +250,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
         inst = BaseDevice("site-12", self.db, self.conn)
 
-        self.assertEqual(inst.mqtt_topic, "base-device/site-12")
+        self.assertEqual(inst.mqtt_topic, "site-12")
     
     @parameterized.expand([
         [None, None, None, ""],
@@ -289,7 +266,9 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
         self.assertEqual(inst.__repr__(), expected)
 
+
 class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
+    
     async def asyncSetUp(self):
         cred_path = str(CONFIG_PATH)
         creds = config.Config(cred_path)["oracle"]
@@ -300,53 +279,92 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
             creds["user"],
             password=creds["password"],
         )
-        self.query = CosmosQuery.LEVEL_1_SOILMET_30MIN
+        self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
     async def asyncTearDown(self) -> None:
         await self.oracle.connection.close()
     
-    @parameterized.expand([-1, -423.78, CosmosSiteQuery.LEVEL_1_NMDB_1HOUR, "Four", MockDB(), {"a": 1}])
+    @parameterized.expand([-1, -423.78, CosmosQuery.ORACLE_LATEST_DATA, "Four", MockDB(), {"a": 1}])
     @config_exists
-    def test_query_value_check(self, query):
+    @pytest.mark.oracle
+    def test_table_value_check(self, table):
 
         with self.assertRaises(TypeError):
             BaseDevice(
-                "test_id", self.oracle, MockMessageConnection(), query=query
+                "test_id", self.oracle, MockMessageConnection(), table=table
             )
 
     @pytest.mark.oracle
     @config_exists
-    async def test_error_if_query_not_given(self):
+    async def test_error_if_table_not_given(self):
 
         with self.assertRaises(ValueError):
             BaseDevice("site", self.oracle, MockMessageConnection())
 
 
-        inst = BaseDevice("site", self.oracle, MockMessageConnection(), query=self.query)
+        inst = BaseDevice("site", self.oracle, MockMessageConnection(), table=self.table)
 
-        self.assertEqual(inst.query, self.query)
+        self.assertEqual(inst.table, self.table)
 
 
     @pytest.mark.oracle
     @config_exists
     async def test__repr__oracle_data(self):
 
-        inst_oracle = BaseDevice("site", self.oracle, MockMessageConnection(), query=self.query)
-        exp_oracle = f'BaseDevice("site", Oracle("{self.creds['dsn']}"), MockMessageConnection(), query=CosmosQuery.{self.query.name})'
+        inst_oracle = BaseDevice("site", self.oracle, MockMessageConnection(), table=self.table)
+        exp_oracle = f'BaseDevice("site", Oracle("{self.creds['dsn']}"), MockMessageConnection(), table=CosmosTable.{self.table.name})'
         self.assertEqual(inst_oracle.__repr__(), exp_oracle)
 
-        inst_not_oracle = BaseDevice("site", MockDB(), MockMessageConnection(), query=self.query)
+        inst_not_oracle = BaseDevice("site", MockDB(), MockMessageConnection(), table=self.table)
         exp_not_oracle = 'BaseDevice("site", MockDB(), MockMessageConnection())'
         self.assertEqual(inst_not_oracle.__repr__(), exp_not_oracle)
 
         with self.assertRaises(AttributeError):
-            inst_not_oracle.query
+            inst_not_oracle.table
 
     @pytest.mark.oracle
     @config_exists
     async def test__get_payload(self):
         """Tests that Cosmos payload retrieved."""
 
-        inst = BaseDevice("MORLY", self.oracle, MockMessageConnection(), query=self.query)
+        inst = BaseDevice("MORLY", self.oracle, MockMessageConnection(), table=self.table)
+        print(inst)
+        payload = await inst._get_payload()
+
+        self.assertIsInstance(payload, dict)
+
+class TestBaseDevicesSQLite3Used(unittest.IsolatedAsyncioTestCase):
+    
+    def setUp(self):
+        db_path = Path(Path(__file__).parents[1], "iotswarm","__assets__", "data", "cosmos.db")
+        if db_path.exists():
+            self.db = LoopingSQLite3(db_path)
+        self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
+    
+    @parameterized.expand([-1, -423.78, CosmosQuery.ORACLE_LATEST_DATA, "Four", MockDB(), {"a": 1}])
+    @sqlite_db_exist
+    def test_table_value_check(self, table):
+        with self.assertRaises(TypeError):
+            BaseDevice(
+                "test_id", self.db, MockMessageConnection(), table=table
+            )
+
+    @sqlite_db_exist
+    def test_error_if_table_not_given(self):
+
+        with self.assertRaises(ValueError):
+            BaseDevice("site", self.db, MockMessageConnection())
+
+
+        inst = BaseDevice("site", self.db, MockMessageConnection(), table=self.table)
+
+        self.assertEqual(inst.table, self.table)
+
+    @sqlite_db_exist
+    async def test__get_payload(self):
+        """Tests that Cosmos payload retrieved."""
+
+        inst = BaseDevice("MORLY", self.db, MockMessageConnection(), table=self.table)
+
         payload = await inst._get_payload()
 
         self.assertIsInstance(payload, dict)
@@ -447,6 +465,7 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(payload, list)
         self.assertEqual(len(payload),0)
+
 
 class TestCr1000xDevice(unittest.TestCase):
     """Test suite for the CR1000X Device."""

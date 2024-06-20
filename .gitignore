@@ -8,7 +8,9 @@ dist/*
 config.cfg
 aws-auth
 *.log
-*.certs
+*.certs*
 !.github/*
 docs/_*
-conf.sh
+*.sh
+**/*.csv
+**/*.db

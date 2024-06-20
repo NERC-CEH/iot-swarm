@@ -2,6 +2,7 @@
 
 import awscrt
 from awscrt import mqtt
+from awsiot import mqtt_connection_builder
 import awscrt.io
 import json
 from awscrt.exceptions import AwsCrtError
@@ -34,6 +35,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         port: int | None = None,
         clean_session: bool = False,
         keep_alive_secs: int = 1200,
+        inherit_logger: logging.Logger | None = None,
         **kwargs,
     ) -> None:
         """Initializes the class.
@@ -47,7 +49,7 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             port: Port used by endpoint. Guesses correct port if not given.
             clean_session: Builds a clean MQTT session if true. Defaults to False.
             keep_alive_secs: Time to keep connection alive. Defaults to 1200.
-            topic_prefix: A topic prefixed to MQTT topic, useful for attaching a "Basic Ingest" rule. Defaults to None.
+            inherit_logger: Override for the module logger.
         """
 
         if not isinstance(endpoint, str):
@@ -88,41 +90,31 @@ class IotCoreMQTTConnection(MessagingBaseClass):
             if port < 0:
                 raise ValueError(f"`port` cannot be less than 0. Received: {port}.")
 
-        socket_options = awscrt.io.SocketOptions()
-        socket_options.connect_timeout_ms = 5000
-        socket_options.keep_alive = False
-        socket_options.keep_alive_timeout_secs = 0
-        socket_options.keep_alive_interval_secs = 0
-        socket_options.keep_alive_max_probes = 0
-
-        client_bootstrap = awscrt.io.ClientBootstrap.get_or_create_static_default()
-
-        tls_ctx = awscrt.io.ClientTlsContext(tls_ctx_options)
-        mqtt_client = awscrt.mqtt.Client(client_bootstrap, tls_ctx)
-
-        self.connection = awscrt.mqtt.Connection(
-            client=mqtt_client,
+        self.connection = mqtt_connection_builder.mtls_from_path(
+            endpoint=endpoint,
+            port=port,
+            cert_filepath=cert_path,
+            pri_key_filepath=key_path,
+            ca_filepath=ca_cert_path,
             on_connection_interrupted=self._on_connection_interrupted,
             on_connection_resumed=self._on_connection_resumed,
             client_id=client_id,
-            host_name=endpoint,
-            port=port,
+            proxy_options=None,
             clean_session=clean_session,
-            reconnect_min_timeout_secs=5,
-            reconnect_max_timeout_secs=60,
             keep_alive_secs=keep_alive_secs,
-            ping_timeout_ms=3000,
-            protocol_operation_timeout_ms=0,
-            socket_options=socket_options,
-            use_websockets=False,
             on_connection_success=self._on_connection_success,
             on_connection_failure=self._on_connection_failure,
             on_connection_closed=self._on_connection_closed,
         )
 
-        self._instance_logger = logger.getChild(
-            f"{self.__class__.__name__}.client-{client_id}"
-        )
+        if inherit_logger is not None:
+            self._instance_logger = inherit_logger.getChild(
+                f"{self.__class__.__name__}.client-{client_id}"
+            )
+        else:
+            self._instance_logger = logger.getChild(
+                f"{self.__class__.__name__}.client-{client_id}"
+            )
 
     def _on_connection_interrupted(
         self, connection, error, **kwargs
@@ -182,23 +174,15 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(
-        self, message: dict, topic: str, use_logger: logging.Logger | None = None
-    ) -> None:
+    def send_message(self, message: dict, topic: str) -> None:
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
-            use_logger: Sends log message with requested logger.
         """
-        if use_logger is not None and isinstance(use_logger, logging.Logger):
-            use_logger = use_logger
-        else:
-            use_logger = self._instance_logger
-
         if not message:
-            use_logger.error(f'No message to send for topic: "{topic}".')
+            self._instance_logger.error(f'No message to send for topic: "{topic}".')
             return
 
         if self.connected_flag == False:
@@ -212,6 +196,4 @@ class IotCoreMQTTConnection(MessagingBaseClass):
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
 
-        use_logger.info(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
-
-        # self._disconnect()
+        self._instance_logger.debug(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
