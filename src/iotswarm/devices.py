@@ -200,7 +200,7 @@ class BaseDevice:
         mqtt_topic_arg = (
             f', mqtt_topic="{self.mqtt_base_topic}"'
             if hasattr(self, "mqtt_base_topic")
-            and self.mqtt_base_topic != f"{self.device_type}/{self.device_id}"
+            and self.mqtt_base_topic != self.device_id
             else ""
         )
 

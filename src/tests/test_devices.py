@@ -221,7 +221,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site", self.db, self.conn, mqtt_prefix=topic)
 
         self.assertEqual(inst.mqtt_prefix, topic)
-        self.assertEqual(inst.mqtt_topic, f"{topic}/base-device/site")
+        self.assertEqual(inst.mqtt_topic, f"{topic}/site")
 
     @parameterized.expand(["this/topic", "1/1/1", "TOPICO!"])
     @config_exists
@@ -231,7 +231,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site", self.db, self.conn, mqtt_suffix=topic)
 
         self.assertEqual(inst.mqtt_suffix, topic)
-        self.assertEqual(inst.mqtt_topic, f"base-device/site/{topic}")
+        self.assertEqual(inst.mqtt_topic, f"site/{topic}")
 
     @parameterized.expand([["this/prefix", "this/suffix"], ["1/1/1", "2/2/2"], ["TOPICO!", "FOUR"]])
     @config_exists
@@ -242,7 +242,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
         self.assertEqual(inst.mqtt_suffix, suffix)
         self.assertEqual(inst.mqtt_prefix, prefix)
-        self.assertEqual(inst.mqtt_topic, f"{prefix}/base-device/site/{suffix}")
+        self.assertEqual(inst.mqtt_topic, f"{prefix}/site/{suffix}")
 
     @config_exists
     def test_default_mqtt_topic_set(self):
@@ -250,7 +250,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
         inst = BaseDevice("site-12", self.db, self.conn)
 
-        self.assertEqual(inst.mqtt_topic, "base-device/site-12")
+        self.assertEqual(inst.mqtt_topic, "site-12")
     
     @parameterized.expand([
         [None, None, None, ""],
@@ -268,6 +268,7 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
 
 class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
+    
     async def asyncSetUp(self):
         cred_path = str(CONFIG_PATH)
         creds = config.Config(cred_path)["oracle"]
@@ -284,6 +285,7 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
     
     @parameterized.expand([-1, -423.78, CosmosQuery.ORACLE_LATEST_DATA, "Four", MockDB(), {"a": 1}])
     @config_exists
+    @pytest.mark.oracle
     def test_table_value_check(self, table):
 
         with self.assertRaises(TypeError):
