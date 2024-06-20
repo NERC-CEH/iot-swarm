@@ -156,7 +156,7 @@ class BaseDevice:
             if mqtt_topic is not None:
                 self.mqtt_topic = str(mqtt_topic)
             else:
-                self.mqtt_topic = f"{self.device_type}/{self.device_id}"
+                self.mqtt_topic = f"{self.device_id}"
 
             if mqtt_prefix is not None:
                 self.mqtt_prefix = str(mqtt_prefix)
