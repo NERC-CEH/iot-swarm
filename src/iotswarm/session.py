@@ -101,6 +101,32 @@ class SessionManager:
         else:
             raise TypeError(f'`session` must be a Session, not "{type(session)}".')
 
+    def _initialise_session_file(self, session: Session | str) -> None:
+        """Writes an empty session file.
+
+        Args:
+            session: The session. May be a Session or a session ID.
+        """
+
+        session_file = self._get_session_file(session)
+
+        if not session_file.parent.exists():
+            os.makedirs(session_file.parent)
+
+        with open(session_file, "wb") as file:
+            pickle.dump("", file)
+
+    def _session_exists(self, session: Session | str) -> bool:
+        """Returns true if session exists.
+
+        Args:
+            session: The session to check.
+        Returns:
+            bool: True if session exists.
+        """
+
+        return self._get_session_file(session).exists()
+
     def write_session(self, session: Session, replace: bool = False) -> None:
         """Writes the session state to file.
 
@@ -133,6 +159,9 @@ class SessionManager:
 
     def list_sessions(self) -> List[str]:
         """Returns a list of stored sessions."""
+
+        if not self.base_directory.exists():
+            return []
 
         files = os.listdir(self.base_directory)
 

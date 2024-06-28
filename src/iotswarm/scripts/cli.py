@@ -12,6 +12,9 @@ import iotswarm.scripts.common as cli_common
 import asyncio
 from pathlib import Path
 import logging
+import os
+
+from iotswarm.session import SessionManager
 
 TABLE_NAMES = [table.name for table in CosmosTable]
 
@@ -442,6 +445,48 @@ def mqtt(
         await swarm.run()
 
     asyncio.run(_mqtt())
+
+
+@main.group()
+def sessions():
+    """Group for managing sessions."""
+
+
+@sessions.command()
+@click.option(
+    "--base-dir", type=click.STRING, default=None, help="Lists available sessions."
+)
+def ls(base_dir: str | None):
+
+    manager = SessionManager(base_directory=base_dir)
+
+    click.echo(manager.list_sessions())
+
+
+@sessions.command()
+@click.argument("session-id", type=click.STRING)
+@click.option(
+    "--base-dir", type=click.STRING, default=None, help="Initialises an empty session."
+)
+def init(session_id, base_dir):
+
+    manager = SessionManager(base_directory=base_dir)
+
+    manager._initialise_session_file(session_id)
+
+
+@sessions.command()
+@click.argument("session-id", type=click.STRING)
+@click.option("--base-dir", type=click.STRING, default=None, help="Deletes a session.")
+def rm(session_id, base_dir):
+
+    manager = SessionManager(base_directory=base_dir)
+
+    if manager._session_exists(session_id):
+        manager.destroy_session(session_id)
+        click.echo(f'Session "{session_id}" deleted.')
+    else:
+        click.echo(f'Session "{session_id}" does not exist.')
 
 
 if __name__ == "__main__":
