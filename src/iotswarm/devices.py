@@ -57,6 +57,9 @@ class BaseDevice:
     mqtt_suffix: str
     """Suffix added to mqtt message."""
 
+    swarm: object | None = None
+    """The session applied"""
+
     @property
     def mqtt_topic(self) -> str:
         "Builds the mqtt topic."
@@ -266,6 +269,9 @@ class BaseDevice:
         else:
             self.connection.send_message(payload)
 
+        if self.swarm is not None:
+            self.swarm.write_self(replace=True)
+
     async def run(self):
         """The main invocation of the method. Expects a Oracle object to do work on
         and a table to retrieve. Runs asynchronously until `max_cycles` is reached.
@@ -313,6 +319,9 @@ class BaseDevice:
     def _format_payload(self, payload):
         """Oranises payload into correct structure."""
         return payload
+
+    def _attach_swarm(self, swarm: object):
+        self.swarm = swarm
 
 
 class CR1000XDevice(BaseDevice):

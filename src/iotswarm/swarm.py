@@ -5,6 +5,10 @@ import logging.config
 from typing import List
 import asyncio
 import uuid
+import pickle
+from pathlib import Path
+from platformdirs import user_data_dir
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +17,9 @@ class Swarm:
     """Manages a swarm of IoT devices and runs the main loop
     of all devices. Can receive any number or combination of devices.
     """
+
+    base_directory: Path = Path(user_data_dir("iot_swarm"), "swarms")
+    """The base directory where swarms are stored."""
 
     name: str
     """Name of swarm applied in logs."""
@@ -51,6 +58,7 @@ class Swarm:
         self,
         devices: List[BaseDevice],
         name: str | None = None,
+        base_directory: str | Path | None = None,
     ) -> None:
         """Initializes the class.
 
@@ -78,6 +86,11 @@ class Swarm:
             f"{self.__class__.__name__}.{self.name}"
         )
 
+        if base_directory is not None:
+            if not isinstance(base_directory, Path):
+                base_directory = Path(base_directory)
+            self.base_directory = base_directory
+
     async def run(self) -> None:
         """Main function for running the swarm. Sends the query
         and message connection object. Runs until all sites reach
@@ -88,3 +101,108 @@ class Swarm:
         await asyncio.gather(*[device.run() for device in self.devices])
 
         self._instance_logger.info("Terminated.")
+
+    @classmethod
+    def _get_swarm_file(cls, swarm: object | str) -> Path:
+        """Returns a full path to the swarm file.
+
+        Args:
+            swarm The swarm to build the path from.
+            Assumed to be a swarm ID if str provided.
+        Returns:
+            Path: A path object to the file.
+        """
+
+        if isinstance(swarm, str):
+            return Path(cls.base_directory, swarm + ".pkl")
+        elif isinstance(swarm, Swarm):
+            return Path(cls.base_directory, swarm.name + ".pkl")
+        else:
+            raise TypeError(f'`swarm` must be a Swarm, not "{type(swarm)}".')
+
+    @classmethod
+    def _initialise_swarm_file(cls, swarm: object | str) -> None:
+        """Writes an empty swarm file.
+
+        Args:
+            swarm The swarm. May be a swarm or a swarm ID.
+        """
+
+        swarm_file = cls._get_swarm_file(swarm)
+
+        if not swarm_file.parent.exists():
+            os.makedirs(swarm_file.parent)
+
+        with open(swarm_file, "wb") as file:
+            pickle.dump("", file)
+
+    @classmethod
+    def _swarm_exists(cls, swarm: object | str) -> bool:
+        """Returns true if swarm exists.
+
+        Args:
+            swarm: The swarm to check.
+        Returns:
+            bool: True if swarm exists.
+        """
+        return Swarm._get_swarm_file(swarm).exists()
+
+    @classmethod
+    def _write_swarm(cls, swarm: object, replace: bool = False) -> None:
+        swarm_file = cls._get_swarm_file(swarm)
+
+        if swarm_file.exists():
+            if replace:
+                os.remove(swarm_file)
+            else:
+                raise FileExistsError(
+                    f'swarm exists and replace is set to False: "{swarm_file}".'
+                )
+        elif not swarm_file.parent.exists():
+            os.makedirs(swarm_file.parent)
+
+        with open(swarm_file, "wb") as file:
+            pickle.dump(swarm, file)
+
+    def write_self(self, replace: bool = False) -> None:
+        """Writes the swarm state to file.
+
+        Args:
+            replace: When True it replaces the swarm. Execption is
+            raised if the file exists and replace is False.
+        """
+
+        self._write_swarm(self, replace=replace)
+
+    @classmethod
+    def destroy_swarm(cls, swarm: object):
+        """Destroys a swarm file."""
+
+        swarm_file = cls._get_swarm_file(swarm)
+        if swarm_file.exists():
+            os.remove(swarm_file)
+
+    @classmethod
+    def list_swarms(cls) -> List[str]:
+        """Returns a list of stored swarms."""
+
+        if not cls.base_directory.exists():
+            return []
+
+        files = os.listdir(cls.base_directory)
+
+        files = [file.removesuffix(".pkl") for file in files if file.endswith(".pkl")]
+
+        return files
+
+    @classmethod
+    def load_swarm(cls, swarm_id: str) -> object:
+        """Loads a swarm from pickle file."""
+        swarm_file = cls._get_swarm_file(swarm_id)
+
+        if not swarm_file.exists():
+            raise FileNotFoundError(f'swarm not found: "{swarm_id}".')
+        with open(swarm_file, "rb") as file:
+            swarm = pickle.load(file)
+
+        return swarm

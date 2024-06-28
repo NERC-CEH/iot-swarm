@@ -14,8 +14,6 @@ from pathlib import Path
 import logging
 import os
 
-from iotswarm.session import SessionManager
-
 TABLE_NAMES = [table.name for table in CosmosTable]
 
 
@@ -263,6 +261,7 @@ looping_csv.add_command(cli_common.list_sites)
 @cli_common.device_options
 @cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
+@click.option("--resume-session", is_flag=True, default=False)
 def mqtt(
     ctx,
     endpoint,
@@ -279,13 +278,19 @@ def mqtt(
     mqtt_suffix,
     dry,
     device_type,
+    resume_session,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
 
     Currently only supports sending through AWS IoT Core."""
 
-    async def _mqtt():
+    async def _mqtt_resume_session():
+        swarm = Swarm.load_swarm(swarm_name)
+        click.echo("Loaded swarm from pickle")
+        await swarm.run()
+
+    async def _mqtt_clean_session():
 
         sites = ctx.obj["sites"]
         db = ctx.obj["db"]
@@ -325,10 +330,17 @@ def mqtt(
         ]
 
         swarm = Swarm(site_devices, swarm_name)
-
+        [device._attach_swarm(swarm) for device in swarm.devices]
         await swarm.run()
 
-    asyncio.run(_mqtt())
+    if (
+        resume_session == True
+        and swarm_name is not None
+        and Swarm._swarm_exists(swarm_name)
+    ):
+        asyncio.run(_mqtt_resume_session())
+    else:
+        asyncio.run(_mqtt_clean_session())
 
 
 @main.group()
@@ -375,6 +387,7 @@ def list_sites(ctx, max_sites, table):
 @cli_common.iotcore_options
 @click.argument("table", type=click.Choice(TABLE_NAMES))
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
+@click.option("--resume-session", is_flag=True, default=False)
 def mqtt(
     ctx,
     table,
@@ -392,6 +405,7 @@ def mqtt(
     mqtt_suffix,
     dry,
     device_type,
+    resume_session,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
@@ -400,7 +414,13 @@ def mqtt(
 
     table = CosmosTable[table]
 
-    async def _mqtt():
+    async def _mqtt_resume_session():
+        swarm = Swarm.load_swarm(swarm_name)
+        click.echo("Loaded swarm from pickle")
+        await swarm.run()
+
+    async def _mqtt_clean_session():
+        click.echo("Starting clean session")
 
         sites = ctx.obj["sites"]
         db = ctx.obj["db"]
@@ -442,9 +462,17 @@ def mqtt(
 
         swarm = Swarm(site_devices, swarm_name)
 
+        [device._attach_swarm(swarm) for device in swarm.devices]
         await swarm.run()
 
-    asyncio.run(_mqtt())
+    if (
+        resume_session == True
+        and swarm_name is not None
+        and Swarm._swarm_exists(swarm_name)
+    ):
+        asyncio.run(_mqtt_resume_session())
+    else:
+        asyncio.run(_mqtt_clean_session())
 
 
 @main.group()
@@ -453,37 +481,24 @@ def sessions():
 
 
 @sessions.command()
-@click.option(
-    "--base-dir", type=click.STRING, default=None, help="Lists available sessions."
-)
-def ls(base_dir: str | None):
-
-    manager = SessionManager(base_directory=base_dir)
-
-    click.echo(manager.list_sessions())
+def ls():
+    """Lists the swarms."""
+    click.echo(Swarm.list_swarms())
 
 
 @sessions.command()
 @click.argument("session-id", type=click.STRING)
-@click.option(
-    "--base-dir", type=click.STRING, default=None, help="Initialises an empty session."
-)
-def init(session_id, base_dir):
-
-    manager = SessionManager(base_directory=base_dir)
-
-    manager._initialise_session_file(session_id)
+def init(session_id):
+    """Creates an empty swarm file."""
+    Swarm._initialise_swarm_file(session_id)
 
 
 @sessions.command()
 @click.argument("session-id", type=click.STRING)
-@click.option("--base-dir", type=click.STRING, default=None, help="Deletes a session.")
-def rm(session_id, base_dir):
-
-    manager = SessionManager(base_directory=base_dir)
-
-    if manager._session_exists(session_id):
-        manager.destroy_session(session_id)
+def rm(session_id):
+    """Deletes a swarm."""
+    if Swarm._swarm_exists(session_id):
+        Swarm.destroy_swarm(session_id)
         click.echo(f'Session "{session_id}" deleted.')
     else:
         click.echo(f'Session "{session_id}" does not exist.')
