@@ -39,6 +39,9 @@ class BaseDatabase(abc.ABC):
             logger_arg = f"inherit_logger={self._instance_logger.parent}"
         return f"{self.__class__.__name__}({logger_arg})"
 
+    def __eq__(self, obj):
+        return self._instance_logger == obj._instance_logger
+
     @abc.abstractmethod
     def query_latest_from_site(self):
         pass
@@ -62,6 +65,14 @@ class CosmosDB(BaseDatabase):
 
     site_id_query: CosmosQuery
     """SQL query for retrieving list of site IDs"""
+
+    def __eq__(self, obj):
+        return (
+            type(self.connection) == type(obj.connection)
+            and self.site_data_query == obj.site_data_query
+            and self.site_id_query == obj.site_id_query
+            and BaseDatabase.__eq__(self, obj)
+        )
 
     @staticmethod
     def _validate_table(table: CosmosTable) -> None:
@@ -98,6 +109,9 @@ class CosmosDB(BaseDatabase):
                 )
 
         return max_sites
+
+    def query_latest_from_site(self):
+        pass
 
 
 class Oracle(CosmosDB):
@@ -225,8 +239,20 @@ class LoopingCsvDB(BaseDatabase):
     connection: pd.DataFrame
     """Connection to the pd object holding data."""
 
+    db_file: str | Path
+    """Path to the database file."""
+
     cache: dict
     """Cache object containing current index of each site queried."""
+
+    def __eq__(self, obj):
+
+        return (
+            type(self.connection) == type(obj.connection)
+            and self.db_file == obj.db_file
+            and self.cache == obj.cache
+            and BaseDatabase.__eq__(self, obj)
+        )
 
     @staticmethod
     def _get_connection(*args) -> pd.DataFrame:
@@ -241,6 +267,11 @@ class LoopingCsvDB(BaseDatabase):
         """
 
         BaseDatabase.__init__(self)
+
+        if not isinstance(csv_file, Path):
+            csv_file = Path(csv_file)
+
+        self.db_file = csv_file
         self.connection = self._get_connection(csv_file)
         self.cache = dict()
 
@@ -314,6 +345,25 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
         """
         LoopingCsvDB.__init__(self, db_file)
 
+        self.cursor = self.connection.cursor()
+
+    def __eq__(self, obj) -> bool:
+        return CosmosDB.__eq__(self, obj) and super(LoopingCsvDB, self).__eq__(obj)
+
+    def __getstate__(self) -> object:
+
+        state = self.__dict__.copy()
+
+        del state["connection"]
+        del state["cursor"]
+
+        return state
+
+    def __setstate__(self, state) -> object:
+
+        self.__dict__.update(state)
+
+        self.connection = self._get_connection(self.db_file)
         self.cursor = self.connection.cursor()
 
     def query_latest_from_site(self, site_id: str, table: CosmosTable) -> dict:

@@ -12,6 +12,13 @@ class MessagingBaseClass(ABC):
     _instance_logger: logging.Logger
     """Logger handle used by instance."""
 
+    def __eq__(self, obj) -> bool:
+
+        return (
+            self._instance_logger == obj._instance_logger
+            and self.connection == obj.connection
+        )
+
     def __init__(
         self,
         inherit_logger: logging.Logger | None = None,

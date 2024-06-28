@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch, mock_open
 import pytest
 from pathlib import Path
 from platformdirs import user_data_dir
@@ -11,7 +10,7 @@ from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.db import LoopingSQLite3, MockDB
 from iotswarm.queries import CosmosTable
 import tempfile
-import json
+import pickle
 
 LOOPED_DB_FILE = Path(
     Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db"
@@ -138,35 +137,12 @@ class TestSessionWriter(unittest.TestCase):
 
         self.assertEqual(
             writer.session_file,
-            Path(user_data_dir("iot_swarm"), "sessions", self.named_session.session_id),
+            Path(
+                user_data_dir("iot_swarm"),
+                "sessions",
+                self.named_session.session_id + ".pkl",
+            ),
         )
-
-    @db_exists
-    def test_device_index_dict(self):
-        """Tests that a session can return a dict of its devices indexes"""
-
-        data_source = LoopingSQLite3(LOOPED_DB_FILE)
-        table = CosmosTable.LEVEL_1_SOILMET_30MIN
-        devices = [
-            BaseDevice(
-                x,
-                data_source,
-                MockMessageConnection(),
-                table=table,
-            )
-            for x in self.device_ids
-        ]
-
-        for device in devices:
-            data_source.query_latest_from_site(device.device_id, table)
-
-        session = Session(Swarm(devices), "test-session")
-
-        index_dict = SessionWriter._get_device_index_dict(session)
-
-        expected = {k: 0 for k in self.device_ids}
-
-        self.assertDictEqual(index_dict, expected)
 
     @db_exists
     def test_write_from_empty(self):
@@ -189,12 +165,9 @@ class TestSessionWriter(unittest.TestCase):
         writer.session_file = Path(tempfile.mkdtemp(), "test-sesion")
         writer._write_state(replace=False)
 
-        with open(writer.session_file, "r") as f:
-            file_content = json.load(f)
-
-        expected = dict()
-
-        self.assertDictEqual(file_content, expected)
+        with open(writer.session_file, "rb") as f:
+            file_content = pickle.load(f)
+        self.assertEqual(file_content, session)
 
     @db_exists
     def test_write_non_empty(self):
@@ -220,23 +193,19 @@ class TestSessionWriter(unittest.TestCase):
         writer.session_file = Path(tempfile.mkdtemp(), "test-sesion")
         writer._write_state(replace=False)
 
-        with open(writer.session_file, "r") as f:
-            file_content = json.load(f)
+        with open(writer.session_file, "rb") as f:
+            file_content = pickle.load(f)
 
-        expected = {k: 0 for k in self.device_ids}
-
-        self.assertDictEqual(file_content, expected)
+        self.assertEqual(file_content, session)
 
         for device in devices:
             data_source.query_latest_from_site(device.device_id, table)
 
         writer._write_state(replace=True)
-        with open(writer.session_file, "r") as f:
-            file_content = json.load(f)
+        with open(writer.session_file, "rb") as f:
+            file_content = pickle.load(f)
 
-        expected = {k: 1 for k in self.device_ids}
-
-        self.assertDictEqual(file_content, expected)
+        self.assertEqual(file_content, session)
 
     @db_exists
     def test_destroy_session(self):

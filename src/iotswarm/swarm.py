@@ -23,6 +23,13 @@ class Swarm:
     devices: List[BaseDevice]
     """List of site objects."""
 
+    def __eq__(self, obj) -> bool:
+        return (
+            self.name == obj.name
+            and self._instance_logger == obj._instance_logger
+            and self.devices == obj.devices
+        )
+
     def __len__(self):
         """Returns number of sites"""
         return len(self.devices)

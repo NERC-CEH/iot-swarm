@@ -7,7 +7,8 @@ import uuid
 from pathlib import Path
 from platformdirs import user_data_dir
 import os
-import json
+import pickle
+from typing import List
 
 
 class Session:
@@ -46,6 +47,9 @@ class Session:
 
         return f'{self.__class__.__name__}: "{self.session_id}"'
 
+    def __eq__(self, obj) -> bool:
+        return self.swarm == obj.swarm and self.session_id == obj.session_id
+
     @staticmethod
     def _build_session_id(prefix: str | None = None):
         """Builds a session ID with a prefix if requested.
@@ -63,6 +67,14 @@ class Session:
             session_id = f"{prefix}-{session_id}"
 
         return session_id
+
+    @staticmethod
+    def list_sessions() -> List[str]:
+        """Returns a list of stored sessions."""
+
+        files = os.listdir(Path(user_data_dir("iot_swarm"), "sessions"))
+
+        files = [file for file in files if file.endswith(".pkl")]
 
 
 class SessionWriter:
@@ -84,7 +96,7 @@ class SessionWriter:
         self.session = session
 
         self.session_file = Path(
-            user_data_dir("iot_swarm"), "sessions", session.session_id
+            user_data_dir("iot_swarm"), "sessions", session.session_id + ".pkl"
         )
 
     def _write_state(self, replace: bool = False):
@@ -98,31 +110,8 @@ class SessionWriter:
                     f'Session exists and replace is set to False: "{self.session_file}".'
                 )
 
-        with open(self.session_file, "w") as file:
-            json.dump(self._get_device_index_dict(self.session), file)
-
-    @staticmethod
-    def _get_device_index_dict(session: Session) -> dict:
-        """Builds a dict of all devices present in the session.
-
-        Returns:
-            session: The session to retrieve devices from
-            dict: A dictionary of device IDs and their indexes."""
-
-        indexes = dict()
-        for device in session.swarm.devices:
-            if not isinstance(device.data_source, LoopingCsvDB):
-                raise TypeError(
-                    f'Device: {device} does not have a looped data source: "{type(device.data_source)}".'
-                )
-
-            if device.device_id in indexes:
-                raise KeyError(f'Duplicate device ID: "{device.device_id}".')
-
-            if device.device_id in device.data_source.cache:
-                indexes[device.device_id] = device.data_source.cache[device.device_id]
-
-        return indexes
+        with open(self.session_file, "wb") as file:
+            pickle.dump(self.session, file)
 
     def _destroy_session(self):
         """Destroys a session file."""
@@ -133,3 +122,15 @@ class SessionWriter:
 
 class SessionLoader:
     """Loads a session, instantiates the swarm and devices."""
+
+    @staticmethod
+    def _load_session(session_id: str) -> Session:
+        """Loads a session from pickle file."""
+        session_file = Path(user_data_dir("iot_swarm"), "sessions", session_id + ".pkl")
+
+        if not session_file.exists():
+            raise FileNotFoundError(f'Session not found: "{session_id}".')
+        with open(session_file, "wb") as file:
+            session = pickle.load(file)
+
+        return session

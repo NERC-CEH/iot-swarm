@@ -24,6 +24,12 @@ class IotCoreMQTTConnection(MessagingBaseClass):
     connected_flag: bool = False
     """Tracks whether connected."""
 
+    def __eq__(self, obj) -> bool:
+
+        super(MessagingBaseClass, self).__eq__(
+            self, obj
+        ) and self.connected_flag == obj.connected_flag
+
     def __init__(
         self,
         endpoint: str,

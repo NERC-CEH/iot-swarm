@@ -75,6 +75,30 @@ class BaseDevice:
         self._mqtt_topic = value
         self.mqtt_base_topic = value
 
+    def __eq__(self, obj) -> bool:
+
+        base_equality = (
+            self.device_type == obj.device_type
+            and self.cycle == obj.cycle
+            and self.max_cycles == obj.max_cycles
+            and self.sleep_time == obj.sleep_time
+            and self.device_id == obj.device_id
+            and self.delay_start == obj.delay_start
+            and self._instance_logger == obj._instance_logger
+            and self.data_source == obj.data_source
+            and self.connection == obj.connection
+        )
+
+        table_equality = False
+        if hasattr(self, "table") and self.table == obj.table:
+            table_equality = True
+
+        mqtt_equality = False
+        if hasattr(self, "mqtt_topic") and self.mqtt_topic == obj.mqtt_topic:
+            mqtt_equality = True
+
+        return base_equality and table_equality and mqtt_equality
+
     def __init__(
         self,
         device_id: str,
