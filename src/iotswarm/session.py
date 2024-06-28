@@ -68,7 +68,7 @@ class Session:
         return session_id
 
 
-class SessionManagerBase:
+class SessionManager:
     base_directory: Path = Path(user_data_dir("iot_swarm"), "sessions")
     """The base directory where sessions are stored."""
 
@@ -101,10 +101,6 @@ class SessionManagerBase:
         else:
             raise TypeError(f'`session` must be a Session, not "{type(session)}".')
 
-
-class SessionWriter(SessionManagerBase):
-    """Handles writing of the session state to file."""
-
     def write_session(self, session: Session, replace: bool = False) -> None:
         """Writes the session state to file.
 
@@ -128,9 +124,6 @@ class SessionWriter(SessionManagerBase):
         with open(session_file, "wb") as file:
             pickle.dump(session, file)
 
-
-class SessionManager(SessionManagerBase):
-
     def destroy_session(self, session: Session):
         """Destroys a session file."""
 
@@ -146,10 +139,6 @@ class SessionManager(SessionManagerBase):
         files = [file.removesuffix(".pkl") for file in files if file.endswith(".pkl")]
 
         return files
-
-
-class SessionLoader(SessionManagerBase):
-    """Loads a session, instantiates the swarm and devices."""
 
     def load_session(self, session_id: str) -> Session:
         """Loads a session from pickle file."""

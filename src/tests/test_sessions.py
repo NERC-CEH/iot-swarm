@@ -5,10 +5,7 @@ from platformdirs import user_data_dir
 from parameterized import parameterized
 from iotswarm.session import (
     Session,
-    SessionLoader,
-    SessionWriter,
     SessionManager,
-    SessionManagerBase,
 )
 from iotswarm.swarm import Swarm
 from iotswarm.devices import BaseDevice
@@ -134,21 +131,21 @@ class TestSessionManagerBase(unittest.TestCase):
     def test_initialisation(self):
         """Tests normal case"""
 
-        writer = SessionWriter()
+        manager = SessionManager()
 
-        self.assertIsInstance(writer.base_directory, Path)
+        self.assertIsInstance(manager.base_directory, Path)
 
         temp = tempfile.gettempdir()
-        writer = SessionWriter(temp)
+        manager = SessionManager(temp)
 
-        self.assertIsInstance(writer.base_directory, Path)
-        self.assertEqual(writer.base_directory, Path(temp))
+        self.assertIsInstance(manager.base_directory, Path)
+        self.assertEqual(manager.base_directory, Path(temp))
 
     def test_get_session_file_from_session(self):
 
         tempdir = tempfile.gettempdir()
 
-        sm = SessionManagerBase(base_directory=tempdir)
+        sm = SessionManager(base_directory=tempdir)
 
         file = sm._get_session_file(self.session)
         expected = Path(tempdir, self.session.session_id + ".pkl")
@@ -160,7 +157,7 @@ class TestSessionManagerBase(unittest.TestCase):
 
         tempdir = tempfile.gettempdir()
 
-        sm = SessionManagerBase(base_directory=tempdir)
+        sm = SessionManager(base_directory=tempdir)
         session_id = "this-is-a-session-id"
 
         file = sm._get_session_file(session_id)
@@ -170,7 +167,7 @@ class TestSessionManagerBase(unittest.TestCase):
         self.assertEqual(file, expected)
 
     def test_get_session_file_bad_type(self):
-        sm = SessionManagerBase()
+        sm = SessionManager()
 
         with self.assertRaises(TypeError):
             sm._get_session_file(123)
@@ -208,11 +205,11 @@ class TestSessionWriter(unittest.TestCase):
         tempdir = tempfile.mkdtemp()
         session = Session(Swarm(devices), "test-session")
 
-        writer = SessionWriter(base_directory=tempdir)
+        manager = SessionManager(base_directory=tempdir)
 
-        writer.write_session(session, replace=False)
+        manager.write_session(session, replace=False)
 
-        with open(writer._get_session_file(session), "rb") as f:
+        with open(manager._get_session_file(session), "rb") as f:
             file_content = pickle.load(f)
 
         self.assertEqual(file_content, session)
@@ -238,11 +235,11 @@ class TestSessionWriter(unittest.TestCase):
         tempdir = tempfile.mkdtemp()
 
         session = Session(Swarm(devices), "test-session")
-        writer = SessionWriter(base_directory=tempdir)
+        manager = SessionManager(base_directory=tempdir)
 
-        writer.write_session(session, replace=False)
+        manager.write_session(session, replace=False)
 
-        with open(writer._get_session_file(session), "rb") as f:
+        with open(manager._get_session_file(session), "rb") as f:
             file_content = pickle.load(f)
 
         self.assertEqual(file_content, session)
@@ -250,8 +247,8 @@ class TestSessionWriter(unittest.TestCase):
         for device in devices:
             data_source.query_latest_from_site(device.device_id, table)
 
-        writer.write_session(session, replace=True)
-        with open(writer._get_session_file(session), "rb") as f:
+        manager.write_session(session, replace=True)
+        with open(manager._get_session_file(session), "rb") as f:
             file_content = pickle.load(f)
 
         self.assertEqual(file_content, session)
@@ -275,19 +272,19 @@ class TestSessionManager(unittest.TestCase):
 
         tempdir = tempfile.mkdtemp()
 
-        writer = SessionWriter(base_directory=tempdir)
+        manager = SessionManager(base_directory=tempdir)
 
-        writer.write_session(self.session)
+        manager.write_session(self.session)
 
         self.assertTrue(
-            writer._get_session_file(self.session).exists(),
+            manager._get_session_file(self.session).exists(),
             msg="Session file was not created.",
         )
 
         SessionManager(tempdir).destroy_session(self.session)
 
         self.assertFalse(
-            writer._get_session_file(self.session).exists(),
+            manager._get_session_file(self.session).exists(),
             msg="Session file was not destroyed",
         )
 
@@ -299,13 +296,11 @@ class TestSessionManager(unittest.TestCase):
 
         tempdir = tempfile.mkdtemp()
 
-        writer = SessionWriter(base_directory=tempdir)
+        manager = SessionManager(base_directory=tempdir)
 
-        [writer.write_session(session) for session in sessions]
+        [manager.write_session(session) for session in sessions]
 
-        sm = SessionManager(base_directory=tempdir)
-
-        found_sessions = sm.list_sessions()
+        found_sessions = manager.list_sessions()
 
         self.assertListEqual(found_sessions, session_ids)
 
@@ -324,12 +319,11 @@ class TestSessionLoader(unittest.TestCase):
     def test_session_loaded(self):
         temp = tempfile.mkdtemp()
 
-        writer = SessionWriter(base_directory=temp)
-        loader = SessionLoader(base_directory=temp)
+        manager = SessionManager(base_directory=temp)
 
-        writer.write_session(self.session)
+        manager.write_session(self.session)
 
-        session = loader.load_session(self.session.session_id)
+        session = manager.load_session(self.session.session_id)
 
         self.assertIsInstance(session, Session)
 
