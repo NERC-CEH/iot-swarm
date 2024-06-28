@@ -89,13 +89,13 @@ class BaseDevice:
             and self.connection == obj.connection
         )
 
-        table_equality = False
-        if hasattr(self, "table") and self.table == obj.table:
-            table_equality = True
+        table_equality = True
+        if hasattr(self, "table") and not self.table == obj.table:
+            table_equality = False
 
-        mqtt_equality = False
-        if hasattr(self, "mqtt_topic") and self.mqtt_topic == obj.mqtt_topic:
-            mqtt_equality = True
+        mqtt_equality = True
+        if hasattr(self, "mqtt_topic") and not self.mqtt_topic == obj.mqtt_topic:
+            mqtt_equality = False
 
         return base_equality and table_equality and mqtt_equality
 

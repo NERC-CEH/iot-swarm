@@ -3,7 +3,13 @@ import pytest
 from pathlib import Path
 from platformdirs import user_data_dir
 from parameterized import parameterized
-from iotswarm.session import Session, SessionLoader, SessionWriter
+from iotswarm.session import (
+    Session,
+    SessionLoader,
+    SessionWriter,
+    SessionManager,
+    SessionManagerBase,
+)
 from iotswarm.swarm import Swarm
 from iotswarm.devices import BaseDevice
 from iotswarm.messaging.core import MockMessageConnection
@@ -113,6 +119,63 @@ class TestSession(unittest.TestCase):
         self.assertTrue(str(session).startswith(expected_start))
 
 
+class TestSessionManagerBase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.device_ids = ["MORLY", "ALIC1", "SPENF", "RISEH"]
+        cls.devices = [
+            BaseDevice(x, MockDB(), MockMessageConnection()) for x in cls.device_ids
+        ]
+
+        cls.swarm = Swarm(cls.devices, "test-swarm")
+        cls.session = Session(cls.swarm)
+
+    def test_initialisation(self):
+        """Tests normal case"""
+
+        writer = SessionWriter()
+
+        self.assertIsInstance(writer.base_directory, Path)
+
+        temp = tempfile.gettempdir()
+        writer = SessionWriter(temp)
+
+        self.assertIsInstance(writer.base_directory, Path)
+        self.assertEqual(writer.base_directory, Path(temp))
+
+    def test_get_session_file_from_session(self):
+
+        tempdir = tempfile.gettempdir()
+
+        sm = SessionManagerBase(base_directory=tempdir)
+
+        file = sm._get_session_file(self.session)
+        expected = Path(tempdir, self.session.session_id + ".pkl")
+
+        self.assertIsInstance(file, Path)
+        self.assertEqual(file, expected)
+
+    def test_get_session_file_from_session_id(self):
+
+        tempdir = tempfile.gettempdir()
+
+        sm = SessionManagerBase(base_directory=tempdir)
+        session_id = "this-is-a-session-id"
+
+        file = sm._get_session_file(session_id)
+        expected = Path(tempdir, session_id + ".pkl")
+
+        self.assertIsInstance(file, Path)
+        self.assertEqual(file, expected)
+
+    def test_get_session_file_bad_type(self):
+        sm = SessionManagerBase()
+
+        with self.assertRaises(TypeError):
+            sm._get_session_file(123)
+
+
 class TestSessionWriter(unittest.TestCase):
     """Tests the SessionWriter class."""
 
@@ -126,23 +189,6 @@ class TestSessionWriter(unittest.TestCase):
         cls.swarm = Swarm(cls.devices, "test-swarm")
         cls.named_session = Session(cls.swarm, session_id="test-session")
         cls.unnamed_session = Session(cls.swarm)
-
-    def test_initialisation(self):
-        """Tests normal case,"""
-
-        writer = SessionWriter(self.named_session)
-
-        self.assertEqual(writer.session, self.named_session)
-        self.assertIsInstance(writer.session_file, Path)
-
-        self.assertEqual(
-            writer.session_file,
-            Path(
-                user_data_dir("iot_swarm"),
-                "sessions",
-                self.named_session.session_id + ".pkl",
-            ),
-        )
 
     @db_exists
     def test_write_from_empty(self):
@@ -159,14 +205,16 @@ class TestSessionWriter(unittest.TestCase):
             for x in self.device_ids
         ]
 
+        tempdir = tempfile.mkdtemp()
         session = Session(Swarm(devices), "test-session")
-        writer = SessionWriter(session)
 
-        writer.session_file = Path(tempfile.mkdtemp(), "test-sesion")
-        writer._write_state(replace=False)
+        writer = SessionWriter(base_directory=tempdir)
 
-        with open(writer.session_file, "rb") as f:
+        writer.write_session(session, replace=False)
+
+        with open(writer._get_session_file(session), "rb") as f:
             file_content = pickle.load(f)
+
         self.assertEqual(file_content, session)
 
     @db_exists
@@ -187,13 +235,14 @@ class TestSessionWriter(unittest.TestCase):
         for device in devices:
             data_source.query_latest_from_site(device.device_id, table)
 
+        tempdir = tempfile.mkdtemp()
+
         session = Session(Swarm(devices), "test-session")
-        writer = SessionWriter(session)
+        writer = SessionWriter(base_directory=tempdir)
 
-        writer.session_file = Path(tempfile.mkdtemp(), "test-sesion")
-        writer._write_state(replace=False)
+        writer.write_session(session, replace=False)
 
-        with open(writer.session_file, "rb") as f:
+        with open(writer._get_session_file(session), "rb") as f:
             file_content = pickle.load(f)
 
         self.assertEqual(file_content, session)
@@ -201,44 +250,90 @@ class TestSessionWriter(unittest.TestCase):
         for device in devices:
             data_source.query_latest_from_site(device.device_id, table)
 
-        writer._write_state(replace=True)
-        with open(writer.session_file, "rb") as f:
+        writer.write_session(session, replace=True)
+        with open(writer._get_session_file(session), "rb") as f:
             file_content = pickle.load(f)
 
         self.assertEqual(file_content, session)
+
+
+class TestSessionManager(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.device_ids = ["MORLY", "ALIC1", "SPENF", "RISEH"]
+        cls.devices = [
+            BaseDevice(x, MockDB(), MockMessageConnection()) for x in cls.device_ids
+        ]
+
+        cls.swarm = Swarm(cls.devices, "test-swarm")
+        cls.session = Session(cls.swarm)
 
     @db_exists
     def test_destroy_session(self):
         """Tests that a session file is destroyed."""
 
-        data_source = LoopingSQLite3(LOOPED_DB_FILE)
-        table = CosmosTable.LEVEL_1_SOILMET_30MIN
-        devices = [
-            BaseDevice(
-                x,
-                data_source,
-                MockMessageConnection(),
-                table=table,
-            )
-            for x in self.device_ids
-        ]
+        tempdir = tempfile.mkdtemp()
 
-        session = Session(Swarm(devices), "test-session")
+        writer = SessionWriter(base_directory=tempdir)
 
-        writer = SessionWriter(session)
-        writer.session_file = Path(tempfile.mkdtemp(), "test-sesion")
-
-        writer._write_state()
+        writer.write_session(self.session)
 
         self.assertTrue(
-            writer.session_file.exists(), msg="Session file was not created."
+            writer._get_session_file(self.session).exists(),
+            msg="Session file was not created.",
         )
 
-        writer._destroy_session()
+        SessionManager(tempdir).destroy_session(self.session)
 
         self.assertFalse(
-            writer.session_file.exists(), msg="Session file was not destroyed"
+            writer._get_session_file(self.session).exists(),
+            msg="Session file was not destroyed",
         )
+
+    def test_list_sessions(self):
+
+        session_ids = sorted(["test-1", "tmp-2", "mysession"])
+
+        sessions = [Session(self.swarm, session_id) for session_id in session_ids]
+
+        tempdir = tempfile.mkdtemp()
+
+        writer = SessionWriter(base_directory=tempdir)
+
+        [writer.write_session(session) for session in sessions]
+
+        sm = SessionManager(base_directory=tempdir)
+
+        found_sessions = sm.list_sessions()
+
+        self.assertListEqual(found_sessions, session_ids)
+
+
+class TestSessionLoader(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.device_ids = ["MORLY", "ALIC1", "SPENF", "RISEH"]
+        cls.devices = [
+            BaseDevice(x, MockDB(), MockMessageConnection()) for x in cls.device_ids
+        ]
+
+        cls.swarm = Swarm(cls.devices, "test-swarm")
+        cls.session = Session(cls.swarm)
+
+    def test_session_loaded(self):
+        temp = tempfile.mkdtemp()
+
+        writer = SessionWriter(base_directory=temp)
+        loader = SessionLoader(base_directory=temp)
+
+        writer.write_session(self.session)
+
+        session = loader.load_session(self.session.session_id)
+
+        self.assertIsInstance(session, Session)
+
+        self.assertEqual(session, self.session)
 
 
 if __name__ == "__main__":

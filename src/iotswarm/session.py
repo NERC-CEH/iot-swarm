@@ -2,7 +2,6 @@
 It should allow the state of a swarm to be restored from the point of failure"""
 
 from iotswarm.swarm import Swarm
-from iotswarm.db import LoopingCsvDB
 import uuid
 from pathlib import Path
 from platformdirs import user_data_dir
@@ -68,69 +67,97 @@ class Session:
 
         return session_id
 
-    @staticmethod
-    def list_sessions() -> List[str]:
-        """Returns a list of stored sessions."""
 
-        files = os.listdir(Path(user_data_dir("iot_swarm"), "sessions"))
+class SessionManagerBase:
+    base_directory: Path = Path(user_data_dir("iot_swarm"), "sessions")
+    """The base directory where sessions are stored."""
 
-        files = [file for file in files if file.endswith(".pkl")]
-
-
-class SessionWriter:
-    """Handles writing of the session state to file."""
-
-    session: Session
-    """The session to write"""
-
-    session_file: Path
-    """File path to the session file"""
-
-    def __init__(self, session: Session):
+    def __init__(self, base_directory: str | Path | None = None):
         """Initializes the class.
 
         Args:
-            session: The session to track.
+            base_directory: Base directory where sessions are stored.
         """
 
-        self.session = session
+        if base_directory is not None:
+            if not isinstance(base_directory, Path):
+                base_directory = Path(base_directory)
+            self.base_directory = base_directory
 
-        self.session_file = Path(
-            user_data_dir("iot_swarm"), "sessions", session.session_id + ".pkl"
-        )
+    def _get_session_file(self, session: Session | str) -> Path:
+        """Returns a full path to the session file.
 
-    def _write_state(self, replace: bool = False):
-        """Creates the session file if not already existing"""
+        Args:
+            session: The session to build the path from.
+            Assumed to be a session ID if str provided.
+        Returns:
+            Path: A path object to the file.
+        """
 
-        if self.session_file.exists():
+        if isinstance(session, str):
+            return Path(self.base_directory, session + ".pkl")
+        elif isinstance(session, Session):
+            return Path(self.base_directory, session.session_id + ".pkl")
+        else:
+            raise TypeError(f'`session` must be a Session, not "{type(session)}".')
+
+
+class SessionWriter(SessionManagerBase):
+    """Handles writing of the session state to file."""
+
+    def write_session(self, session: Session, replace: bool = False) -> None:
+        """Writes the session state to file.
+
+        Args:
+            session: The Session to write.
+            replace: When True it replaces the session. Execption is
+            raised if the file exists and replace is False.
+        """
+        session_file = self._get_session_file(session)
+
+        if session_file.exists():
             if replace:
-                os.remove(self.session_file)
+                os.remove(session_file)
             else:
                 raise FileExistsError(
-                    f'Session exists and replace is set to False: "{self.session_file}".'
+                    f'Session exists and replace is set to False: "{session_file}".'
                 )
+        elif not session_file.parent.exists():
+            os.makedirs(session_file.parent)
 
-        with open(self.session_file, "wb") as file:
-            pickle.dump(self.session, file)
+        with open(session_file, "wb") as file:
+            pickle.dump(session, file)
 
-    def _destroy_session(self):
+
+class SessionManager(SessionManagerBase):
+
+    def destroy_session(self, session: Session):
         """Destroys a session file."""
 
-        if self.session_file.exists():
-            os.remove(self.session_file)
+        session_file = self._get_session_file(session)
+        if session_file.exists():
+            os.remove(session_file)
+
+    def list_sessions(self) -> List[str]:
+        """Returns a list of stored sessions."""
+
+        files = os.listdir(self.base_directory)
+
+        files = [file.removesuffix(".pkl") for file in files if file.endswith(".pkl")]
+
+        return files
 
 
-class SessionLoader:
+class SessionLoader(SessionManagerBase):
     """Loads a session, instantiates the swarm and devices."""
 
-    @staticmethod
-    def _load_session(session_id: str) -> Session:
+    def load_session(self, session_id: str) -> Session:
         """Loads a session from pickle file."""
-        session_file = Path(user_data_dir("iot_swarm"), "sessions", session_id + ".pkl")
+        session_file = self._get_session_file(session_id)
 
         if not session_file.exists():
             raise FileNotFoundError(f'Session not found: "{session_id}".')
-        with open(session_file, "wb") as file:
+        with open(session_file, "rb") as file:
             session = pickle.load(file)
 
         return session
