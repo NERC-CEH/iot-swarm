@@ -303,8 +303,10 @@ def mqtt(
 
         for i in range(len(swarm.devices)):
             swarm.devices[i].connection = connection
-            swarm.devices[i].max_cycles = max_cycles
-            swarm.devices[i].sleep_time = sleep_time
+            if max_cycles is not None:
+                swarm.devices[i].max_cycles = max_cycles
+            if sleep_time is not None:
+                swarm.devices[i].sleep_time = sleep_time
 
         click.echo("Loaded swarm from pickle")
 
@@ -452,8 +454,10 @@ def mqtt(
 
         for i in range(len(swarm.devices)):
             swarm.devices[i].connection = connection
-            swarm.devices[i].max_cycles = max_cycles
-            swarm.devices[i].sleep_time = sleep_time
+            if max_cycles is not None:
+                swarm.devices[i].max_cycles = max_cycles
+            if sleep_time is not None:
+                swarm.devices[i].sleep_time = sleep_time
 
         click.echo(swarm.devices[0].cycle)
         click.echo("Loaded swarm from pickle")
