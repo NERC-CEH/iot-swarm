@@ -306,8 +306,9 @@ class BaseDevice:
                     )
                     self.cycle += 1
 
-                    if self.swarm is not None:
-                        self.swarm.write_self(replace=True)
+                    if isinstance(self.data_source, (LoopingCsvDB, LoopingSQLite3)):
+                        if self.swarm is not None:
+                            self.swarm.write_self(replace=True)
             else:
                 self._instance_logger.warning(f"No data found.")
 
