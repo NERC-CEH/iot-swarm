@@ -4,7 +4,14 @@ import asyncio
 import logging
 from iotswarm import __version__ as package_version
 from iotswarm.queries import CosmosTable
-from iotswarm.db import BaseDatabase, CosmosDB, Oracle, LoopingCsvDB, LoopingSQLite3
+from iotswarm.db import (
+    BaseDatabase,
+    MockDB,
+    CosmosDB,
+    Oracle,
+    LoopingCsvDB,
+    LoopingSQLite3,
+)
 from iotswarm.messaging.core import MessagingBaseClass, MockMessageConnection
 from iotswarm.messaging.aws import IotCoreMQTTConnection
 from typing import List
@@ -306,8 +313,11 @@ class BaseDevice:
                     )
                     self.cycle += 1
 
-                    if self.swarm is not None:
-                        self.swarm.write_self(replace=True)
+                    if isinstance(
+                        self.data_source, (LoopingCsvDB, LoopingSQLite3, MockDB)
+                    ):
+                        if self.swarm is not None:
+                            self.swarm.write_self(replace=True)
             else:
                 self._instance_logger.warning(f"No data found.")
 
