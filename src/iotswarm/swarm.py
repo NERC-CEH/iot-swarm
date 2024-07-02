@@ -191,7 +191,7 @@ class Swarm:
         if not base_directory.exists():
             return []
 
-        files = os.listdir(base_directory)
+        files = sorted(os.listdir(base_directory))
 
         files = [file.removesuffix(".pkl") for file in files if file.endswith(".pkl")]
 

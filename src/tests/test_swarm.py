@@ -175,7 +175,7 @@ class TestSwarmSessions(unittest.TestCase):
 
         [swarm.write_self() for swarm in swarms]
 
-        files = os.listdir(tempdir)
+        files = sorted(os.listdir(tempdir))
 
         for file, swarm in zip(files, swarms):
             self.assertTrue(file.startswith(swarm.name))
