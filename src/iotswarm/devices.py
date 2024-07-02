@@ -57,6 +57,9 @@ class BaseDevice:
     mqtt_suffix: str
     """Suffix added to mqtt message."""
 
+    swarm: object | None = None
+    """The session applied"""
+
     @property
     def mqtt_topic(self) -> str:
         "Builds the mqtt topic."
@@ -74,6 +77,30 @@ class BaseDevice:
         """Sets the mqtt topic"""
         self._mqtt_topic = value
         self.mqtt_base_topic = value
+
+    def __eq__(self, obj) -> bool:
+
+        base_equality = (
+            self.device_type == obj.device_type
+            and self.cycle == obj.cycle
+            and self.max_cycles == obj.max_cycles
+            and self.sleep_time == obj.sleep_time
+            and self.device_id == obj.device_id
+            and self.delay_start == obj.delay_start
+            and self._instance_logger == obj._instance_logger
+            and self.data_source == obj.data_source
+            and self.connection == obj.connection
+        )
+
+        table_equality = True
+        if hasattr(self, "table") and not self.table == obj.table:
+            table_equality = False
+
+        mqtt_equality = True
+        if hasattr(self, "mqtt_topic") and not self.mqtt_topic == obj.mqtt_topic:
+            mqtt_equality = False
+
+        return base_equality and table_equality and mqtt_equality
 
     def __init__(
         self,
@@ -235,12 +262,19 @@ class BaseDevice:
         self._instance_logger.debug(f"Delaying first cycle for: {delay}s.")
         await asyncio.sleep(delay)
 
-    def _send_payload(self, payload: dict):
+    def _send_payload(self, payload: dict) -> bool:
+        """Forwards the payload submission request to the connection
+
+        Args:
+            payload: The data to send.
+        Returns:
+            bool: True if sent sucessfully, else false.
+        """
 
         if isinstance(self.connection, IotCoreMQTTConnection):
-            self.connection.send_message(payload, topic=self.mqtt_topic)
+            return self.connection.send_message(payload, topic=self.mqtt_topic)
         else:
-            self.connection.send_message(payload)
+            return self.connection.send_message(payload)
 
     async def run(self):
         """The main invocation of the method. Expects a Oracle object to do work on
@@ -251,25 +285,31 @@ class BaseDevice:
         """
 
         while True:
+            if self.max_cycles > 0 and self.cycle >= self.max_cycles:
+                break
 
             if self.delay_start and self.cycle == 0:
                 await self._add_delay()
 
             payload = await self._get_payload()
-            payload = self._format_payload(payload)
 
-            if payload:
+            if payload is not None:
+                payload = self._format_payload(payload)
+
                 self._instance_logger.debug("Requesting payload submission.")
-                self._send_payload(payload)
-                self._instance_logger.info(
-                    f'Message sent{f" to topic: {self.mqtt_topic}" if self.mqtt_topic else ""}'
-                )
+
+                send_status = self._send_payload(payload)
+
+                if send_status == True:
+                    self._instance_logger.info(
+                        f'Message sent{f" to topic: {self.mqtt_topic}" if self.mqtt_topic else ""}'
+                    )
+                    self.cycle += 1
+
+                    if self.swarm is not None:
+                        self.swarm.write_self(replace=True)
             else:
                 self._instance_logger.warning(f"No data found.")
-
-            self.cycle += 1
-            if self.max_cycles > 0 and self.cycle >= self.max_cycles:
-                break
 
             await asyncio.sleep(self.sleep_time)
 
@@ -280,15 +320,20 @@ class BaseDevice:
                 self.device_id, self.table
             )
         elif isinstance(self.data_source, LoopingSQLite3):
-            return self.data_source.query_latest_from_site(self.device_id, self.table)
+            return self.data_source.query_latest_from_site(
+                self.device_id, self.table, self.cycle
+            )
         elif isinstance(self.data_source, LoopingCsvDB):
-            return self.data_source.query_latest_from_site(self.device_id)
+            return self.data_source.query_latest_from_site(self.device_id, self.cycle)
         elif isinstance(self.data_source, BaseDatabase):
             return self.data_source.query_latest_from_site()
 
     def _format_payload(self, payload):
         """Oranises payload into correct structure."""
         return payload
+
+    def _attach_swarm(self, swarm: object):
+        self.swarm = swarm
 
 
 class CR1000XDevice(BaseDevice):

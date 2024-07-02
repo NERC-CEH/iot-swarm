@@ -12,6 +12,7 @@ import pandas as pd
 from pathlib import Path
 from math import nan
 import sqlite3
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +40,18 @@ class BaseDatabase(abc.ABC):
             logger_arg = f"inherit_logger={self._instance_logger.parent}"
         return f"{self.__class__.__name__}({logger_arg})"
 
+    def __eq__(self, obj):
+        return self._instance_logger == obj._instance_logger
+
     @abc.abstractmethod
-    def query_latest_from_site(self):
+    def query_latest_from_site(self) -> List:
         pass
 
 
 class MockDB(BaseDatabase):
 
     @staticmethod
-    def query_latest_from_site():
+    def query_latest_from_site() -> List:
         return []
 
 
@@ -62,6 +66,14 @@ class CosmosDB(BaseDatabase):
 
     site_id_query: CosmosQuery
     """SQL query for retrieving list of site IDs"""
+
+    def __eq__(self, obj):
+        return (
+            type(self.connection) == type(obj.connection)
+            and self.site_data_query == obj.site_data_query
+            and self.site_id_query == obj.site_id_query
+            and BaseDatabase.__eq__(self, obj)
+        )
 
     @staticmethod
     def _validate_table(table: CosmosTable) -> None:
@@ -98,6 +110,9 @@ class CosmosDB(BaseDatabase):
                 )
 
         return max_sites
+
+    def query_latest_from_site(self):
+        pass
 
 
 class Oracle(CosmosDB):
@@ -225,8 +240,16 @@ class LoopingCsvDB(BaseDatabase):
     connection: pd.DataFrame
     """Connection to the pd object holding data."""
 
-    cache: dict
-    """Cache object containing current index of each site queried."""
+    db_file: str | Path
+    """Path to the database file."""
+
+    def __eq__(self, obj):
+
+        return (
+            type(self.connection) == type(obj.connection)
+            and self.db_file == obj.db_file
+            and BaseDatabase.__eq__(self, obj)
+        )
 
     @staticmethod
     def _get_connection(*args) -> pd.DataFrame:
@@ -241,27 +264,30 @@ class LoopingCsvDB(BaseDatabase):
         """
 
         BaseDatabase.__init__(self)
-        self.connection = self._get_connection(csv_file)
-        self.cache = dict()
 
-    def query_latest_from_site(self, site_id: str) -> dict:
+        if not isinstance(csv_file, Path):
+            csv_file = Path(csv_file)
+
+        self.db_file = csv_file
+        self.connection = self._get_connection(csv_file)
+
+    def query_latest_from_site(self, site_id: str, index: int) -> dict:
         """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
         for a specific site. If the end is reached, it loops back to the start.
 
         Args:
             site_id: ID of the site to query for.
+            index: An offset index to query.
         Returns:
             A dict of the data row.
         """
 
         data = self.connection.query("SITE_ID == @site_id").replace({nan: None})
 
-        if site_id not in self.cache or self.cache[site_id] >= len(data):
-            self.cache[site_id] = 1
-        else:
-            self.cache[site_id] += 1
+        # Automatically loops back to start
+        db_index = index % len(data)
 
-        return data.iloc[self.cache[site_id] - 1].to_dict()
+        return data.iloc[db_index].to_dict()
 
     def query_site_ids(self, max_sites: int | None = None) -> list:
         """query_site_ids returns a list of site IDs from the database
@@ -316,32 +342,49 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
 
         self.cursor = self.connection.cursor()
 
-    def query_latest_from_site(self, site_id: str, table: CosmosTable) -> dict:
+    def __eq__(self, obj) -> bool:
+        return CosmosDB.__eq__(self, obj) and super(LoopingCsvDB, self).__eq__(obj)
+
+    def __getstate__(self) -> object:
+
+        state = self.__dict__.copy()
+
+        del state["connection"]
+        del state["cursor"]
+
+        return state
+
+    def __setstate__(self, state) -> object:
+
+        self.__dict__.update(state)
+
+        self.connection = self._get_connection(self.db_file)
+        self.cursor = self.connection.cursor()
+
+    def query_latest_from_site(
+        self, site_id: str, table: CosmosTable, index: int
+    ) -> dict:
         """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
         for a specific site. If the end is reached, it loops back to the start.
 
         Args:
             site_id: ID of the site to query for.
             table: A valid table from the database
+            index: Offset of index.
         Returns:
             A dict of the data row.
         """
         query = self._fill_query(self.site_data_query, table)
 
-        if site_id not in self.cache:
-            self.cache[site_id] = 0
-        else:
-            self.cache[site_id] += 1
-
         data = self._query_latest_from_site(
-            query, {"site_id": site_id, "offset": self.cache[site_id]}
+            query, {"site_id": site_id, "offset": index}
         )
 
         if data is None:
-            self.cache[site_id] = 0
+            index = 0
 
         data = self._query_latest_from_site(
-            query, {"site_id": site_id, "offset": self.cache[site_id]}
+            query, {"site_id": site_id, "offset": index}
         )
 
         return data

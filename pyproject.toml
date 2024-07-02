@@ -4,18 +4,19 @@ requires = ["setuptools >= 61.0", "autosemver"]
 
 [project]
 dependencies = [
-    "platformdirs",
-    "boto3",
     "autosemver",
-    "config",
-    "click",
-    "docutils<0.17",
     "awscli",
     "awscrt",
     "awsiotsdk",
-    "oracledb",
     "backoff",
+    "boto3",
+    "click",
+    "config",
+    "dill",
+    "docutils<0.17",
+    "oracledb",
     "pandas",
+    "platformdirs",
 ]
 name = "iot-swarm"
 dynamic = ["version"]

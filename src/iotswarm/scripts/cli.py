@@ -12,6 +12,7 @@ import iotswarm.scripts.common as cli_common
 import asyncio
 from pathlib import Path
 import logging
+import os
 
 TABLE_NAMES = [table.name for table in CosmosTable]
 
@@ -260,6 +261,12 @@ looping_csv.add_command(cli_common.list_sites)
 @cli_common.device_options
 @cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
+@click.option(
+    "--resume-session",
+    is_flag=True,
+    default=False,
+    help='Resumes the session if it exists. Must be used with "session-name".',
+)
 def mqtt(
     ctx,
     endpoint,
@@ -276,13 +283,34 @@ def mqtt(
     mqtt_suffix,
     dry,
     device_type,
+    resume_session,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
 
     Currently only supports sending through AWS IoT Core."""
 
-    async def _mqtt():
+    async def _mqtt_resume_session():
+        swarm = Swarm.load_swarm(swarm_name)
+        connection = IotCoreMQTTConnection(
+            endpoint=endpoint,
+            cert_path=cert_path,
+            key_path=key_path,
+            ca_cert_path=ca_cert_path,
+            client_id=client_id,
+            inherit_logger=ctx.obj["logger"],
+        )
+
+        for i in range(len(swarm.devices)):
+            swarm.devices[i].connection = connection
+            swarm.devices[i].max_cycles = max_cycles
+            swarm.devices[i].sleep_time = sleep_time
+
+        click.echo("Loaded swarm from pickle")
+
+        await swarm.run()
+
+    async def _mqtt_clean_session():
 
         sites = ctx.obj["sites"]
         db = ctx.obj["db"]
@@ -322,10 +350,17 @@ def mqtt(
         ]
 
         swarm = Swarm(site_devices, swarm_name)
-
+        [device._attach_swarm(swarm) for device in swarm.devices]
         await swarm.run()
 
-    asyncio.run(_mqtt())
+    if (
+        resume_session == True
+        and swarm_name is not None
+        and Swarm._swarm_exists(swarm_name)
+    ):
+        asyncio.run(_mqtt_resume_session())
+    else:
+        asyncio.run(_mqtt_clean_session())
 
 
 @main.group()
@@ -372,6 +407,12 @@ def list_sites(ctx, max_sites, table):
 @cli_common.iotcore_options
 @click.argument("table", type=click.Choice(TABLE_NAMES))
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
+@click.option(
+    "--resume-session",
+    is_flag=True,
+    default=False,
+    help='Resumes the session if it exists. Must be used with "session-name".',
+)
 def mqtt(
     ctx,
     table,
@@ -389,6 +430,7 @@ def mqtt(
     mqtt_suffix,
     dry,
     device_type,
+    resume_session,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
@@ -397,7 +439,28 @@ def mqtt(
 
     table = CosmosTable[table]
 
-    async def _mqtt():
+    async def _mqtt_resume_session():
+        swarm = Swarm.load_swarm(swarm_name)
+        connection = IotCoreMQTTConnection(
+            endpoint=endpoint,
+            cert_path=cert_path,
+            key_path=key_path,
+            ca_cert_path=ca_cert_path,
+            client_id=client_id,
+            inherit_logger=ctx.obj["logger"],
+        )
+
+        for i in range(len(swarm.devices)):
+            swarm.devices[i].connection = connection
+            swarm.devices[i].max_cycles = max_cycles
+            swarm.devices[i].sleep_time = sleep_time
+
+        click.echo(swarm.devices[0].cycle)
+        click.echo("Loaded swarm from pickle")
+        await swarm.run()
+
+    async def _mqtt_clean_session():
+        click.echo("Starting clean session")
 
         sites = ctx.obj["sites"]
         db = ctx.obj["db"]
@@ -439,9 +502,46 @@ def mqtt(
 
         swarm = Swarm(site_devices, swarm_name)
 
+        [device._attach_swarm(swarm) for device in swarm.devices]
         await swarm.run()
 
-    asyncio.run(_mqtt())
+    if (
+        resume_session == True
+        and swarm_name is not None
+        and Swarm._swarm_exists(swarm_name)
+    ):
+        asyncio.run(_mqtt_resume_session())
+    else:
+        asyncio.run(_mqtt_clean_session())
+
+
+@main.group()
+def sessions():
+    """Group for managing sessions."""
+
+
+@sessions.command()
+def ls():
+    """Lists the swarms."""
+    click.echo(Swarm._list_swarms())
+
+
+@sessions.command()
+@click.argument("session-id", type=click.STRING)
+def init(session_id):
+    """Creates an empty swarm file."""
+    Swarm._initialise_swarm_file(session_id)
+
+
+@sessions.command()
+@click.argument("session-id", type=click.STRING)
+def rm(session_id):
+    """Deletes a swarm."""
+    if Swarm._swarm_exists(session_id):
+        Swarm.destroy_swarm(session_id)
+        click.echo(f'Session "{session_id}" deleted.')
+    else:
+        click.echo(f'Session "{session_id}" does not exist.')
 
 
 if __name__ == "__main__":
