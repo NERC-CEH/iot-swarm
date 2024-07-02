@@ -168,38 +168,67 @@ class IotCoreMQTTConnection(MessagingBaseClass):
         self._instance_logger.debug("Connection closed")
         self.connected_flag = False
 
-    @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
+    @backoff.on_exception(
+        backoff.expo, exception=AwsCrtError, logger=logger, max_time=60
+    )
     def _connect(self):  # pragma: no cover
         self._instance_logger.debug("Connecting to endpoint")
         connect_future = self.connection.connect()
         connect_future.result()
 
-    @backoff.on_exception(backoff.expo, exception=AwsCrtError, logger=logger)
+    @backoff.on_exception(
+        backoff.expo, exception=AwsCrtError, logger=logger, max_time=60
+    )
     def _disconnect(self):  # pragma: no cover
         self._instance_logger.debug("Disconnecting from endpoint")
         disconnect_future = self.connection.disconnect()
         disconnect_future.result()
 
-    def send_message(self, message: dict, topic: str) -> None:
+    def send_message(self, message: dict, topic: str) -> bool:
         """Sends a message to the endpoint.
 
         Args:
             message: The message to send.
             topic: MQTT topic to send message under.
+        Returns:
+            bool: True if sent sucessfully, else false.
         """
+
         if not message:
             self._instance_logger.error(f'No message to send for topic: "{topic}".')
             return
 
         if self.connected_flag == False:
-            self._connect()
+            try:
+                self._connect()
+            except AwsCrtError:
+                self._instance_logger.error("AwsCrtError raised during connection.")
+                return False
+            except RuntimeError:
+                self._instance_logger.error(
+                    "Invalid state encounterd during connection."
+                )
+                return False
 
         if message:  # pragma: no cover
             payload = json.dumps(message, default=json_serial)
-            self.connection.publish(
+            status = self.connection.publish(
                 topic=topic,
                 payload=payload,
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
 
-        self._instance_logger.debug(f'Sent {sys.getsizeof(payload)} bytes to "{topic}"')
+        if "packet_id" in status[0].result():
+            self._instance_logger.debug(
+                f'Sent {sys.getsizeof(payload)} bytes to "{topic}"'
+            )
+            return True
+        else:
+            self._instance_logger.debug(f'Failed to send data to "{topic}"')
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        del state["connection"]
+
+        return state

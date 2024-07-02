@@ -46,7 +46,7 @@ class TestMockMessageConnection(unittest.TestCase):
 
         self.assertIsNone(mock.connection)
 
-        self.assertIsNone(mock.send_message())
+        self.assertTrue(mock.send_message())
 
         self.assertIsInstance(mock, MessagingBaseClass)
 

@@ -12,6 +12,7 @@ import pandas as pd
 from pathlib import Path
 from math import nan
 import sqlite3
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,14 @@ class BaseDatabase(abc.ABC):
         return self._instance_logger == obj._instance_logger
 
     @abc.abstractmethod
-    def query_latest_from_site(self):
+    def query_latest_from_site(self) -> List:
         pass
 
 
 class MockDB(BaseDatabase):
 
     @staticmethod
-    def query_latest_from_site():
+    def query_latest_from_site() -> List:
         return []
 
 
@@ -242,15 +243,11 @@ class LoopingCsvDB(BaseDatabase):
     db_file: str | Path
     """Path to the database file."""
 
-    cache: dict
-    """Cache object containing current index of each site queried."""
-
     def __eq__(self, obj):
 
         return (
             type(self.connection) == type(obj.connection)
             and self.db_file == obj.db_file
-            and self.cache == obj.cache
             and BaseDatabase.__eq__(self, obj)
         )
 
@@ -273,26 +270,24 @@ class LoopingCsvDB(BaseDatabase):
 
         self.db_file = csv_file
         self.connection = self._get_connection(csv_file)
-        self.cache = dict()
 
-    def query_latest_from_site(self, site_id: str) -> dict:
+    def query_latest_from_site(self, site_id: str, index: int) -> dict:
         """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
         for a specific site. If the end is reached, it loops back to the start.
 
         Args:
             site_id: ID of the site to query for.
+            index: An offset index to query.
         Returns:
             A dict of the data row.
         """
 
         data = self.connection.query("SITE_ID == @site_id").replace({nan: None})
 
-        if site_id not in self.cache or self.cache[site_id] >= len(data):
-            self.cache[site_id] = 1
-        else:
-            self.cache[site_id] += 1
+        # Automatically loops back to start
+        db_index = index % len(data)
 
-        return data.iloc[self.cache[site_id] - 1].to_dict()
+        return data.iloc[db_index].to_dict()
 
     def query_site_ids(self, max_sites: int | None = None) -> list:
         """query_site_ids returns a list of site IDs from the database
@@ -366,32 +361,30 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
         self.connection = self._get_connection(self.db_file)
         self.cursor = self.connection.cursor()
 
-    def query_latest_from_site(self, site_id: str, table: CosmosTable) -> dict:
+    def query_latest_from_site(
+        self, site_id: str, table: CosmosTable, index: int
+    ) -> dict:
         """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
         for a specific site. If the end is reached, it loops back to the start.
 
         Args:
             site_id: ID of the site to query for.
             table: A valid table from the database
+            index: Offset of index.
         Returns:
             A dict of the data row.
         """
         query = self._fill_query(self.site_data_query, table)
 
-        if site_id not in self.cache:
-            self.cache[site_id] = 0
-        else:
-            self.cache[site_id] += 1
-
         data = self._query_latest_from_site(
-            query, {"site_id": site_id, "offset": self.cache[site_id]}
+            query, {"site_id": site_id, "offset": index}
         )
 
         if data is None:
-            self.cache[site_id] = 0
+            index = 0
 
         data = self._query_latest_from_site(
-            query, {"site_id": site_id, "offset": self.cache[site_id]}
+            query, {"site_id": site_id, "offset": index}
         )
 
         return data

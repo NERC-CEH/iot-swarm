@@ -40,7 +40,7 @@ class MessagingBaseClass(ABC):
         """A property for the connection object where messages are sent."""
 
     @abstractmethod
-    def send_message(self):
+    def send_message(self) -> bool:
         """Method for sending the message."""
 
     def __repr__(self):
@@ -53,7 +53,13 @@ class MockMessageConnection(MessagingBaseClass):
     connection: None = None
     """Connection object. Not needed in a mock but must be implemented"""
 
-    def send_message(self, *_):
-        """Consumes requests to send a message but does nothing with it."""
+    def send_message(self, *_) -> bool:
+        """Consumes requests to send a message but does nothing with it.
+
+        Returns:
+            bool: True if sent sucessfully, else false.
+        """
 
         self._instance_logger.debug("Message was sent.")
+
+        return True

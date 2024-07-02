@@ -12,7 +12,7 @@ import logging
 from unittest.mock import patch
 import pandas as pd
 from glob import glob
-from math import isnan
+from math import nan
 import sqlite3
 
 CONFIG_PATH = Path(
@@ -238,85 +238,19 @@ class TestLoopingCsvDB(unittest.TestCase):
         self.assertIsInstance(database, db.LoopingCsvDB)
         self.assertIsInstance(database, db.BaseDatabase)
 
-
-        self.assertIsInstance(database.cache, dict)
         self.assertIsInstance(database.connection, pd.DataFrame)
 
     @data_files_exist
-    @pytest.mark.slow
     def test_site_data_return_value(self):
         database = self.soilmet_table
 
         site = "MORLY"
 
-        data = database.query_latest_from_site(site)
-
-        expected_cache = {site: 1}
-        self.assertDictEqual(database.cache, expected_cache)
+        data = database.query_latest_from_site(site, 0)
 
         self.assertIsInstance(data, dict)
-    
-    @data_files_exist
-    @pytest.mark.slow
-    def test_multiple_sites_added_to_cache(self):
-        sites = ["ALIC1", "MORLY", "HOLLN","EUSTN"]
-
-        database = self.soilmet_table
-
-        data = [database.query_latest_from_site(x) for x in sites]
-        
-        for i, site in enumerate(sites):
-            self.assertEqual(site, data[i]["SITE_ID"])
-            self.assertIn(site, database.cache)
-            self.assertEqual(database.cache[site], 1)
 
     @data_files_exist
-    @pytest.mark.slow
-    def test_cache_incremented_on_each_request(self):
-        database = self.soilmet_table
-
-        site = "MORLY"
-
-        expected = 1
-
-        last_data = None
-        for _ in range(10):
-            data = database.query_latest_from_site(site)
-            self.assertNotEqual(last_data, data)
-            self.assertEqual(expected, database.cache[site])
-            
-            last_data = data
-            expected += 1
-        
-        self.assertEqual(expected, 11)
-
-    @data_files_exist
-    @pytest.mark.slow
-    def test_cache_counter_restarts_at_end(self):
-
-        short_table_path = Path(Path(__file__).parent, "data", "ALIC1_4_ROWS.csv")
-        database = db.LoopingCsvDB(short_table_path)
-
-        site = "ALIC1"
-
-        expected = [1,2,3,4,1]
-        data = []
-        for e in expected:
-            data.append(database.query_latest_from_site(site))
-
-            self.assertEqual(database.cache[site], e)
-
-        for key in data[0].keys():
-            try:
-                self.assertEqual(data[0][key], data[-1][key])
-            except AssertionError as err:
-                if not isnan(data[0][key]) and isnan(data[-1][key]):
-                    raise(err)
-
-        self.assertEqual(len(expected), len(data))
-
-    @data_files_exist
-    @pytest.mark.slow
     def test_site_ids_can_be_retrieved(self):
         database = self.soilmet_table
 
@@ -341,6 +275,39 @@ class TestLoopingCsvDB(unittest.TestCase):
 
             database.query_site_ids(max_sites=-1)
 
+class TestLoopingCsvDBIndexing(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.data_path = {v.name.removesuffix("_DATA_TABLE.csv"):v for v in CSV_DATA_FILES}
+        cls.site_id = "MORLY"
+        cls.database = db.LoopingCsvDB(cls.data_path["LEVEL_1_SOILMET_30MIN"])
+        cls.database.connection = cls.database.connection.query(f"SITE_ID == '{cls.site_id}'").replace({nan: None})[0:4]
+        cls.maxDiff = None
+
+    @data_files_exist
+    def test_correct_row_returned_with_index(self):
+        """Tests that the appropriate row is returned each time index is incremented."""
+
+        self.assertEqual(len(self.database.connection), 4, msg="Unexpected DB length for test.")
+        for row in range(len(self.database.connection)):
+            expected = self.database.connection.iloc[row].to_dict()
+            actual = self.database.query_latest_from_site(self.site_id, row)
+
+            self.assertDictEqual(expected, actual)
+
+    @data_files_exist
+    def test_data_value_loops_back_to_start(self):
+        """Tests that DB loops back to first index when it runs out of entries."""
+        self.assertEqual(len(self.database.connection), 4, msg="Unexpected DB length for test.")
+        expected_ids = [4,8,12,16]
+
+        expected = self.database.connection.iloc[0].to_dict()
+        for ids in expected_ids:
+            actual = self.database.query_latest_from_site(self.site_id, ids)
+
+            self.assertDictEqual(expected, actual)
+
 class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
     """Tests the LoopingCsvDB class."""
 
@@ -357,8 +324,6 @@ class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
         device = BaseDevice("ALIC1", database, MockMessageConnection(), sleep_time=0, max_cycles=5)
 
         await device.run()
-
-        self.assertDictEqual(database.cache, {"ALIC1": 5})
 
     @data_files_exist
     @pytest.mark.slow
@@ -377,8 +342,6 @@ class TestLoopingCsvDBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
         await swarm.run()
 
-        self.assertDictEqual(database.cache, {"MORLY": 1, "ALIC1": 4, "EUSTN": 6})
-
 class TestSqliteDB(unittest.TestCase):
 
     @sqlite_db_exist
@@ -389,6 +352,10 @@ class TestSqliteDB(unittest.TestCase):
         if self.db_path.exists():
             self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None
+
+    def tearDown(self):
+        self.database.cursor.close()
+        self.database.connection.close()
     
     @sqlite_db_exist
     def test_instantiation(self):
@@ -400,7 +367,7 @@ class TestSqliteDB(unittest.TestCase):
 
         site_id = "MORLY"
 
-        data = self.database.query_latest_from_site(site_id, self.table)
+        data = self.database.query_latest_from_site(site_id, self.table, 0)
 
         self.assertIsInstance(data, dict)
 
@@ -416,48 +383,56 @@ class TestSqliteDB(unittest.TestCase):
         for site in sites:
              self.assertIsInstance(site, str)
 
-    @sqlite_db_exist
-    def test_multiple_sites_added_to_cache(self):
-        sites = ["ALIC1", "MORLY", "HOLLN","EUSTN"]
+class TestSQLiteDBIndexing(unittest.TestCase):
 
-        data = [self.database.query_latest_from_site(x, self.table) for x in sites]
+    @classmethod
+    def setUpClass(cls):
+        cls.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
+        cls.table = CosmosTable.LEVEL_1_SOILMET_30MIN
+        cls.site_id = "MORLY"
         
-        for i, site in enumerate(sites):
-            self.assertEqual(site, data[i]["SITE_ID"])
-            self.assertIn(site, self.database.cache)
-            self.assertEqual(self.database.cache[site], 0)
-    
-    @sqlite_db_exist
-    def test_cache_incremented_on_each_request(self):
-        site = "MORLY"
+        if cls.db_path.exists():
+            cls.database = db.LoopingSQLite3(cls.db_path)
+        
+        cls.database.cursor.execute(f"""DELETE FROM {cls.table.value} WHERE site_id NOT IN (
+                       SELECT site_id from {cls.table.value}
+                       where site_id == '{cls.site_id}')""")
+        cls.database.cursor.execute(f"""DELETE FROM {cls.table.value} WHERE date_time NOT IN (
+                       SELECT date_time from {cls.table.value}
+                       LIMIT 4)""")
+        
+        cls.maxDiff = None
 
-        last_data = {}
-        for i in range(3):
-            if i == 0:
-                self.assertEqual(self.database.cache, {})
-            else:
-                self.assertEqual(i-1, self.database.cache[site])
-            data = self.database.query_latest_from_site(site, self.table)
-            self.assertNotEqual(last_data, data)
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.database.cursor.close()
+        cls.database.connection.close()
+
+    @sqlite_db_exist
+    def test_correct_row_returned_with_index(self):
+        """Tests that the appropriate row is returned each time index is incremented."""
+        cursor = self.database.cursor
+
+        for i in range(4):
+            actual = list(self.database.query_latest_from_site(self.site_id, self.table, i).values())
+            cursor.execute(f"SELECT * FROM {self.table.value} WHERE site_id = '{self.site_id}' LIMIT 1 OFFSET {i}")
+            expected = list(cursor.fetchone())
+            self.assertListEqual(actual, expected)
             
-            last_data = data
-    
     @sqlite_db_exist
-    def test_cache_counter_restarts_at_end(self):
-        database = db.LoopingSQLite3(Path(Path(__file__).parent, "data", "database.db"))
+    def test_data_value_loops_back_to_start(self):
+        """Tests that DB loops back to first index when it runs out of entries."""
+        
+        cursor = self.database.cursor
 
-        site = "ALIC1"
+        expected_ids = [4,8,12,16]
 
-        expected = [0,1,2,3,0]
-        data = []
-        for e in expected:
-            data.append(database.query_latest_from_site(site, self.table))
+        cursor.execute(f"SELECT * FROM {self.table.value} WHERE site_id = '{self.site_id}' LIMIT 1 OFFSET 0")
+        expected = list(cursor.fetchone())
+        for i in expected_ids:
+            actual = list(self.database.query_latest_from_site(self.site_id, self.table, i).values())
 
-            self.assertEqual(database.cache[site], e)
-
-        self.assertEqual(data[0], data[-1])
-
-        self.assertEqual(len(expected), len(data))
+            self.assertListEqual(actual, expected)
 
 class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
     """Tests the LoopingCsvDB class."""
@@ -478,8 +453,6 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
         await device.run()
 
-        self.assertDictEqual(self.database.cache, {"ALIC1": 4})
-
     @sqlite_db_exist
     async def test_flow_with_swarm_attached(self):
         """Tests that the database is looped through correctly with multiple sites in a swarm."""
@@ -494,8 +467,6 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
         swarm = Swarm(devices)
 
         await swarm.run()
-
-        self.assertDictEqual(self.database.cache, {"MORLY": 0, "ALIC1": 1, "EUSTN": 2})
 
 
 if __name__ == "__main__":

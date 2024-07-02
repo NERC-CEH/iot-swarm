@@ -422,7 +422,7 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
                 inherit_logger=logging.getLogger("mylogger"),
             )
             await site.run()
-            expected = "WARNING:mylogger.BaseDevice-site:No data found."
+            expected = "INFO:mylogger.BaseDevice-site:Message sent to topic: site"
             self.assertIn(expected, cm.output)
 
         with self.assertLogs(level=logging.DEBUG) as cm:
