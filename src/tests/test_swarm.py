@@ -167,7 +167,7 @@ class TestSwarmSessions(unittest.TestCase):
 
     def test_session_file_written(self):
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
-        swarm_names = sorted(["test-swarm", "another", "bites"])
+        swarm_names = sorted(["another", "basic", "swarm-test"])
 
         swarms = [
             Swarm(self.devices, name=x, base_directory=tempdir) for x in swarm_names
@@ -204,7 +204,7 @@ class TestSwarmSessions(unittest.TestCase):
 
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
 
-        swarm_names = sorted(["swarm1", "swarma", "test"])
+        swarm_names = sorted(["swarm-b", "swarma", "test"])
 
         swarms = [
             Swarm(self.devices, name=x, base_directory=tempdir) for x in swarm_names
