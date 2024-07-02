@@ -261,7 +261,12 @@ looping_csv.add_command(cli_common.list_sites)
 @cli_common.device_options
 @cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
-@click.option("--resume-session", is_flag=True, default=False)
+@click.option(
+    "--resume-session",
+    is_flag=True,
+    default=False,
+    help='Resumes the session if it exists. Must be used with "session-name".',
+)
 def mqtt(
     ctx,
     endpoint,
@@ -287,7 +292,22 @@ def mqtt(
 
     async def _mqtt_resume_session():
         swarm = Swarm.load_swarm(swarm_name)
+        connection = IotCoreMQTTConnection(
+            endpoint=endpoint,
+            cert_path=cert_path,
+            key_path=key_path,
+            ca_cert_path=ca_cert_path,
+            client_id=client_id,
+            inherit_logger=ctx.obj["logger"],
+        )
+
+        for i in range(len(swarm.devices)):
+            swarm.devices[i].connection = connection
+            swarm.devices[i].max_cycles = max_cycles
+            swarm.devices[i].sleep_time = sleep_time
+
         click.echo("Loaded swarm from pickle")
+
         await swarm.run()
 
     async def _mqtt_clean_session():
@@ -387,7 +407,12 @@ def list_sites(ctx, max_sites, table):
 @cli_common.iotcore_options
 @click.argument("table", type=click.Choice(TABLE_NAMES))
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
-@click.option("--resume-session", is_flag=True, default=False)
+@click.option(
+    "--resume-session",
+    is_flag=True,
+    default=False,
+    help='Resumes the session if it exists. Must be used with "session-name".',
+)
 def mqtt(
     ctx,
     table,
@@ -416,6 +441,21 @@ def mqtt(
 
     async def _mqtt_resume_session():
         swarm = Swarm.load_swarm(swarm_name)
+        connection = IotCoreMQTTConnection(
+            endpoint=endpoint,
+            cert_path=cert_path,
+            key_path=key_path,
+            ca_cert_path=ca_cert_path,
+            client_id=client_id,
+            inherit_logger=ctx.obj["logger"],
+        )
+
+        for i in range(len(swarm.devices)):
+            swarm.devices[i].connection = connection
+            swarm.devices[i].max_cycles = max_cycles
+            swarm.devices[i].sleep_time = sleep_time
+
+        click.echo(swarm.devices[0].cycle)
         click.echo("Loaded swarm from pickle")
         await swarm.run()
 
@@ -483,7 +523,7 @@ def sessions():
 @sessions.command()
 def ls():
     """Lists the swarms."""
-    click.echo(Swarm.list_swarms())
+    click.echo(Swarm._list_swarms())
 
 
 @sessions.command()

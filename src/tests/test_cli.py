@@ -58,6 +58,38 @@ def test_get_version():
     """Tests that the verison can be retrieved."""
 
     result = RUNNER.invoke(cli.main, ["get-version"])
-    print(result.output)
     assert not result.exception
     assert re.match(r"^\d+\.\d+\.\d+$", result.output)
+
+
+def test_list_sessions():
+
+    result = RUNNER.invoke(cli.main, ["sessions", "ls"])
+
+    assert not result.exception
+    assert re.match(r"\[(('[\d\w-]+')+(, )*)*\]", result.output)
+
+
+def test_session_rm():
+    session = "theres-no-way-this-is-a-real-session"
+
+    RUNNER.invoke(cli.main, ["sessions", "init", session])
+
+    assert session in RUNNER.invoke(cli.main, ["sessions", "ls"]).output
+
+    RUNNER.invoke(cli.main, ["sessions", "rm", session])
+    assert session not in RUNNER.invoke(cli.main, ["sessions", "ls"]).output
+
+
+def test_session_init():
+    session = "theres-no-way-this-is-a-real-session"
+
+    RUNNER.invoke(cli.main, ["sessions", "rm", session])
+
+    result = RUNNER.invoke(cli.main, ["sessions", "init", session])
+
+    assert not result.exception
+
+    assert session in RUNNER.invoke(cli.main, ["sessions", "ls"]).output
+
+    RUNNER.invoke(cli.main, ["sessions", "rm", session])

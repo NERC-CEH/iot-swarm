@@ -185,7 +185,7 @@ class Swarm:
             os.remove(swarm_file)
 
     @staticmethod
-    def _list_swarms(base_directory: str | Path) -> List[str]:
+    def _list_swarms_with_directory(base_directory: str | Path) -> List[str]:
         """Returns a list of stored swarms."""
 
         if not base_directory.exists():
@@ -198,13 +198,13 @@ class Swarm:
         return files
 
     @classmethod
-    def list_swarms(cls) -> List[str]:
+    def _list_swarms(cls) -> List[str]:
         """Returns list of swarms from default directory"""
-        return cls._list_swarms(cls.base_directory)
+        return cls._list_swarms_with_directory(cls.base_directory)
 
     def list_swarms(self) -> List[str]:
         """Returns list of swarms from instance directory"""
-        return self._list_swarms(self.base_directory)
+        return self._list_swarms_with_directory(self.base_directory)
 
     @classmethod
     def load_swarm(cls, swarm_id: str) -> Self:
