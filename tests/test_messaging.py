@@ -12,7 +12,7 @@ from parameterized import parameterized
 import logging
 
 
-ASSETS_PATH = Path(Path(__file__).parents[1], "iotswarm", "__assets__")
+ASSETS_PATH = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__")
 CONFIG_PATH = Path(ASSETS_PATH, "config.cfg")
 
 config_exists = pytest.mark.skipif(

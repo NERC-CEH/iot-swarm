@@ -16,14 +16,14 @@ import config
 from datetime import datetime, timedelta
 
 CONFIG_PATH = Path(
-    Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
+    Path(__file__).parents[1], "src", "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
     reason="Config file `config.cfg` not found in root directory.",
 )
 
-DATA_DIR = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data")
+DATA_DIR = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data")
 sqlite_db_exist = pytest.mark.skipif(not Path(DATA_DIR, "cosmos.db").exists(), reason="Local cosmos.db does not exist.")
 
 
@@ -335,7 +335,7 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
 class TestBaseDevicesSQLite3Used(unittest.IsolatedAsyncioTestCase):
     
     def setUp(self):
-        db_path = Path(Path(__file__).parents[1], "iotswarm","__assets__", "data", "cosmos.db")
+        db_path = Path(Path(__file__).parents[1], "src", "iotswarm","__assets__", "data", "cosmos.db")
         if db_path.exists():
             self.db = LoopingSQLite3(db_path)
         self.table = CosmosTable.LEVEL_1_SOILMET_30MIN

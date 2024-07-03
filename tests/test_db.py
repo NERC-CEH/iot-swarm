@@ -16,7 +16,7 @@ from math import nan
 import sqlite3
 
 CONFIG_PATH = Path(
-    Path(__file__).parents[1], "iotswarm", "__assets__", "config.cfg"
+    Path(__file__).parents[1], "src", "iotswarm", "__assets__", "config.cfg"
 )
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
@@ -210,7 +210,7 @@ class TestOracleDB(unittest.IsolatedAsyncioTestCase):
             oracle2.__repr__(), expected2
         )
 
-CSV_PATH = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data")
+CSV_PATH = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data")
 CSV_DATA_FILES = [Path(x) for x in glob(str(Path(CSV_PATH, "*.csv")))]
 sqlite_db_exist = pytest.mark.skipif(not Path(CSV_PATH, "cosmos.db").exists(), reason="Local cosmos.db does not exist.")
 
@@ -346,7 +346,7 @@ class TestSqliteDB(unittest.TestCase):
 
     @sqlite_db_exist
     def setUp(self):
-        self.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
+        self.db_path = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db")
         self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
         
         if self.db_path.exists():
@@ -387,7 +387,7 @@ class TestSQLiteDBIndexing(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
+        cls.db_path = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db")
         cls.table = CosmosTable.LEVEL_1_SOILMET_30MIN
         cls.site_id = "MORLY"
         
@@ -439,7 +439,7 @@ class TestLoopingSQLite3DBEndToEnd(unittest.IsolatedAsyncioTestCase):
 
     @sqlite_db_exist
     def setUp(self):
-        self.db_path = Path(Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db")
+        self.db_path = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db")
         if self.db_path.exists():
             self.database = db.LoopingSQLite3(self.db_path)
         self.maxDiff = None

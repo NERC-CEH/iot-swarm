@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 SQL_PATH = Path(
-    Path(__file__).parents[1], "iotswarm", "__assets__", "data", "cosmos.db"
+    Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db"
 )
 sqlite_db_exist = pytest.mark.skipif(
     not SQL_PATH.exists(), reason="Local cosmos.db does not exist."
