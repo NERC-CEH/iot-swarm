@@ -37,7 +37,6 @@ version = { attr = "iotswarm.__version__" }
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["iotswarm*"]
-exclude = ["tests*"]
 
 [tool.setuptools.package-data]
 "iotswarm.__assets__" = ["loggers.ini"]
