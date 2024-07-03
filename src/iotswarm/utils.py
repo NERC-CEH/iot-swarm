@@ -4,7 +4,6 @@ from datetime import date, datetime
 from pathlib import Path
 import pandas
 import sqlite3
-from glob import glob
 
 
 def json_serial(obj: object):

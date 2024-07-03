@@ -13,4 +13,5 @@ aws-auth
 docs/_*
 *.sh
 **/*.csv
+!ALIC1_4_ROWS.csv
 **/*.db
