@@ -291,12 +291,12 @@ class BaseDevice:
             message_connection: The message object to send data through
         """
 
+        if self.delay_start:
+            await self._add_delay()
+
         while True:
             if self.max_cycles > 0 and self.cycle >= self.max_cycles:
                 break
-
-            if self.delay_start and self.cycle == 0:
-                await self._add_delay()
 
             payload = await self._get_payload()
 
