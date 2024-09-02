@@ -169,6 +169,7 @@ def mqtt(
     mqtt_suffix,
     dry,
     device_type,
+    no_send_probability,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is from the cosmos database TABLE and sent using CLIENT_ID.
@@ -217,6 +218,7 @@ def mqtt(
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
                 inherit_logger=ctx.obj["logger"],
+                no_send_probability=no_send_probability
             )
             for site in sites
         ]
@@ -284,6 +286,7 @@ def mqtt(
     dry,
     device_type,
     resume_session,
+    no_send_probability,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
@@ -314,6 +317,8 @@ def mqtt(
                 swarm.devices[i].mqtt_prefix = mqtt_prefix
             if mqtt_suffix is not None:
                 swarm.devices[i].mqtt_suffix = mqtt_suffix
+            if no_send_probability is not None:
+                swarm.devices[i].no_send_probability = no_send_probability
 
         click.echo("Loaded swarm from pickle")
 
@@ -354,6 +359,7 @@ def mqtt(
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
                 inherit_logger=ctx.obj["logger"],
+                no_send_probability=no_send_probability,
             )
             for site in sites
         ]
@@ -440,6 +446,7 @@ def mqtt(
     dry,
     device_type,
     resume_session,
+    no_send_probability,
 ):
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
@@ -472,6 +479,8 @@ def mqtt(
                 swarm.devices[i].mqtt_prefix = mqtt_prefix
             if mqtt_suffix is not None:
                 swarm.devices[i].mqtt_suffix = mqtt_suffix
+            if no_send_probability is not None:
+                swarm.devices[i].no_send_probability = no_send_probability
 
         click.echo(swarm.devices[0].cycle)
         click.echo("Loaded swarm from pickle")
@@ -514,6 +523,7 @@ def mqtt(
                 mqtt_suffix=mqtt_suffix,
                 table=table,
                 inherit_logger=ctx.obj["logger"],
+                no_send_probability=no_send_probability
             )
             for site in sites
         ]

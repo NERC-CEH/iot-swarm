@@ -85,6 +85,25 @@ class BaseDevice:
         self._mqtt_topic = value
         self.mqtt_base_topic = value
 
+    _no_send_probability = 0
+
+    @property
+    def no_send_probability(self) -> int:
+        """Defines the chance of data not being sent, can be 0 - 100"""
+        return self._no_send_probability
+
+    @no_send_probability.setter
+    def no_send_probability(self, probability: int) -> None:
+        """Setter for the no_send_probability attribute"""
+
+        if not isinstance(probability, int):
+            probability = round(probability)
+        
+        if probability < 0 or probability > 100:
+            raise ValueError(f"`probability` must be between 0 - 100 inclusive, not '{probability}'")
+
+        self._no_send_probability = probability
+
     def __eq__(self, obj) -> bool:
 
         base_equality = (
@@ -97,6 +116,7 @@ class BaseDevice:
             and self._instance_logger == obj._instance_logger
             and self.data_source == obj.data_source
             and self.connection == obj.connection
+            and self.no_send_probability == obj.no_send_probability
         )
 
         table_equality = True
@@ -123,6 +143,7 @@ class BaseDevice:
         mqtt_topic: str | None = None,
         mqtt_prefix: str | None = None,
         mqtt_suffix: str | None = None,
+        no_send_probability: int = 0
     ) -> None:
         """Initializer
 
@@ -137,6 +158,7 @@ class BaseDevice:
             table: A valid table from the database
             mqtt_prefix: Prefixes the MQTT topic if MQTT messaging used.
             mqtt_suffix: Suffixes the MQTT topic if MQTT messaging used.
+            no_send_probability: Defines the probability of the device not sending a message.
         """
 
         self.device_id = str(device_id)
@@ -206,6 +228,8 @@ class BaseDevice:
                 f"{self.__class__.__name__}-{self.device_id}"
             )
 
+        self.no_send_probability = no_send_probability
+
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
@@ -249,6 +273,12 @@ class BaseDevice:
             if hasattr(self, "mqtt_suffix")
             else ""
         )
+
+        no_send_probability_arg = (
+            f", no_send_probability={self.no_send_probability}"
+            if self.no_send_probability != self.__class__._no_send_probability
+            else ""
+        )
         return (
             f"{self.__class__.__name__}("
             f'"{self.device_id}"'
@@ -261,6 +291,7 @@ class BaseDevice:
             f"{mqtt_topic_arg}"
             f"{mqtt_prefix_arg}"
             f"{mqtt_suffix_arg}"
+            f"{no_send_probability_arg}"
             f")"
         )
 
@@ -300,7 +331,9 @@ class BaseDevice:
 
             payload = await self._get_payload()
 
-            if payload is not None:
+            if self._skip_send():
+                self._instance_logger.debug(f"Skipped send based on probability: {self.no_send_probability}")
+            elif payload is not None:
                 payload = self._format_payload(payload)
 
                 self._instance_logger.debug("Requesting payload submission.")
@@ -344,6 +377,14 @@ class BaseDevice:
 
     def _attach_swarm(self, swarm: object):
         self.swarm = swarm
+    
+    def _skip_send(self) -> bool:
+        """Checks if the sending should be skipped
+        
+        Returns: True or false based on the no_send_probability
+        """
+
+        return random.random() * 100 < self.no_send_probability
 
 
 class CR1000XDevice(BaseDevice):
