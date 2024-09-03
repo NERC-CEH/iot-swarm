@@ -91,12 +91,12 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
 
     @parameterized.expand(
         [
-            [0, 0, None, (0, 0, False)],
-            [100, 30, True, (100, 30, True)],
-            [12.4, 30001.9, None, (12, 30001, False)],
+            [0, 0, None, 5, (0, 0, False)],
+            [100, 30, True, 9, (100, 30, True)],
+            [12.4, 30001.9, None, 100, (12, 30001, False)],
         ]
     )
-    def test_optional_args_set(self, max_cycles, sleep_time, delay_start, expected):
+    def test_optional_args_set(self, max_cycles, sleep_time, delay_start,no_send_probability, expected):
         inst = BaseDevice(
             "TEST_ID",
             self.data_source,
@@ -104,6 +104,7 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
             max_cycles=max_cycles,
             sleep_time=sleep_time,
             delay_start=delay_start,
+            no_send_probability=no_send_probability
         )
 
         self.assertEqual(inst.max_cycles, expected[0])
@@ -165,6 +166,11 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
                 MockDB(),
                 {"max_cycles": 4, "sleep_time": 5, "delay_start": True},
                 'BaseDevice("TEST_ID", MockDB(), MockMessageConnection(), sleep_time=5, max_cycles=4, delay_start=True)',
+            ],
+            [
+                MockDB(),
+                {"max_cycles": 4, "sleep_time": 5, "delay_start": True, "no_send_probability":10},
+                'BaseDevice("TEST_ID", MockDB(), MockMessageConnection(), sleep_time=5, max_cycles=4, delay_start=True, no_send_probability=10)',
             ],
         ]
     )
@@ -265,6 +271,40 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site-id", MockDB(), self.conn, mqtt_topic=topic, mqtt_prefix=prefix, mqtt_suffix=suffix)
 
         self.assertEqual(inst.__repr__(), expected)
+
+class TestProbabilitySend(unittest.TestCase):
+    def setUp(self):
+        self.data_source = MockDB()
+        self.connection = MockMessageConnection()
+
+    @parameterized.expand([0, 10, 20, 50, 81, 100])
+    def test_probability_send(self, probability):
+        device = BaseDevice("ID", self.data_source, self.connection, no_send_probability=probability)
+
+        skipped = 0
+
+        for i in range(10000):
+            if device._skip_send():
+                skipped += 1
+        
+        self.assertAlmostEqual(skipped/100, probability, delta=1)
+    
+    def test_probability_zero_if_not_given(self):
+        device = BaseDevice("ID", self.data_source, self.connection)
+
+        self.assertEqual(device.no_send_probability, 0)
+
+    @parameterized.expand(["Four", None])
+    def test_probability_bad_values(self, value):
+
+        with self.assertRaises((TypeError, ValueError)):
+            device = BaseDevice("ID", self.data_source, self.connection, no_send_probability=value)
+
+    @parameterized.expand([[2,2], [0,0], [27.34, 27], [99.5, 100]])
+    def test_probability_set(self, value, expected):
+        device = BaseDevice("ID", self.data_source, self.connection, no_send_probability=value)
+
+        self.assertEqual(device.no_send_probability, expected)
 
 
 class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):

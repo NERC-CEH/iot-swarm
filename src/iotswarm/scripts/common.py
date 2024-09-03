@@ -39,6 +39,12 @@ def device_options(function):
         "--device-type", type=click.Choice(["basic", "cr1000x"]), default="basic"
     )(function)
 
+    click.option(
+        "--no-send-probability",
+        type=click.IntRange(0, 100),
+        help="Probability of not sending a message, can be 0 - 100 where 0 is no skip and 100 is always skip",
+    )(function)
+
     return function
 
 
