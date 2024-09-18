@@ -42,6 +42,7 @@ def device_options(function):
     click.option(
         "--no-send-probability",
         type=click.IntRange(0, 100),
+        default = 0
         help="Probability of not sending a message, can be 0 - 100 where 0 is no skip and 100 is always skip",
     )(function)
 
