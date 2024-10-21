@@ -17,6 +17,7 @@ dependencies = [
     "oracledb",
     "pandas",
     "platformdirs",
+    "setuptools",
 ]
 name = "iot-swarm"
 dynamic = ["version"]
