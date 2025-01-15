@@ -44,7 +44,7 @@ async def get_latest_payloads_for_table(
 
     payloads = await asyncio.gather(
         *[
-            get_latest_payloads_for_site(site, datetime_gt, table, oracle)
+            get_latest_payloads_for_site(oracle, table, datetime_gt, site)
             for site in sites
         ]
     )
@@ -101,15 +101,16 @@ async def main(config_file: Path) -> List[dict]:
     )
     tables = [CosmosTable.LEVEL_1_SOILMET_30MIN, CosmosTable.LEVEL_1_NMDB_1HOUR]
 
-    date_gt = datetime.now() - timedelta(hours=5)
+    date_gt = datetime.now() - timedelta(hours=1)
     result = await asyncio.gather(
         *[get_latest_payloads_for_table(oracle, table, date_gt) for table in tables]
     )
 
     table_data = dict(zip(tables, result))
-    print(result)
+    print(table_data)
 
 
 if __name__ == "__main__":
-    sys.argv.append(str(Path(__file__).parents[3] / "oracle.cfg"))
+    if len(sys.argv) == 1:
+        sys.argv.append(str(Path(__file__).parents[3] / "oracle.cfg"))
     asyncio.run(main(*sys.argv[1:]))
