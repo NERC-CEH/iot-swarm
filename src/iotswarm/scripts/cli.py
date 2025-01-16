@@ -1,18 +1,23 @@
 """CLI exposed when the package is installed."""
 
-import click
-from iotswarm import __version__ as package_version
-from iotswarm.queries import CosmosTable
-from iotswarm.devices import BaseDevice, CR1000XDevice
-from iotswarm.swarm import Swarm
-from iotswarm.db import Oracle, LoopingCsvDB, LoopingSQLite3
-from iotswarm.messaging.core import MockMessageConnection
-from iotswarm.messaging.aws import IotCoreMQTTConnection
-import iotswarm.scripts.common as cli_common
+# ruff: noqa: F811 # Ignore redefinition of unused name (It's a CLI, they're all unused)
+
 import asyncio
-from pathlib import Path
 import logging
-import os
+import logging.config
+from pathlib import Path
+from typing import List
+
+import click
+
+import iotswarm.scripts.common as cli_common
+from iotswarm import __version__ as package_version
+from iotswarm.db import LoopingCsvDB, LoopingSQLite3, Oracle
+from iotswarm.devices import BaseDevice, CR1000XDevice
+from iotswarm.messaging.aws import IotCoreMQTTConnection
+from iotswarm.messaging.core import MockMessageConnection
+from iotswarm.queries import CosmosTable
+from iotswarm.swarm import Swarm
 
 TABLE_NAMES = [table.name for table in CosmosTable]
 
@@ -27,13 +32,11 @@ TABLE_NAMES = [table.name for table in CosmosTable]
 )
 @click.option(
     "--log-level",
-    type=click.Choice(
-        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
-    ),
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
     help="Overrides the logging level.",
     envvar="IOT_SWARM_LOG_LEVEL",
 )
-def main(ctx: click.Context, log_config: Path, log_level: str):
+def main(ctx: click.Context, log_config: Path, log_level: str) -> None:
     """Core group of the cli."""
     ctx.ensure_object(dict)
 
@@ -51,7 +54,7 @@ main.add_command(cli_common.test)
 
 
 @main.command
-def get_version():
+def get_version() -> None:
     """Gets the package version"""
     click.echo(package_version)
 
@@ -60,15 +63,15 @@ def get_version():
 @click.pass_context
 @cli_common.iotcore_options
 def test_mqtt(
-    ctx,
-    message,
-    topic,
+    ctx: click.Context,
+    message: str,
+    topic: str,
     client_id: str,
     endpoint: str,
     cert_path: str,
     key_path: str,
     ca_cert_path: str,
-):
+) -> None:
     """Tests that a basic message can be sent via mqtt."""
 
     connection = IotCoreMQTTConnection(
@@ -114,7 +117,7 @@ def test_mqtt(
     envvar="IOT_SWARM_COSMOS_PASSWORD",
     help="Password corresponding to `--user` for COMSOS database login.",
 )
-def cosmos(ctx: click.Context, site: str, dsn: str, user: str, password: str):
+def cosmos(ctx: click.Context, site: str, dsn: str, user: str, password: str) -> None:
     """Uses the COSMOS database as the source for data to send."""
     ctx.obj["credentials"] = {"dsn": dsn, "user": user, "password": password}
     ctx.obj["sites"] = site
@@ -127,10 +130,10 @@ cosmos.add_command(cli_common.test)
 @click.pass_context
 @click.argument("table", type=click.Choice(TABLE_NAMES))
 @click.option("--max-sites", type=click.IntRange(min=0), default=0)
-def list_sites(ctx, table, max_sites):
+def list_sites(ctx: click.Context, table: str, max_sites: int) -> None:
     """Lists unique `site_id` from an oracle database table."""
 
-    async def _list_sites():
+    async def _list_sites() -> List[str]:
         oracle = await Oracle.create(
             dsn=ctx.obj["credentials"]["dsn"],
             user=ctx.obj["credentials"]["user"],
@@ -153,31 +156,31 @@ def list_sites(ctx, table, max_sites):
 @cli_common.iotcore_options
 @click.option("--dry", is_flag=True, default=False, help="Doesn't send out any data.")
 def mqtt(
-    ctx,
-    table,
-    endpoint,
-    cert_path,
-    key_path,
-    ca_cert_path,
-    client_id,
-    sleep_time,
-    max_cycles,
-    max_sites,
-    swarm_name,
-    delay_start,
-    mqtt_prefix,
-    mqtt_suffix,
-    dry,
-    device_type,
-    no_send_probability,
-):
+    ctx: click.Context,
+    table: str,
+    endpoint: str,
+    cert_path: str,
+    key_path: str,
+    ca_cert_path: str,
+    client_id: str,
+    sleep_time: int,
+    max_cycles: int,
+    max_sites: int,
+    swarm_name: str,
+    delay_start: bool,
+    mqtt_prefix: str,
+    mqtt_suffix: str,
+    dry: bool,
+    device_type: str,
+    no_send_probability: int,
+) -> None:
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is from the cosmos database TABLE and sent using CLIENT_ID.
 
     Currently only supports sending through AWS IoT Core."""
     table = CosmosTable[table]
 
-    async def _mqtt():
+    async def _mqtt() -> None:
         oracle = await Oracle.create(
             dsn=ctx.obj["credentials"]["dsn"],
             user=ctx.obj["credentials"]["user"],
@@ -189,7 +192,7 @@ def mqtt(
         if len(sites) == 0:
             sites = await oracle.query_site_ids(table, max_sites=max_sites)
 
-        if dry == True:
+        if dry:
             connection = MockMessageConnection(inherit_logger=ctx.obj["logger"])
         else:
             connection = IotCoreMQTTConnection(
@@ -218,7 +221,7 @@ def mqtt(
                 mqtt_prefix=mqtt_prefix,
                 mqtt_suffix=mqtt_suffix,
                 inherit_logger=ctx.obj["logger"],
-                no_send_probability=no_send_probability
+                no_send_probability=no_send_probability,
             )
             for site in sites
         ]
@@ -246,7 +249,7 @@ def mqtt(
     envvar="IOT_SWARM_CSV_DB",
     help="*.csv file used to instantiate a pandas database.",
 )
-def looping_csv(ctx, site, file):
+def looping_csv(ctx: click.Context, site: str, file: str) -> None:
     """Instantiates a pandas dataframe from a csv file  which is used as the database.
     Responsibility falls on the user to ensure the correct file is selected."""
 
@@ -270,30 +273,30 @@ looping_csv.add_command(cli_common.list_sites)
     help='Resumes the session if it exists. Must be used with "session-name".',
 )
 def mqtt(
-    ctx,
-    endpoint,
-    cert_path,
-    key_path,
-    ca_cert_path,
-    client_id,
-    sleep_time,
-    max_cycles,
-    max_sites,
-    swarm_name,
-    delay_start,
-    mqtt_prefix,
-    mqtt_suffix,
-    dry,
-    device_type,
-    resume_session,
-    no_send_probability,
-):
+    ctx: click.Context,
+    endpoint: str,
+    cert_path: str,
+    key_path: str,
+    ca_cert_path: str,
+    client_id: str,
+    sleep_time: int,
+    max_cycles: int,
+    max_sites: int,
+    swarm_name: str,
+    delay_start: bool,
+    mqtt_prefix: str,
+    mqtt_suffix: str,
+    dry: bool,
+    device_type: str,
+    resume_session: bool,
+    no_send_probability: int,
+) -> None:
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
 
     Currently only supports sending through AWS IoT Core."""
 
-    async def _mqtt_resume_session():
+    async def _mqtt_resume_session() -> None:
         swarm = Swarm.load_swarm(swarm_name)
         connection = IotCoreMQTTConnection(
             endpoint=endpoint,
@@ -324,14 +327,13 @@ def mqtt(
 
         await swarm.run()
 
-    async def _mqtt_clean_session():
-
+    async def _mqtt_clean_session() -> None:
         sites = ctx.obj["sites"]
         db = ctx.obj["db"]
         if len(sites) == 0:
             sites = db.query_site_ids(max_sites=max_sites)
 
-        if dry == True:
+        if dry:
             connection = MockMessageConnection(inherit_logger=ctx.obj["logger"])
         else:
             connection = IotCoreMQTTConnection(
@@ -368,11 +370,7 @@ def mqtt(
         [device._attach_swarm(swarm) for device in swarm.devices]
         await swarm.run()
 
-    if (
-        resume_session == True
-        and swarm_name is not None
-        and Swarm._swarm_exists(swarm_name)
-    ):
+    if resume_session and swarm_name is not None and Swarm._swarm_exists(swarm_name):
         asyncio.run(_mqtt_resume_session())
     else:
         asyncio.run(_mqtt_clean_session())
@@ -394,7 +392,7 @@ def mqtt(
     envvar="IOT_SWARM_LOCAL_DB",
     help="*.db file used to instantiate a sqlite3 database.",
 )
-def looping_sqlite3(ctx, site, file):
+def looping_sqlite3(ctx: click.Context, site: str, file: str) -> None:
     """Instantiates a sqlite3 database as sensor source.."""
     ctx.obj["db"] = LoopingSQLite3(file)
     ctx.obj["sites"] = site
@@ -410,7 +408,7 @@ looping_sqlite3.add_command(cli_common.test)
     "table",
     type=click.Choice(TABLE_NAMES),
 )
-def list_sites(ctx, max_sites, table):
+def list_sites(ctx: click.Context, max_sites: int, table: str) -> None:
     """Prints the sites present in database."""
     sites = ctx.obj["db"].query_site_ids(table, max_sites=max_sites)
     click.echo(sites)
@@ -429,25 +427,25 @@ def list_sites(ctx, max_sites, table):
     help='Resumes the session if it exists. Must be used with "session-name".',
 )
 def mqtt(
-    ctx,
-    table,
-    endpoint,
-    cert_path,
-    key_path,
-    ca_cert_path,
-    client_id,
-    sleep_time,
-    max_cycles,
-    max_sites,
-    swarm_name,
-    delay_start,
-    mqtt_prefix,
-    mqtt_suffix,
-    dry,
-    device_type,
-    resume_session,
-    no_send_probability,
-):
+    ctx: click.Context,
+    table: str,
+    endpoint: str,
+    cert_path: str,
+    key_path: str,
+    ca_cert_path: str,
+    client_id: str,
+    sleep_time: int,
+    max_cycles: int,
+    max_sites: int,
+    swarm_name: str,
+    delay_start: bool,
+    mqtt_prefix: str,
+    mqtt_suffix: str,
+    dry: bool,
+    device_type: str,
+    resume_session: bool,
+    no_send_probability: int,
+) -> None:
     """Sends The cosmos data via MQTT protocol using IoT Core.
     Data is collected from the db using QUERY and sent using CLIENT_ID.
 
@@ -455,7 +453,7 @@ def mqtt(
 
     table = CosmosTable[table]
 
-    async def _mqtt_resume_session():
+    async def _mqtt_resume_session() -> None:
         swarm = Swarm.load_swarm(swarm_name)
         connection = IotCoreMQTTConnection(
             endpoint=endpoint,
@@ -486,7 +484,7 @@ def mqtt(
         click.echo("Loaded swarm from pickle")
         await swarm.run()
 
-    async def _mqtt_clean_session():
+    async def _mqtt_clean_session() -> None:
         click.echo("Starting clean session")
 
         sites = ctx.obj["sites"]
@@ -494,7 +492,7 @@ def mqtt(
         if len(sites) == 0:
             sites = db.query_site_ids(table, max_sites=max_sites)
 
-        if dry == True:
+        if dry:
             connection = MockMessageConnection(inherit_logger=ctx.obj["logger"])
         else:
             connection = IotCoreMQTTConnection(
@@ -523,7 +521,7 @@ def mqtt(
                 mqtt_suffix=mqtt_suffix,
                 table=table,
                 inherit_logger=ctx.obj["logger"],
-                no_send_probability=no_send_probability
+                no_send_probability=no_send_probability,
             )
             for site in sites
         ]
@@ -533,37 +531,33 @@ def mqtt(
         [device._attach_swarm(swarm) for device in swarm.devices]
         await swarm.run()
 
-    if (
-        resume_session == True
-        and swarm_name is not None
-        and Swarm._swarm_exists(swarm_name)
-    ):
+    if resume_session and swarm_name is not None and Swarm._swarm_exists(swarm_name):
         asyncio.run(_mqtt_resume_session())
     else:
         asyncio.run(_mqtt_clean_session())
 
 
 @main.group()
-def sessions():
+def sessions() -> None:
     """Group for managing sessions."""
 
 
 @sessions.command()
-def ls():
+def ls() -> None:
     """Lists the swarms."""
     click.echo(Swarm._list_swarms())
 
 
 @sessions.command()
 @click.argument("session-id", type=click.STRING)
-def init(session_id):
+def init(session_id: str) -> None:
     """Creates an empty swarm file."""
     Swarm._initialise_swarm_file(session_id)
 
 
 @sessions.command()
 @click.argument("session-id", type=click.STRING)
-def rm(session_id):
+def rm(session_id: str) -> None:
     """Deletes a swarm."""
     if Swarm._swarm_exists(session_id):
         Swarm.destroy_swarm(session_id)

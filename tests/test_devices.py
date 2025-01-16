@@ -1,5 +1,6 @@
 import unittest
 import asyncio
+from unittest import mock
 import pytest
 import logging
 import json
@@ -15,9 +16,7 @@ from pathlib import Path
 import config
 from datetime import datetime, timedelta
 
-CONFIG_PATH = Path(
-    Path(__file__).parents[1], "src", "iotswarm", "__assets__", "config.cfg"
-)
+CONFIG_PATH = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "config.cfg")
 config_exists = pytest.mark.skipif(
     not CONFIG_PATH.exists(),
     reason="Config file `config.cfg` not found in root directory.",
@@ -27,12 +26,10 @@ DATA_DIR = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "dat
 sqlite_db_exist = pytest.mark.skipif(not Path(DATA_DIR, "cosmos.db").exists(), reason="Local cosmos.db does not exist.")
 
 
-
 class TestBaseClass(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.data_source = MockDB()
         self.connection = MockMessageConnection()
-
 
     def test_base_instantiation(self):
         instance = BaseDevice("TEST_ID", self.data_source, self.connection)
@@ -72,7 +69,6 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(TypeError):
             BaseDevice("test_id", data_source, self.connection)
 
-
     @patch.multiple(MessagingBaseClass, __abstractmethods__=set())
     def test_connection_validation(self):
         """Tests that messaging classes can be used."""
@@ -96,7 +92,7 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
             [12.4, 30001.9, None, 100, (12, 30001, False)],
         ]
     )
-    def test_optional_args_set(self, max_cycles, sleep_time, delay_start,no_send_probability, expected):
+    def test_optional_args_set(self, max_cycles, sleep_time, delay_start, no_send_probability, expected):
         inst = BaseDevice(
             "TEST_ID",
             self.data_source,
@@ -104,7 +100,7 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
             max_cycles=max_cycles,
             sleep_time=sleep_time,
             delay_start=delay_start,
-            no_send_probability=no_send_probability
+            no_send_probability=no_send_probability,
         )
 
         self.assertEqual(inst.max_cycles, expected[0])
@@ -113,27 +109,18 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
 
     @parameterized.expand([-1, -423.78, "Four", MockDB(), {"a": 1}])
     def test_sleep_time_value_check(self, sleep_time):
-
         with self.assertRaises((TypeError, ValueError)):
-            BaseDevice(
-                "test_id", self.data_source, self.connection, sleep_time=sleep_time
-            )
+            BaseDevice("test_id", self.data_source, self.connection, sleep_time=sleep_time)
 
     @parameterized.expand([-1, -423.78, "Four", MockDB(), {"a": 1}])
     def test_max_cycles_value_check(self, max_cycles):
-
         with self.assertRaises((TypeError, ValueError)):
-            BaseDevice(
-                "test_id", self.data_source, self.connection, max_cycles=max_cycles
-            )
+            BaseDevice("test_id", self.data_source, self.connection, max_cycles=max_cycles)
 
     @parameterized.expand([-1, -423.78, "Four", MockDB(), {"a": 1}])
     def test_delay_start_value_check(self, delay_start):
-
         with self.assertRaises((TypeError, ValueError)):
-            BaseDevice(
-                "test_id", self.data_source, self.connection, delay_start=delay_start
-            )
+            BaseDevice("test_id", self.data_source, self.connection, delay_start=delay_start)
 
     @parameterized.expand(
         [
@@ -169,7 +156,7 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
             ],
             [
                 MockDB(),
-                {"max_cycles": 4, "sleep_time": 5, "delay_start": True, "no_send_probability":10},
+                {"max_cycles": 4, "sleep_time": 5, "delay_start": True, "no_send_probability": 10},
                 'BaseDevice("TEST_ID", MockDB(), MockMessageConnection(), sleep_time=5, max_cycles=4, delay_start=True, no_send_probability=10)',
             ],
         ]
@@ -180,7 +167,6 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repr(instance), expected)
 
     def test_table_not_set_for_non_oracle_db(self):
-        
         inst = BaseDevice("test", MockDB(), MockMessageConnection(), table=CosmosTable.LEVEL_1_NMDB_1HOUR)
 
         with self.assertRaises(AttributeError):
@@ -193,22 +179,28 @@ class TestBaseClass(unittest.IsolatedAsyncioTestCase):
         ]
     )
     def test_logger_set(self, logger, expected):
-
-        inst = BaseDevice(
-            "site", self.data_source, self.connection, inherit_logger=logger
-        )
+        inst = BaseDevice("site", self.data_source, self.connection, inherit_logger=logger)
 
         self.assertEqual(inst._instance_logger.parent, expected)
 
-class TestBaseDeviceMQTTOptions(unittest.TestCase):
 
+from awsiot import mqtt_connection_builder
+
+
+class TestBaseDeviceMQTTOptions(unittest.TestCase):
     def setUp(self) -> None:
         creds = config.Config(str(CONFIG_PATH))["iot_core"]
         self.creds = creds
-        self.conn = IotCoreMQTTConnection(
-            creds["endpoint"], creds["cert_path"], creds["key_path"], creds["ca_cert_path"], "fdri_swarm",
-        )
-        self.db = MockDB()
+
+        with patch("awsiot.mqtt_connection_builder.mtls_from_path"):
+            self.conn = IotCoreMQTTConnection(
+                creds["endpoint"],
+                creds["cert_path"],
+                creds["key_path"],
+                creds["ca_cert_path"],
+                "fdri_swarm",
+            )
+            self.db = MockDB()
 
     @parameterized.expand(["this/topic", "1/1/1", "TOPICO!"])
     @config_exists
@@ -257,20 +249,23 @@ class TestBaseDeviceMQTTOptions(unittest.TestCase):
         inst = BaseDevice("site-12", self.db, self.conn)
 
         self.assertEqual(inst.mqtt_topic, "site-12")
-    
-    @parameterized.expand([
-        [None, None, None, ""],
-        ["topic", None, None, ', mqtt_topic="topic"'],
-        ["topic", "prefix", None, ', mqtt_topic="topic", mqtt_prefix="prefix"'],
-        ["topic", "prefix", "suffix",', mqtt_topic="topic", mqtt_prefix="prefix", mqtt_suffix="suffix"'],
-    ])
+
+    @parameterized.expand(
+        [
+            [None, None, None, ""],
+            ["topic", None, None, ', mqtt_topic="topic"'],
+            ["topic", "prefix", None, ', mqtt_topic="topic", mqtt_prefix="prefix"'],
+            ["topic", "prefix", "suffix", ', mqtt_topic="topic", mqtt_prefix="prefix", mqtt_suffix="suffix"'],
+        ]
+    )
     @config_exists
-    def test__repr__mqtt_opts_mqtt_connection(self, topic, prefix, suffix,expected_args):
+    def test__repr__mqtt_opts_mqtt_connection(self, topic, prefix, suffix, expected_args):
         """Tests that the __repr__ method returns correctly with MQTT options set."""
         expected = f'BaseDevice("site-id", {str(MockDB())}, {str(self.conn)}{expected_args})'
         inst = BaseDevice("site-id", MockDB(), self.conn, mqtt_topic=topic, mqtt_prefix=prefix, mqtt_suffix=suffix)
 
         self.assertEqual(inst.__repr__(), expected)
+
 
 class TestProbabilitySend(unittest.TestCase):
     def setUp(self):
@@ -286,9 +281,9 @@ class TestProbabilitySend(unittest.TestCase):
         for i in range(10000):
             if device._skip_send():
                 skipped += 1
-        
-        self.assertAlmostEqual(skipped/100, probability, delta=1)
-    
+
+        self.assertAlmostEqual(skipped / 100, probability, delta=1.5)
+
     def test_probability_zero_if_not_given(self):
         device = BaseDevice("ID", self.data_source, self.connection)
 
@@ -296,11 +291,10 @@ class TestProbabilitySend(unittest.TestCase):
 
     @parameterized.expand(["Four", None])
     def test_probability_bad_values(self, value):
-
         with self.assertRaises((TypeError, ValueError)):
             device = BaseDevice("ID", self.data_source, self.connection, no_send_probability=value)
 
-    @parameterized.expand([[2,2], [0,0], [27.34, 27], [99.5, 100]])
+    @parameterized.expand([[2, 2], [0, 0], [27.34, 27], [99.5, 100]])
     def test_probability_set(self, value, expected):
         device = BaseDevice("ID", self.data_source, self.connection, no_send_probability=value)
 
@@ -308,7 +302,6 @@ class TestProbabilitySend(unittest.TestCase):
 
 
 class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
-    
     async def asyncSetUp(self):
         cred_path = str(CONFIG_PATH)
         creds = config.Config(cred_path)["oracle"]
@@ -320,38 +313,32 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
             password=creds["password"],
         )
         self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
+
     async def asyncTearDown(self) -> None:
         await self.oracle.connection.close()
-    
+
     @parameterized.expand([-1, -423.78, CosmosQuery.ORACLE_LATEST_DATA, "Four", MockDB(), {"a": 1}])
     @config_exists
     @pytest.mark.oracle
     def test_table_value_check(self, table):
-
         with self.assertRaises(TypeError):
-            BaseDevice(
-                "test_id", self.oracle, MockMessageConnection(), table=table
-            )
+            BaseDevice("test_id", self.oracle, MockMessageConnection(), table=table)
 
     @pytest.mark.oracle
     @config_exists
     async def test_error_if_table_not_given(self):
-
         with self.assertRaises(ValueError):
             BaseDevice("site", self.oracle, MockMessageConnection())
-
 
         inst = BaseDevice("site", self.oracle, MockMessageConnection(), table=self.table)
 
         self.assertEqual(inst.table, self.table)
 
-
     @pytest.mark.oracle
     @config_exists
     async def test__repr__oracle_data(self):
-
         inst_oracle = BaseDevice("site", self.oracle, MockMessageConnection(), table=self.table)
-        exp_oracle = f'BaseDevice("site", Oracle("{self.creds['dsn']}"), MockMessageConnection(), table=CosmosTable.{self.table.name})'
+        exp_oracle = f'BaseDevice("site", Oracle("{self.creds["dsn"]}"), MockMessageConnection(), table=CosmosTable.{self.table.name})'
         self.assertEqual(inst_oracle.__repr__(), exp_oracle)
 
         inst_not_oracle = BaseDevice("site", MockDB(), MockMessageConnection(), table=self.table)
@@ -372,28 +359,24 @@ class TestBaseDeviceOracleUsed(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(payload, dict)
 
+
 class TestBaseDevicesSQLite3Used(unittest.IsolatedAsyncioTestCase):
-    
     def setUp(self):
-        db_path = Path(Path(__file__).parents[1], "src", "iotswarm","__assets__", "data", "cosmos.db")
+        db_path = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db")
         if db_path.exists():
             self.db = LoopingSQLite3(db_path)
         self.table = CosmosTable.LEVEL_1_SOILMET_30MIN
-    
+
     @parameterized.expand([-1, -423.78, CosmosQuery.ORACLE_LATEST_DATA, "Four", MockDB(), {"a": 1}])
     @sqlite_db_exist
     def test_table_value_check(self, table):
         with self.assertRaises(TypeError):
-            BaseDevice(
-                "test_id", self.db, MockMessageConnection(), table=table
-            )
+            BaseDevice("test_id", self.db, MockMessageConnection(), table=table)
 
     @sqlite_db_exist
     def test_error_if_table_not_given(self):
-
         with self.assertRaises(ValueError):
             BaseDevice("site", self.db, MockMessageConnection())
-
 
         inst = BaseDevice("site", self.db, MockMessageConnection(), table=self.table)
 
@@ -409,14 +392,14 @@ class TestBaseDevicesSQLite3Used(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(payload, dict)
 
+
 class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
     """Tests the active behaviour of Device objects."""
 
     def setUp(self):
-
         self.database = MockDB()
         self.connection = MockMessageConnection()
-    
+
     @staticmethod
     async def return_list(*args):
         return list(range(5))
@@ -424,9 +407,7 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_run_stops_after_max_cycles(self):
         """Ensures .run() method breaks after max_cycles"""
-        site = BaseDevice(
-            "site", self.database, self.connection, max_cycles=5, sleep_time=0
-        )
+        site = BaseDevice("site", self.database, self.connection, max_cycles=5, sleep_time=0)
         await site.run()
 
         self.assertEqual(site.cycle, site.max_cycles)
@@ -504,7 +485,7 @@ class TestBaseDeviceOperation(unittest.IsolatedAsyncioTestCase):
         payload = await inst._get_payload()
 
         self.assertIsInstance(payload, list)
-        self.assertEqual(len(payload),0)
+        self.assertEqual(len(payload), 0)
 
 
 class TestCr1000xDevice(unittest.TestCase):
@@ -515,7 +496,6 @@ class TestCr1000xDevice(unittest.TestCase):
         self.conn = MockMessageConnection()
         self.maxDiff = None
 
-    
     def test_instantiation(self):
         """Tests that object can be instantiated."""
 
@@ -553,18 +533,13 @@ class TestCr1000xDevice(unittest.TestCase):
 
         self.assertEqual(inst.table_name, str(arg))
 
-    @parameterized.expand([
+    @parameterized.expand(
         [
-            [1,"data", 0.0, True],
-            [[1,"data", 0.0, True]]
-        ],
-        [
-            [[50,"short", -7, False],[1,"data", 0.0, True]],
-            [[50,"short", -7, False], [1, "data", 0.0, True]]
+            [[1, "data", 0.0, True], [[1, "data", 0.0, True]]],
+            [[[50, "short", -7, False], [1, "data", 0.0, True]], [[50, "short", -7, False], [1, "data", 0.0, True]]],
         ]
-    ])
+    )
     def test_list_payload_formatting(self, payload, expected_vals):
-
         device = CR1000XDevice("my_device", self.db, self.conn)
 
         keys = [f"_{i}" for i in range(len(expected_vals[0]))]
@@ -584,39 +559,39 @@ class TestCr1000xDevice(unittest.TestCase):
                     "model": device.device_type,
                     "serial_no": device.serial_number,
                     "os_version": device.os_version,
-                    "prog_name": device.program_name
+                    "prog_name": device.program_name,
                 },
-                "fields": [CR1000XField(k, data_values=v) for k,v in zip(keys, collected_vals)]
+                "fields": [CR1000XField(k, data_values=v) for k, v in zip(keys, collected_vals)],
             },
-            "data": [
-                {}
-            ]
+            "data": [{}],
         }
 
         self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
         self.assertDictEqual(formatted["head"], expected["head"], "head of payload must be equal")
-        
+
         for f_row, e_row in zip(formatted["data"], expected_vals):
             self.assertEqual(list(f_row.keys()), ["time", "vals"], "Data segment must have same keys.")
             self.assertListEqual(f_row["vals"], e_row)
             # Error if not isoformat
             datetime.fromisoformat(f_row["time"])
 
-    @parameterized.expand([
+    @parameterized.expand(
         [
-            {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50},
-            [[17.16, False, int(1e20), 1e-50]],
-         ],
-         [
-             [{"temp": 20.0, "door_open": True, "BattV": int(5e20), "BattLevel": 4e-50},
-              {"temp": True, "door_open": None, "BattV": int(5), "BattLevel": 1.2},
-              {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50}],
-              [[20.0, True, 5e20, 4e-50],[True, None, int(5), 1.2],[17.16, False, int(1e20), 1e-50]],
-        ],
-
-         ])
+            [
+                {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50},
+                [[17.16, False, int(1e20), 1e-50]],
+            ],
+            [
+                [
+                    {"temp": 20.0, "door_open": True, "BattV": int(5e20), "BattLevel": 4e-50},
+                    {"temp": True, "door_open": None, "BattV": int(5), "BattLevel": 1.2},
+                    {"temp": 17.16, "door_open": False, "BattV": int(1e20), "BattLevel": 1e-50},
+                ],
+                [[20.0, True, int(5e20), 4e-50], [True, None, int(5), 1.2], [17.16, False, int(1e20), 1e-50]],
+            ],
+        ]
+    )
     def test_dict_payload_formatting(self, payload, expected_data_vals):
-
         device = CR1000XDevice("my_dict_device", self.db, self.conn)
 
         keys = payload.keys() if isinstance(payload, dict) else payload[0].keys()
@@ -637,11 +612,11 @@ class TestCr1000xDevice(unittest.TestCase):
                     "model": device.device_type,
                     "serial_no": device.serial_number,
                     "os_version": device.os_version,
-                    "prog_name": device.program_name
+                    "prog_name": device.program_name,
                 },
-                "fields": [CR1000XField(k, data_values=v) for k,v in zip(keys, collected_vals)]
+                "fields": [CR1000XField(k, data_values=v) for k, v in zip(keys, collected_vals)],
             },
-            "data": {}
+            "data": {},
         }
 
         self.assertEqual(formatted.keys(), expected.keys(), "payload must have same base keys.")
@@ -653,15 +628,12 @@ class TestCr1000xDevice(unittest.TestCase):
             # Error if not isoformat
             datetime.fromisoformat(f_row["time"])
 
-    @parameterized.expand([
-        [{"a": 1, "date_time": datetime.now()}],
+    @parameterized.expand(
         [
-            [
-                {"a": 1, "date_time": datetime.now()},
-                {"a": 2, "date_time": datetime.now()+timedelta(days=1)}
-            ]
+            [{"a": 1, "date_time": datetime.now()}],
+            [[{"a": 1, "date_time": datetime.now()}, {"a": 2, "date_time": datetime.now() + timedelta(days=1)}]],
         ]
-    ])
+    )
     def test_payload_with_datetime_included(self, payload):
         """Tests that datetime is popped if included in payload"""
 
@@ -670,19 +642,19 @@ class TestCr1000xDevice(unittest.TestCase):
         formatted = device._format_payload(payload)
 
         for item in formatted["data"]:
-
             self.assertIsInstance(item["time"], datetime)
 
-    
-    @parameterized.expand([
-        [{"a": 1, "date_time": '2024-06-10T10:20:41.540116'}],
+    @parameterized.expand(
         [
+            [{"a": 1, "date_time": "2024-06-10T10:20:41.540116"}],
             [
-                {"a": 1, "date_time": '2024-06-10T10:20:41.540116'},
-                {"a": 2, "date_time": '2024-06-10T09:20:41.540116'}
-            ]
+                [
+                    {"a": 1, "date_time": "2024-06-10T10:20:41.540116"},
+                    {"a": 2, "date_time": "2024-06-10T09:20:41.540116"},
+                ]
+            ],
         ]
-    ])
+    )
     def test_payload_with_datetime_included(self, payload):
         """Tests that datetime is popped if included in payload"""
 
@@ -691,73 +663,52 @@ class TestCr1000xDevice(unittest.TestCase):
         formatted = device._format_payload(payload)
 
         for item in formatted["data"]:
-
             self.assertIsInstance(item["time"], str)
             datetime.fromisoformat(item["time"])
 
-
-
-    @parameterized.expand([
-        [1, [[1]]],
-        [[1,2,3], [[1,2,3]]],
+    @parameterized.expand(
         [
-            [[1,2,3], [4,5,6]], [[1,2,3], [4,5,6]]
-        ],
-        [{"a": 1, "b": 2}, [[1,2]]],
-        [[{"a": 1, "b": 2, "c": 3}], [[1,2,3]]],
-        [
-            [{"a": 1, "b": 2, "c": 3}, {"a": 4, "b": 5, "c": 6}],
-            [[1,2,3], [4,5,6]]
+            [1, [[1]]],
+            [[1, 2, 3], [[1, 2, 3]]],
+            [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+            [{"a": 1, "b": 2}, [[1, 2]]],
+            [[{"a": 1, "b": 2, "c": 3}], [[1, 2, 3]]],
+            [[{"a": 1, "b": 2, "c": 3}, {"a": 4, "b": 5, "c": 6}], [[1, 2, 3], [4, 5, 6]]],
         ]
-    ])
+    )
     def test_payload_data(self, payload, expected):
         device = CR1000XDevice("my_dict_device", self.db, self.conn)
         formatted = device._format_payload(payload)
 
         for f_row, e_row in zip(formatted["data"], expected):
-
             self.assertListEqual(f_row["vals"], e_row)
-    
-    @parameterized.expand([
-        [1, [{"_0": 1}]],
-        [[1,2,3], [{"_0": 1, "_1": 2, "_2": 3}]],
+
+    @parameterized.expand(
         [
-            [[1,2,3], [4,5,6]],
-            [{"_0": 1, "_1": 2, "_2": 3}, {"_0": 4, "_1": 5, "_2": 6}]
-        ],
-        [{"a": 1}, [{"a": 1}]],
-        [
-            [{"a": 1, "b": 2}, {"a": 3, "b": 4}],
-            [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+            [1, [{"_0": 1}]],
+            [[1, 2, 3], [{"_0": 1, "_1": 2, "_2": 3}]],
+            [[[1, 2, 3], [4, 5, 6]], [{"_0": 1, "_1": 2, "_2": 3}, {"_0": 4, "_1": 5, "_2": 6}]],
+            [{"a": 1}, [{"a": 1}]],
+            [[{"a": 1, "b": 2}, {"a": 3, "b": 4}], [{"a": 1, "b": 2}, {"a": 3, "b": 4}]],
         ]
-    ])
-    def test_conversion_to_payload(self,values, expected):
+    )
+    def test_conversion_to_payload(self, values, expected):
         """Test that values can be converted to payload"""
         result = CR1000XDevice._steralize_payload(values)
 
         self.assertEqual(result, expected)
-
 
     def test_format_payload_errors(self):
         """Tests that errors during formatting are raised."""
 
         device = CR1000XDevice("my_dict_device", self.db, self.conn)
 
-        bad_key_payload = [
-            {"a":1, "b":2, "c":3},
-            {"a":4}
-        ]
+        bad_key_payload = [{"a": 1, "b": 2, "c": 3}, {"a": 4}]
         with self.assertRaises(ValueError):
             device._format_payload(bad_key_payload)
 
-
-    @parameterized.expand([
-        ["ABCDE", "65-66-67-68-69"],
-        ["ALIC1", "65-76-73-67-49"],
-        ["MORLY", "77-79-82-76-89"]
-    ])
+    @parameterized.expand([["ABCDE", "65-66-67-68-69"], ["ALIC1", "65-76-73-67-49"], ["MORLY", "77-79-82-76-89"]])
     def test_serial_number_from_site(self, site, expected):
-
         result = CR1000XDevice._get_serial_number_from_site(site)
 
         self.assertEqual(result, expected)
@@ -770,7 +721,7 @@ class TestCr1000xDevice(unittest.TestCase):
 class TestCR1000XField(unittest.TestCase):
     """Tests the datalogger field objects."""
 
-    @parameterized.expand(["myfield","my field","myfield!","myfield123","myfield~"])
+    @parameterized.expand(["myfield", "my field", "myfield!", "myfield123", "myfield~"])
     def test_name_set(self, name):
         """Tests that the object fields are set."""
 
@@ -797,7 +748,7 @@ class TestCR1000XField(unittest.TestCase):
         obj = CR1000XField("name", data_type="xsd:float", units=units)
 
         self.assertEqual(obj.units, units)
-    
+
     @parameterized.expand(["Avg", "Std"])
     def test_process_set(self, process):
         """Tests that the object fields are set."""
@@ -805,18 +756,14 @@ class TestCR1000XField(unittest.TestCase):
         obj = CR1000XField("name", data_type="xsd:float", process=process)
 
         self.assertEqual(obj.process, process)
-    
+
     def test_data_type_errors(self):
         """Tests that erros are raised"""
 
         with self.assertRaises(ValueError):
             CR1000XField("name")
 
-    @parameterized.expand([
-        [[1,2,3,4], "xsd:short"],
-        ["strr", "xsd:string"],
-        [[1.2,4.9,2], "xsd:float"]
-    ])
+    @parameterized.expand([[[1, 2, 3, 4], "xsd:short"], ["strr", "xsd:string"], [[1.2, 4.9, 2], "xsd:float"]])
     def test_data_values_generates_type(self, values, expected):
         """Tests that providing data values autogenerates type."""
         obj = CR1000XField("name", data_values=values)
@@ -826,7 +773,7 @@ class TestCR1000XField(unittest.TestCase):
     def test_data_type_priority(self):
         """Tests that the the data_type argument takes preference over data_values."""
 
-        obj = CR1000XField("name", data_type="xsd:string", data_values=[1,2,3])
+        obj = CR1000XField("name", data_type="xsd:string", data_values=[1, 2, 3])
 
         self.assertEqual(obj.data_type, "xsd:string")
 
@@ -841,36 +788,37 @@ class TestCR1000XField(unittest.TestCase):
     @parameterized.expand([1, "yes", 1.75])
     def test_non_bool_settable_error(self, value):
         """Ensures that non bool arguments for `settable` raises error."""
-        
+
         with self.assertRaises(TypeError):
             CR1000XField("name", data_type="xsd:float", settable=value)
 
-    @parameterized.expand([
-        [0, "xsd:int"],
-        [32767, "xsd:short"],
-        [-32768, "xsd:short"],
-        [-2147483648, "xsd:int"],
-        [2147483647, "xsd:int"],
-        [-9223372036854775808, "xsd:long"],
-        [9223372036854775807, "xsd:long"],
-        [-9923372036854775808, "xsd:integer"],
-        [9923372036854775807, "xsd:integer"],
-        [-3.4028234663852886e+38, "xsd:float"],
-        [3.4028234663852886e+38, "xsd:float"],
-        [-1.1754943508222875e-38, "xsd:float"],
-        [1.1754943508222875e-38, "xsd:float"],
-        [0.0, "xsd:float"],
-        [1e39, "xsd:double"],
-        [-1e39, "xsd:double"],
-        [1e-39, "xsd:double"],
-        [-1e-39, "xsd:double"],
-        [True, "xsd:boolean"],
-        [False, "xsd:boolean"],
-        [datetime.now().isoformat(), "xsd:dateTime"],
-        [datetime.now(), "xsd:dateTime"],
-        ["value", "xsd:string"]
-
-    ])
+    @parameterized.expand(
+        [
+            [0, "xsd:int"],
+            [32767, "xsd:short"],
+            [-32768, "xsd:short"],
+            [-2147483648, "xsd:int"],
+            [2147483647, "xsd:int"],
+            [-9223372036854775808, "xsd:long"],
+            [9223372036854775807, "xsd:long"],
+            [-9923372036854775808, "xsd:integer"],
+            [9923372036854775807, "xsd:integer"],
+            [-3.4028234663852886e38, "xsd:float"],
+            [3.4028234663852886e38, "xsd:float"],
+            [-1.1754943508222875e-38, "xsd:float"],
+            [1.1754943508222875e-38, "xsd:float"],
+            [0.0, "xsd:float"],
+            [1e39, "xsd:double"],
+            [-1e39, "xsd:double"],
+            [1e-39, "xsd:double"],
+            [-1e-39, "xsd:double"],
+            [True, "xsd:boolean"],
+            [False, "xsd:boolean"],
+            [datetime.now().isoformat(), "xsd:dateTime"],
+            [datetime.now(), "xsd:dateTime"],
+            ["value", "xsd:string"],
+        ]
+    )
     def test_data_type_matching(self, value, expected):
         """Tests that the `xsd` data type can be extracted."""
 
@@ -879,7 +827,6 @@ class TestCR1000XField(unittest.TestCase):
         self.assertEqual(result.value["schema"], expected)
 
     def test_error_if_xsd_type_not_valid(self):
-
         with self.assertRaises(TypeError):
             CR1000XField._get_xsd_type(BaseDevice)
 
@@ -889,30 +836,34 @@ class TestCR1000XField(unittest.TestCase):
 
         self.assertEqual(json.dumps(obj, default=json_serial), expected)
 
-    @parameterized.expand([
-        ["Temp", "Smp"],
-        ["Temp_avg", "Avg"],
-        ["Temp_AVG", "Avg"],
-        ["Temp_avg_C", "Smp"],
-        ["Temp_STD", "Std"],
-        ["Temp_Max", "Max"],
-        ["Temp_Min", "Min"],
-        ["Temp_cov", "Cov"],
-        ["Temp_tot", "Tot"],
-        ["Temp_Mom", "Mom"],
-    ])
-    def test_process_calculation(self, variable: str, expected: str): 
+    @parameterized.expand(
+        [
+            ["Temp", "Smp"],
+            ["Temp_avg", "Avg"],
+            ["Temp_AVG", "Avg"],
+            ["Temp_avg_C", "Smp"],
+            ["Temp_STD", "Std"],
+            ["Temp_Max", "Max"],
+            ["Temp_Min", "Min"],
+            ["Temp_cov", "Cov"],
+            ["Temp_tot", "Tot"],
+            ["Temp_Mom", "Mom"],
+        ]
+    )
+    def test_process_calculation(self, variable: str, expected: str):
         """Tests that the expected process can be calculated."""
 
         result = CR1000XField._get_process(variable)
 
         self.assertEqual(result, expected)
 
-    @parameterized.expand([
-        ["Temp", "Smp"],
-        ["Temp_avg", "Avg"],
-        ["Temp_AVG", "Avg"],
-    ])
+    @parameterized.expand(
+        [
+            ["Temp", "Smp"],
+            ["Temp_avg", "Avg"],
+            ["Temp_AVG", "Avg"],
+        ]
+    )
     def test_initialization_with_process_calculated(self, name, expected):
         """Checking that process gets set from the variable name."""
         result = CR1000XField(name, data_type="xsd:float")

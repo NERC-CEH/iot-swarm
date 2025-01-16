@@ -1,19 +1,21 @@
 """This module holds all implementation for databases. Currently only supporting Oracle."""
 
-import oracledb
+import abc
 import getpass
 import logging
-import abc
+import sqlite3
+from datetime import datetime
+from math import nan
+from pathlib import Path
+from typing import List, Optional, Self
+
+import oracledb
+import pandas as pd
+
 from iotswarm.queries import (
     CosmosQuery,
     CosmosTable,
 )
-import pandas as pd
-from pathlib import Path
-from math import nan
-import sqlite3
-from typing import List
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +43,7 @@ class BaseDatabase(abc.ABC):
             logger_arg = f"inherit_logger={self._instance_logger.parent}"
         return f"{self.__class__.__name__}({logger_arg})"
 
-    def __eq__(self, obj):
+    def __eq__(self, obj: object):
         return self._instance_logger == obj._instance_logger
 
     @abc.abstractmethod
@@ -50,7 +52,6 @@ class BaseDatabase(abc.ABC):
 
 
 class MockDB(BaseDatabase):
-
     @staticmethod
     def query_latest_from_site() -> List:
         return []
@@ -68,9 +69,9 @@ class CosmosDB(BaseDatabase):
     site_id_query: CosmosQuery
     """SQL query for retrieving list of site IDs"""
 
-    def __eq__(self, obj):
+    def __eq__(self, obj: object):
         return (
-            type(self.connection) == type(obj.connection)
+            isinstance(obj.connection, type(self.connection))
             and self.site_data_query == obj.site_data_query
             and self.site_id_query == obj.site_id_query
             and BaseDatabase.__eq__(self, obj)
@@ -81,9 +82,7 @@ class CosmosDB(BaseDatabase):
         """Validates that the query is legal"""
 
         if not isinstance(table, CosmosTable):
-            raise TypeError(
-                f"`table` must be a `{CosmosTable.__class__}` Enum, not a `{type(table)}`"
-            )
+            raise TypeError(f"`table` must be a `{CosmosTable.__class__}` Enum, not a `{type(table)}`")
 
     @staticmethod
     def _fill_query(query: str, table: CosmosTable) -> str:
@@ -106,13 +105,11 @@ class CosmosDB(BaseDatabase):
         if max_sites is not None:
             max_sites = int(max_sites)
             if max_sites < 0:
-                raise ValueError(
-                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
-                )
+                raise ValueError(f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}")
 
         return max_sites
 
-    def query_latest_from_site(self):
+    def query_latest_from_site(self) -> None:
         pass
 
 
@@ -127,27 +124,20 @@ class Oracle(CosmosDB):
     site_id_query = CosmosQuery.ORACLE_SITE_IDS
 
     def __repr__(self):
-        parent_repr = (
-            super().__repr__().lstrip(f"{self.__class__.__name__}(").rstrip(")")
-        )
+        parent_repr = super().__repr__().lstrip(f"{self.__class__.__name__}(").rstrip(")")
         if len(parent_repr) > 0:
             parent_repr = ", " + parent_repr
-        return (
-            f"{self.__class__.__name__}("
-            f'"{self.connection.dsn}"'
-            f"{parent_repr}"
-            f")"
-        )
+        return f'{self.__class__.__name__}("{self.connection.dsn}"{parent_repr})'
 
     @classmethod
     async def create(
         cls,
         dsn: str,
         user: str,
-        password: str = None,
+        password: Optional[str] = None,
         inherit_logger: logging.Logger | None = None,
         **kwargs,
-    ):
+    ) -> Self:
         """Factory method for initialising the class.
             Initialization is done through the `create() method`: `Oracle.create(...)`.
 
@@ -163,9 +153,7 @@ class Oracle(CosmosDB):
 
         self = cls(**kwargs)
 
-        self.connection = await oracledb.connect_async(
-            dsn=dsn, user=user, password=password
-        )
+        self.connection = await oracledb.connect_async(dsn=dsn, user=user, password=password)
 
         if inherit_logger is not None:
             self._instance_logger = inherit_logger.getChild(self.__class__.__name__)
@@ -201,9 +189,7 @@ class Oracle(CosmosDB):
 
             return dict(zip(columns, data))
 
-    async def query_datetime_gt_from_site(
-        self, site_id: str, date: datetime, table: CosmosTable
-    ):
+    async def query_datetime_gt_from_site(self, site_id: str, date: datetime, table: CosmosTable) -> List[dict]:
         """Returns a list of rows from a table for a specific site where the datetime is greater than
             the value given
 
@@ -227,10 +213,9 @@ class Oracle(CosmosDB):
 
         if data:
             return [dict(zip(columns, data_row)) for data_row in data]
+        return []
 
-    async def query_site_ids(
-        self, table: CosmosTable, max_sites: int | None = None
-    ) -> list:
+    async def query_site_ids(self, table: CosmosTable, max_sites: int | None = None) -> list:
         """query_site_ids returns a list of site IDs from COSMOS database
 
         Args:
@@ -271,10 +256,9 @@ class LoopingCsvDB(BaseDatabase):
     db_file: str | Path
     """Path to the database file."""
 
-    def __eq__(self, obj):
-
+    def __eq__(self, obj: object):
         return (
-            type(self.connection) == type(obj.connection)
+            isinstance(obj.connection, type(self.connection))
             and self.db_file == obj.db_file
             and BaseDatabase.__eq__(self, obj)
         )
@@ -329,9 +313,7 @@ class LoopingCsvDB(BaseDatabase):
         if max_sites is not None:
             max_sites = int(max_sites)
             if max_sites < 0:
-                raise ValueError(
-                    f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}"
-                )
+                raise ValueError(f"`max_sites` must be 1 or more, or 0 for no maximum. Received: {max_sites}")
 
         sites = self.connection["SITE_ID"].drop_duplicates().to_list()
 
@@ -370,11 +352,10 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
 
         self.cursor = self.connection.cursor()
 
-    def __eq__(self, obj) -> bool:
+    def __eq__(self, obj: object) -> bool:
         return CosmosDB.__eq__(self, obj) and super(LoopingCsvDB, self).__eq__(obj)
 
     def __getstate__(self) -> object:
-
         state = self.__dict__.copy()
 
         del state["connection"]
@@ -382,16 +363,13 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
 
         return state
 
-    def __setstate__(self, state) -> object:
-
+    def __setstate__(self, state: dict) -> object:
         self.__dict__.update(state)
 
         self.connection = self._get_connection(self.db_file)
         self.cursor = self.connection.cursor()
 
-    def query_latest_from_site(
-        self, site_id: str, table: CosmosTable, index: int
-    ) -> dict:
+    def query_latest_from_site(self, site_id: str, table: CosmosTable, index: int) -> dict:
         """Queries the datbase for a `SITE_ID` incrementing by 1 each time called
         for a specific site. If the end is reached, it loops back to the start.
 
@@ -404,24 +382,20 @@ class LoopingSQLite3(CosmosDB, LoopingCsvDB):
         """
         query = self._fill_query(self.site_data_query, table)
 
-        data = self._query_latest_from_site(
-            query, {"site_id": site_id, "offset": index}
-        )
+        data = self._query_latest_from_site(query, {"site_id": site_id, "offset": index})
 
         if data is None:
             index = 0
 
-        data = self._query_latest_from_site(
-            query, {"site_id": site_id, "offset": index}
-        )
+        data = self._query_latest_from_site(query, {"site_id": site_id, "offset": index})
 
         return data
 
-    def _query_latest_from_site(self, query, arg_dict: dict) -> dict:
+    def _query_latest_from_site(self, query: str, arg_dict: dict) -> dict:
         """Requests the latest data from a table for a specific site.
 
         Args:
-            table: A valid table from the database
+            query: A valid query
             arg_dict: Dictionary of query arguments.
 
         Returns:

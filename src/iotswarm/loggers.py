@@ -3,6 +3,7 @@
 import logging.handlers
 import os
 from pathlib import Path
+
 import platformdirs
 
 
@@ -14,7 +15,6 @@ class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     """
 
     def __init__(self, *args, **kwargs):
-
         logpath = Path(
             platformdirs.user_data_dir("iot_swarm"),
             "log.log",

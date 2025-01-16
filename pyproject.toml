@@ -26,7 +26,9 @@ description = "Package for simulating a net of IoT devices for stress testing."
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized"]
+lint = ["ruff"]
 docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
+dev = ["iot-swarm[test,lint,docs]"]
 
 [project.scripts]
 iot-swarm = "iotswarm.scripts.cli:main"
@@ -48,12 +50,45 @@ filterwarnings = [
     "ignore::DeprecationWarning:autosemver.*:",
     "ignore::DeprecationWarning:pkg_resources.*:",
 ]
-addopts = "--cov=iotswarm"
+addopts = "--cov=iotswarm --cov-report=term-missing"
 markers = [
     "asyncio: Tests asynchronous functions.",
     "oracle: Requires oracle connection and required config credentials",
     "slow: Marks slow tests",
 ]
+
+[tool.ruff]
+target-version = "py312"
+src = ["src", "tests"]
+include = ["src/**.py", "tests/**.py"]
+line-length = 120
+
+[tool.ruff.lint]
+exclude = ["tests/**.py"]
+# Read more here https://beta.ruff.rs/docs/rules/
+# Pyflakes - F, pycodestyle - E, W
+# flake8-builtins - A, ANN
+# Pylint - PLC, PLE, PLW
+# isort - I
+select = [
+    "F",
+    "E",
+    "W",
+    "A",
+    "PLC",
+    "PLE",
+    "PLW",
+    "I",
+    "N816",
+    "ANN001",
+    "ANN201",
+    "ANN202",
+    "ANN205",
+    "ANN206",
+]
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
 
 [tool.coverage.run]
 omit = [

@@ -45,12 +45,10 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s"""
 
 @parameterized.expand(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
 def test_log_level_set(log_level):
-
     result = RUNNER.invoke(cli.main, ["--log-level", log_level, "test"])
     assert not result.exception
     assert (
-        result.output
-        == f"Set log level to {log_level}.\n{{'logger': <Logger iotswarm.scripts.cli ({log_level})>}}\n"
+        result.output == f"Set log level to {log_level}.\n{{'logger': <Logger iotswarm.scripts.cli ({log_level})>}}\n"
     )
 
 
@@ -63,7 +61,6 @@ def test_get_version():
 
 
 def test_list_sessions():
-
     result = RUNNER.invoke(cli.main, ["sessions", "ls"])
 
     assert not result.exception

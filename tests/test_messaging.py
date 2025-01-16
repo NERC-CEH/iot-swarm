@@ -28,7 +28,6 @@ certs_exist = pytest.mark.skipif(
 
 
 class TestBaseClass(unittest.TestCase):
-
     @patch.multiple(MessagingBaseClass, __abstractmethods__=set())
     def test(self):
         instance = MessagingBaseClass()
@@ -40,7 +39,6 @@ class TestBaseClass(unittest.TestCase):
 
 
 class TestMockMessageConnection(unittest.TestCase):
-
     def test_instantiation(self):
         mock = MockMessageConnection()
 
@@ -51,7 +49,6 @@ class TestMockMessageConnection(unittest.TestCase):
         self.assertIsInstance(mock, MessagingBaseClass)
 
     def test_no_logger_used(self):
-
         with self.assertNoLogs():
             mock = MockMessageConnection()
             mock.send_message("")
@@ -68,7 +65,6 @@ class TestMockMessageConnection(unittest.TestCase):
 
 
 class TestIoTCoreMQTTConnection(unittest.TestCase):
-
     @config_exists
     def setUp(self) -> None:
         config = Config(str(CONFIG_PATH))
@@ -78,7 +74,6 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     @config_exists
     @certs_exist
     def test_instantiation(self):
-
         instance = IotCoreMQTTConnection(**self.config, client_id="test_id")
 
         self.assertIsInstance(instance, MessagingBaseClass)
@@ -88,7 +83,6 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     @config_exists
     @certs_exist
     def test_non_string_arguments(self):
-
         with self.assertRaises(TypeError):
             IotCoreMQTTConnection(
                 1,
@@ -137,7 +131,6 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     @config_exists
     @certs_exist
     def test_port(self):
-
         # Expect one of defaults if no port given
         if "port" in self.config:
             del self.config["port"]
@@ -159,7 +152,6 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     @config_exists
     @certs_exist
     def test_bad_port_type(self, port):
-
         with self.assertRaises((TypeError, ValueError)):
             IotCoreMQTTConnection(
                 self.config["endpoint"],
@@ -175,26 +167,19 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     def test_clean_session_set(self):
         expected = False
 
-        instance = IotCoreMQTTConnection(
-            **self.config, client_id="test_id", clean_session=expected
-        )
+        instance = IotCoreMQTTConnection(**self.config, client_id="test_id", clean_session=expected)
         self.assertEqual(instance.connection.clean_session, expected)
 
         expected = True
-        instance = IotCoreMQTTConnection(
-            **self.config, client_id="test_id", clean_session=expected
-        )
+        instance = IotCoreMQTTConnection(**self.config, client_id="test_id", clean_session=expected)
         self.assertEqual(instance.connection.clean_session, expected)
 
     @parameterized.expand([0, -1, "true", None])
     @config_exists
     @certs_exist
     def test_bad_clean_session_type(self, clean_session):
-
         with self.assertRaises(TypeError):
-            IotCoreMQTTConnection(
-                **self.config, client_id="test_id", clean_session=clean_session
-            )
+            IotCoreMQTTConnection(**self.config, client_id="test_id", clean_session=clean_session)
 
     @config_exists
     @certs_exist
@@ -205,9 +190,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
 
         # Test value is set
         expected = 20.5
-        instance = IotCoreMQTTConnection(
-            **self.config, client_id="test_id", keep_alive_secs=expected
-        )
+        instance = IotCoreMQTTConnection(**self.config, client_id="test_id", keep_alive_secs=expected)
         self.assertEqual(instance.connection.keep_alive_secs, expected)
 
     @parameterized.expand(["FOURTY", "True"])
@@ -215,9 +198,7 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
     @certs_exist
     def test_bad_keep_alive_secs_type(self, secs):
         with self.assertRaises(TypeError):
-            IotCoreMQTTConnection(
-                **self.config, client_id="test_id", keep_alive_secs=secs
-            )
+            IotCoreMQTTConnection(**self.config, client_id="test_id", keep_alive_secs=secs)
 
     @config_exists
     @certs_exist
@@ -230,18 +211,14 @@ class TestIoTCoreMQTTConnection(unittest.TestCase):
 
             self.assertEqual(
                 cm.output,
-                [
-                    f"ERROR:iotswarm.messaging.aws.IotCoreMQTTConnection.client-test_id:{expected}"
-                ],
+                [f"ERROR:iotswarm.messaging.aws.IotCoreMQTTConnection.client-test_id:{expected}"],
             )
 
     @config_exists
     @certs_exist
     def test_logger_set(self):
         logger = logging.getLogger("mine")
-        inst = IotCoreMQTTConnection(
-            **self.config, client_id="test_id", inherit_logger=logger
-        )
+        inst = IotCoreMQTTConnection(**self.config, client_id="test_id", inherit_logger=logger)
 
         expected = 'No message to send for topic: "mytopic".'
         with self.assertLogs(logger=logger, level=logging.INFO) as cm:

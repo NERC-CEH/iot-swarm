@@ -1,0 +1,16 @@
+on: 
+  pull_request:
+  push:
+    branches:
+      - main
+ 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+
+
+jobs:
+  test-python:
+    uses: NERC-CEH/dri-cicd/.github/workflows/test-python.yml@main

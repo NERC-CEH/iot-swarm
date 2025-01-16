@@ -1,14 +1,17 @@
-"""This is the core module for orchestrating swarms of IoT devices. One swarm defined currently for using COSMOS data."""
+"""This is the core module for orchestrating swarms of IoT devices.
+One swarm defined currently for using COSMOS data."""
+
+import asyncio
+import logging.config
+import os
+import uuid
+from pathlib import Path
+from typing import List, Self
+
+import dill
+from platformdirs import user_data_dir
 
 from iotswarm.devices import BaseDevice
-import logging.config
-from typing import List, Self
-import asyncio
-import uuid
-import dill
-from pathlib import Path
-from platformdirs import user_data_dir
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -30,28 +33,18 @@ class Swarm:
     devices: List[BaseDevice]
     """List of site objects."""
 
-    def __eq__(self, obj) -> bool:
-        return (
-            self.name == obj.name
-            and self._instance_logger == obj._instance_logger
-            and self.devices == obj.devices
-        )
+    def __eq__(self, obj: object) -> bool:
+        if not isinstance(obj, Swarm):
+            return NotImplemented
+        return self.name == obj.name and self._instance_logger == obj._instance_logger and self.devices == obj.devices
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Returns number of sites"""
         return len(self.devices)
 
-    def __repr__(self):
-        name_arg = (
-            f', name="{self.name}"'
-            if not self.name.startswith("unnamed-swarm-")
-            else ""
-        )
-        devices_arg = (
-            self.devices[0].__repr__()
-            if len(self.devices) == 1
-            else self.devices.__repr__()
-        )
+    def __repr__(self) -> str:
+        name_arg = f', name="{self.name}"' if not self.name.startswith("unnamed-swarm-") else ""
+        devices_arg = self.devices[0].__repr__() if len(self.devices) == 1 else self.devices.__repr__()
         return f"{self.__class__.__name__}({devices_arg}{name_arg})"
 
     def __init__(
@@ -71,9 +64,7 @@ class Swarm:
             devices = [devices]
 
         if not all([isinstance(device, BaseDevice) for device in devices]):
-            raise TypeError(
-                f"`devices` must be an iterable containing `BaseDevice`. not {type(devices)}"
-            )
+            raise TypeError(f"`devices` must be an iterable containing `BaseDevice`. not {type(devices)}")
 
         self.devices = devices
         for device in self.devices:
@@ -84,9 +75,7 @@ class Swarm:
         else:
             self.name = f"unnamed-swarm-{uuid.uuid4()}"
 
-        self._instance_logger = logger.getChild(
-            f"{self.__class__.__name__}.{self.name}"
-        )
+        self._instance_logger = logger.getChild(f"{self.__class__.__name__}.{self.name}")
 
         if base_directory is not None:
             if not isinstance(base_directory, Path):
@@ -157,9 +146,7 @@ class Swarm:
             if replace:
                 os.remove(swarm_file)
             else:
-                raise FileExistsError(
-                    f'swarm exists and replace is set to False: "{swarm_file}".'
-                )
+                raise FileExistsError(f'swarm exists and replace is set to False: "{swarm_file}".')
         elif not swarm_file.parent.exists():
             os.makedirs(swarm_file.parent)
 

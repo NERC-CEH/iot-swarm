@@ -11,16 +11,17 @@ They are:
 Once installed, run this script to generate the .db file.
 """
 
-from iotswarm.utils import build_database_from_csv
-from pathlib import Path
 from glob import glob
+from pathlib import Path
+
 from iotswarm.queries import CosmosTable
+from iotswarm.utils import build_database_from_csv
 
 
 def main(
     csv_dir: str | Path = Path(__file__).parent,
     database_output: str | Path = Path(Path(__file__).parent, "cosmos.db"),
-):
+) -> None:
     """Reads exported cosmos DB files from CSV format. Assumes that the files
     look like: LEVEL_1_SOILMET_30MIN_DATA_TABLE.csv
 
@@ -33,8 +34,8 @@ def main(
     tables = [CosmosTable[x.removesuffix("_DATA_TABLE.csv")] for x in csv_files]
 
     for table, file in zip(tables, csv_files):
-        file = Path(csv_dir, file)
-        build_database_from_csv(file, database_output, table.value, sort_by="DATE_TIME")
+        file_target = Path(csv_dir) / file
+        build_database_from_csv(file_target, database_output, table.value, sort_by="DATE_TIME")
 
 
 if __name__ == "__main__":

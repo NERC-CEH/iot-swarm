@@ -11,30 +11,19 @@ from iotswarm.db import MockDB
 import tempfile
 from pathlib import Path
 
-SQL_PATH = Path(
-    Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db"
-)
-sqlite_db_exist = pytest.mark.skipif(
-    not SQL_PATH.exists(), reason="Local cosmos.db does not exist."
-)
+SQL_PATH = Path(Path(__file__).parents[1], "src", "iotswarm", "__assets__", "data", "cosmos.db")
+sqlite_db_exist = pytest.mark.skipif(not SQL_PATH.exists(), reason="Local cosmos.db does not exist.")
 
 
 class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self):
-
         site_ids = list(range(10))
 
-        self.base_devices = [
-            BaseDevice(site, MockDB(), MockMessageConnection()) for site in site_ids
-        ]
+        self.base_devices = [BaseDevice(site, MockDB(), MockMessageConnection()) for site in site_ids]
 
-        self.cr1000x_devices = [
-            CR1000XDevice(site, MockDB(), MockMessageConnection()) for site in site_ids
-        ]
+        self.cr1000x_devices = [CR1000XDevice(site, MockDB(), MockMessageConnection()) for site in site_ids]
 
     def test_instantiation(self):
-
         # Test that BaseDevice list is compatible
         swarm = Swarm(self.base_devices)
         self.assertListEqual(swarm.devices, self.base_devices)
@@ -57,9 +46,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(swarm.name, str(name))
 
-    @parameterized.expand(
-        ["123", 45, [[BaseDevice(1, MockDB(), MockMessageConnection()), 7]]]
-    )
+    @parameterized.expand(["123", 45, [[BaseDevice(1, MockDB(), MockMessageConnection()), 7]]])
     def test_devices_type_check(self, devices):
         """Tests that a TypeError is raised if non-device passed to Swarm."""
         with self.assertRaises(TypeError):
@@ -69,9 +56,7 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
     def test__len__(self, count):
         """Test that __len__ method functions."""
 
-        devices = [
-            BaseDevice(c, MockDB(), MockMessageConnection()) for c in range(count)
-        ]
+        devices = [BaseDevice(c, MockDB(), MockMessageConnection()) for c in range(count)]
 
         swarm = Swarm(devices)
 
@@ -119,27 +104,18 @@ class TestCosmosSwarm(unittest.IsolatedAsyncioTestCase):
 
 
 class TestSwarmRunning(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self):
-
         site_ids = list(range(10))
 
         self.base_devices = [
-            BaseDevice(
-                site, MockDB(), MockMessageConnection(), max_cycles=5, sleep_time=0
-            )
-            for site in site_ids
+            BaseDevice(site, MockDB(), MockMessageConnection(), max_cycles=5, sleep_time=0) for site in site_ids
         ]
 
         self.cr1000x_devices = [
-            CR1000XDevice(
-                site, MockDB(), MockMessageConnection(), max_cycles=3, sleep_time=0
-            )
-            for site in site_ids
+            CR1000XDevice(site, MockDB(), MockMessageConnection(), max_cycles=3, sleep_time=0) for site in site_ids
         ]
 
     async def test_run_single_device_type(self):
-
         swarm = Swarm(self.base_devices + self.cr1000x_devices, "base-swarm")
         log_base = f"{swarm.__class__.__module__}.{swarm.__class__.__name__}.base-swarm"
         with self.assertLogs(level="INFO") as cm:
@@ -159,9 +135,7 @@ class TestSwarmSessions(unittest.TestCase):
     def setUp(self) -> None:
         self.site_ids = ["MORLY", "ALIC1", "SPENC"]
 
-        self.devices = [
-            BaseDevice(x, MockDB(), MockMessageConnection()) for x in self.site_ids
-        ]
+        self.devices = [BaseDevice(x, MockDB(), MockMessageConnection()) for x in self.site_ids]
         self.swarm = Swarm(self.devices, "test-swarm")
         self.maxDiff = None
 
@@ -169,9 +143,7 @@ class TestSwarmSessions(unittest.TestCase):
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
         swarm_names = sorted(["another", "basic", "swarm-test"])
 
-        swarms = [
-            Swarm(self.devices, name=x, base_directory=tempdir) for x in swarm_names
-        ]
+        swarms = [Swarm(self.devices, name=x, base_directory=tempdir) for x in swarm_names]
 
         [swarm.write_self() for swarm in swarms]
 
@@ -181,7 +153,6 @@ class TestSwarmSessions(unittest.TestCase):
             self.assertTrue(file.startswith(swarm.name))
 
     def test_swarm_file_builder(self):
-
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
 
         # String argument uses class default directory
@@ -201,14 +172,11 @@ class TestSwarmSessions(unittest.TestCase):
         self.assertEqual(expected, actual)
 
     def test_swarm_file_listing(self):
-
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
 
         swarm_names = sorted(["swarm-b", "swarma", "test"])
 
-        swarms = [
-            Swarm(self.devices, name=x, base_directory=tempdir) for x in swarm_names
-        ]
+        swarms = [Swarm(self.devices, name=x, base_directory=tempdir) for x in swarm_names]
 
         [swarm.write_self() for swarm in swarms]
 
@@ -217,7 +185,6 @@ class TestSwarmSessions(unittest.TestCase):
         self.assertListEqual(listed, swarm_names)
 
     def test_swarm_exists(self):
-
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
         swarm = Swarm(self.devices, "real-swarm", base_directory=tempdir)
         swarm2 = Swarm(self.devices, "no-writes", base_directory=tempdir)
@@ -228,7 +195,6 @@ class TestSwarmSessions(unittest.TestCase):
         self.assertFalse(Swarm._swarm_exists(swarm2))
 
     def test_swarm_file_init(self):
-
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
         swarm = Swarm(self.devices, "testing-init-swarm", base_directory=tempdir)
 
@@ -280,7 +246,6 @@ class TestSwarmSessions(unittest.TestCase):
 
 
 class TestSwarmSessionEndtoEnd(unittest.IsolatedAsyncioTestCase):
-
     async def test_swarm_can_be_loaded_and_resumed(self):
         tempdir = tempfile.mkdtemp(prefix="iot-swarm")
         swarm_id = "my-swarm"
@@ -288,18 +253,10 @@ class TestSwarmSessionEndtoEnd(unittest.IsolatedAsyncioTestCase):
         data_source = MockDB()
         conn = MockMessageConnection()
         devices = [
-            BaseDevice(
-                "MORLY", data_source, conn, max_cycles=max_cycles[0], sleep_time=0
-            ),
-            CR1000XDevice(
-                "ALIC1", data_source, conn, max_cycles=max_cycles[1], sleep_time=0
-            ),
-            BaseDevice(
-                "SPENC", data_source, conn, max_cycles=max_cycles[2], sleep_time=0
-            ),
-            CR1000XDevice(
-                "HARLO", data_source, conn, max_cycles=max_cycles[3], sleep_time=0
-            ),
+            BaseDevice("MORLY", data_source, conn, max_cycles=max_cycles[0], sleep_time=0),
+            CR1000XDevice("ALIC1", data_source, conn, max_cycles=max_cycles[1], sleep_time=0),
+            BaseDevice("SPENC", data_source, conn, max_cycles=max_cycles[2], sleep_time=0),
+            CR1000XDevice("HARLO", data_source, conn, max_cycles=max_cycles[3], sleep_time=0),
         ]
 
         Swarm.base_directory = tempdir

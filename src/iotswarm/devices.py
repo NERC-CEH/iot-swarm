@@ -1,23 +1,24 @@
 """This module hold logic for device implementation. Currently only a single device time implemented."""
 
 import asyncio
+import enum
 import logging
+import random
+from datetime import datetime
+from typing import List
+
 from iotswarm import __version__ as package_version
-from iotswarm.queries import CosmosTable
 from iotswarm.db import (
     BaseDatabase,
-    MockDB,
     CosmosDB,
-    Oracle,
     LoopingCsvDB,
     LoopingSQLite3,
+    MockDB,
+    Oracle,
 )
-from iotswarm.messaging.core import MessagingBaseClass, MockMessageConnection
 from iotswarm.messaging.aws import IotCoreMQTTConnection
-from typing import List
-from datetime import datetime
-import random
-import enum
+from iotswarm.messaging.core import MessagingBaseClass, MockMessageConnection
+from iotswarm.queries import CosmosTable
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class BaseDevice:
         return topic
 
     @mqtt_topic.setter
-    def mqtt_topic(self, value):
+    def mqtt_topic(self, value: str) -> None:
         """Sets the mqtt topic"""
         self._mqtt_topic = value
         self.mqtt_base_topic = value
@@ -98,13 +99,15 @@ class BaseDevice:
 
         if not isinstance(probability, int):
             probability = round(probability)
-        
+
         if probability < 0 or probability > 100:
             raise ValueError(f"`probability` must be between 0 - 100 inclusive, not '{probability}'")
 
         self._no_send_probability = probability
 
-    def __eq__(self, obj) -> bool:
+    def __eq__(self, obj: object) -> bool:
+        if not isinstance(obj, BaseDevice):
+            raise NotImplementedError
 
         base_equality = (
             self.device_type == obj.device_type
@@ -143,7 +146,7 @@ class BaseDevice:
         mqtt_topic: str | None = None,
         mqtt_prefix: str | None = None,
         mqtt_suffix: str | None = None,
-        no_send_probability: int = 0
+        no_send_probability: int = 0,
     ) -> None:
         """Initializer
 
@@ -164,35 +167,24 @@ class BaseDevice:
         self.device_id = str(device_id)
 
         if not isinstance(data_source, BaseDatabase):
-            raise TypeError(
-                f"`data_source` must be a `BaseDatabase`. Received: {data_source}."
-            )
+            raise TypeError(f"`data_source` must be a `BaseDatabase`. Received: {data_source}.")
         if isinstance(data_source, (CosmosDB)):
-
             if table is None:
-                raise ValueError(
-                    f"`table` must be provided if `data_source` is type `OracleDB`."
-                )
+                raise ValueError("`table` must be provided if `data_source` is type `OracleDB`.")
             elif not isinstance(table, CosmosTable):
-                raise TypeError(
-                    f'table must be a "{CosmosTable.__class__}", not "{type(table)}"'
-                )
+                raise TypeError(f'table must be a "{CosmosTable.__class__}", not "{type(table)}"')
 
             self.table = table
         self.data_source = data_source
 
         if not isinstance(connection, MessagingBaseClass):
-            raise TypeError(
-                f"`connection` must be a `MessagingBaseClass`. Received: {connection}."
-            )
+            raise TypeError(f"`connection` must be a `MessagingBaseClass`. Received: {connection}.")
         self.connection = connection
 
         if max_cycles is not None:
             max_cycles = int(max_cycles)
             if max_cycles < 0:
-                raise ValueError(
-                    f"`max_cycles` must be 1 or more, or 0 for no maximum. Received: {max_cycles}"
-                )
+                raise ValueError(f"`max_cycles` must be 1 or more, or 0 for no maximum. Received: {max_cycles}")
             self.max_cycles = max_cycles
 
         if sleep_time is not None:
@@ -203,9 +195,7 @@ class BaseDevice:
 
         if delay_start is not None:
             if not isinstance(delay_start, bool):
-                raise TypeError(
-                    f"`delay_start` must be a bool. Received: {type(delay_start)}."
-                )
+                raise TypeError(f"`delay_start` must be a bool. Received: {type(delay_start)}.")
             self.delay_start = delay_start
 
         if isinstance(connection, (IotCoreMQTTConnection, MockMessageConnection)):
@@ -220,35 +210,18 @@ class BaseDevice:
                 self.mqtt_suffix = str(mqtt_suffix)
 
         if inherit_logger is not None:
-            self._instance_logger = inherit_logger.getChild(
-                f"{self.__class__.__name__}-{self.device_id}"
-            )
+            self._instance_logger = inherit_logger.getChild(f"{self.__class__.__name__}-{self.device_id}")
         else:
-            self._instance_logger = logger.getChild(
-                f"{self.__class__.__name__}-{self.device_id}"
-            )
+            self._instance_logger = logger.getChild(f"{self.__class__.__name__}-{self.device_id}")
 
         self.no_send_probability = no_send_probability
 
         self._instance_logger.info(f"Initialised Site: {repr(self)}")
 
     def __repr__(self):
-
-        sleep_time_arg = (
-            f", sleep_time={self.sleep_time}"
-            if self.sleep_time != self.__class__.sleep_time
-            else ""
-        )
-        max_cycles_arg = (
-            f", max_cycles={self.max_cycles}"
-            if self.max_cycles != self.__class__.max_cycles
-            else ""
-        )
-        delay_start_arg = (
-            f", delay_start={self.delay_start}"
-            if self.delay_start != self.__class__.delay_start
-            else ""
-        )
+        sleep_time_arg = f", sleep_time={self.sleep_time}" if self.sleep_time != self.__class__.sleep_time else ""
+        max_cycles_arg = f", max_cycles={self.max_cycles}" if self.max_cycles != self.__class__.max_cycles else ""
+        delay_start_arg = f", delay_start={self.delay_start}" if self.delay_start != self.__class__.delay_start else ""
         table_arg = (
             f", table={self.table.__class__.__name__}.{self.table.name}"
             if isinstance(self.data_source, CosmosDB)
@@ -257,22 +230,13 @@ class BaseDevice:
 
         mqtt_topic_arg = (
             f', mqtt_topic="{self.mqtt_base_topic}"'
-            if hasattr(self, "mqtt_base_topic")
-            and self.mqtt_base_topic != self.device_id
+            if hasattr(self, "mqtt_base_topic") and self.mqtt_base_topic != self.device_id
             else ""
         )
 
-        mqtt_prefix_arg = (
-            f', mqtt_prefix="{self.mqtt_prefix}"'
-            if hasattr(self, "mqtt_prefix")
-            else ""
-        )
+        mqtt_prefix_arg = f', mqtt_prefix="{self.mqtt_prefix}"' if hasattr(self, "mqtt_prefix") else ""
 
-        mqtt_suffix_arg = (
-            f', mqtt_suffix="{self.mqtt_suffix}"'
-            if hasattr(self, "mqtt_suffix")
-            else ""
-        )
+        mqtt_suffix_arg = f', mqtt_suffix="{self.mqtt_suffix}"' if hasattr(self, "mqtt_suffix") else ""
 
         no_send_probability_arg = (
             f", no_send_probability={self.no_send_probability}"
@@ -295,7 +259,7 @@ class BaseDevice:
             f")"
         )
 
-    async def _add_delay(self):
+    async def _add_delay(self) -> None:
         delay = random.randint(0, self.sleep_time)
         self._instance_logger.debug(f"Delaying first cycle for: {delay}s.")
         await asyncio.sleep(delay)
@@ -314,7 +278,7 @@ class BaseDevice:
         else:
             return self.connection.send_message(payload)
 
-    async def run(self):
+    async def run(self) -> None:
         """The main invocation of the method. Expects a Oracle object to do work on
         and a table to retrieve. Runs asynchronously until `max_cycles` is reached.
 
@@ -340,47 +304,41 @@ class BaseDevice:
 
                 send_status = self._send_payload(payload)
 
-                if send_status == True:
+                if send_status:
                     self._instance_logger.info(
-                        f'Message sent{f" to topic: {self.mqtt_topic}" if self.mqtt_topic else ""}'
+                        f"Message sent{f' to topic: {self.mqtt_topic}' if self.mqtt_topic else ''}"
                     )
                     self.cycle += 1
 
-                    if isinstance(
-                        self.data_source, (LoopingCsvDB, LoopingSQLite3, MockDB)
-                    ):
+                    if isinstance(self.data_source, (LoopingCsvDB, LoopingSQLite3, MockDB)):
                         if self.swarm is not None:
                             self.swarm.write_self(replace=True)
             else:
-                self._instance_logger.warning(f"No data found.")
+                self._instance_logger.warning("No data found.")
 
             await asyncio.sleep(self.sleep_time)
 
-    async def _get_payload(self):
+    async def _get_payload(self) -> dict:
         """Method for grabbing the payload to send"""
         if isinstance(self.data_source, Oracle):
-            return await self.data_source.query_latest_from_site(
-                self.device_id, self.table
-            )
+            return await self.data_source.query_latest_from_site(self.device_id, self.table)
         elif isinstance(self.data_source, LoopingSQLite3):
-            return self.data_source.query_latest_from_site(
-                self.device_id, self.table, self.cycle
-            )
+            return self.data_source.query_latest_from_site(self.device_id, self.table, self.cycle)
         elif isinstance(self.data_source, LoopingCsvDB):
             return self.data_source.query_latest_from_site(self.device_id, self.cycle)
         elif isinstance(self.data_source, BaseDatabase):
             return self.data_source.query_latest_from_site()
 
-    def _format_payload(self, payload):
+    def _format_payload(self, payload: dict) -> dict:
         """Oranises payload into correct structure."""
         return payload
 
-    def _attach_swarm(self, swarm: object):
+    def _attach_swarm(self, swarm: object) -> None:
         self.swarm = swarm
-    
+
     def _skip_send(self) -> bool:
         """Checks if the sending should be skipped
-        
+
         Returns: True or false based on the no_send_probability
         """
 
@@ -518,9 +476,7 @@ class CR1000XDevice(BaseDevice):
         for i in range(len(payload)):
             f_payload["data"].append({"time": time[i], "vals": [x[i] for x in vals]})
 
-        f_payload["head"]["fields"] = [
-            CR1000XField(k, data_values=v) for k, v in zip(keys, vals)
-        ]
+        f_payload["head"]["fields"] = [CR1000XField(k, data_values=v) for k, v in zip(keys, vals)]
 
         return f_payload
 
@@ -602,26 +558,24 @@ class CR1000XField:
 
         self.name = str(name)
 
-        if not data_type is None:
+        if data_type is not None:
             self.data_type = str(data_type)
         elif data_values is not None:
             self.data_type = self._get_xsd_type(data_values).value["schema"]
         else:
             raise ValueError("`data_type` or `data_values` argument must be given.")
 
-        if not units is None:
+        if units is not None:
             self.units = str(units)
 
-        if not process is None:
+        if process is not None:
             self.process = str(process)
         else:
             self.process = CR1000XField._get_process(name)
 
         if settable is not None:
             if not isinstance(settable, bool):
-                raise TypeError(
-                    f"`settable` argument must be a `bool`, not: `{type(settable)}`."
-                )
+                raise TypeError(f"`settable` argument must be a `bool`, not: `{type(settable)}`.")
             self.settable = settable
 
     def __json__(self):
@@ -636,19 +590,9 @@ class CR1000XField:
         }
 
     def __repr__(self):
-        settable_arg = (
-            f", settable={self.settable}"
-            if self.settable != self.__class__.settable
-            else ""
-        )
-        process_arg = (
-            f', process="{self.process}'
-            if self.process != self.__class__.process
-            else ""
-        )
-        units_arg = (
-            f', process="{self.units}' if self.units != self.__class__.units else ""
-        )
+        settable_arg = f", settable={self.settable}" if self.settable != self.__class__.settable else ""
+        process_arg = f', process="{self.process}' if self.process != self.__class__.process else ""
+        units_arg = f', process="{self.units}' if self.units != self.__class__.units else ""
         return (
             f'{self.__class__.__name__}("{self.name}"'
             f', data_type="{self.data_type}"'
@@ -658,13 +602,16 @@ class CR1000XField:
             f")"
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CR1000XField):
+            raise NotImplementedError
+
         return (
-            self.name == other.name,
-            self.data_type == other.data_type,
-            self.units == other.units,
-            self.process == other.process,
-            self.settable == other.settable,
+            self.name == other.name
+            and self.data_type == other.data_type
+            and self.units == other.units
+            and self.process == other.process
+            and self.settable == other.settable
         )
 
     @staticmethod
@@ -716,24 +663,15 @@ class CR1000XField:
         if isinstance(value, int):
             if (value > 0 and value <= 32767) or (value < 0 and value >= -32768):
                 return XMLDataTypes.short
-            if (
-                value == 0
-                or (value < 0 and value >= -2147483648)
-                or (value > 0 and value <= 2147483647)
-            ):
+            if value == 0 or (value < 0 and value >= -2147483648) or (value > 0 and value <= 2147483647):
                 return XMLDataTypes.int
-            if (value > 0 and value <= 9223372036854775807) or (
-                value < 0 and value >= -9223372036854775808
-            ):
+            if (value > 0 and value <= 9223372036854775807) or (value < 0 and value >= -9223372036854775808):
                 return XMLDataTypes.long
             else:
                 return XMLDataTypes.integer
 
         if isinstance(value, float):
-            if abs(value) > 0 and (
-                abs(value) < 1.1754943508222875e-38
-                or abs(value) > 3.4028234663852886e38
-            ):
+            if abs(value) > 0 and (abs(value) < 1.1754943508222875e-38 or abs(value) > 3.4028234663852886e38):
                 return XMLDataTypes.double
             else:
                 return XMLDataTypes.float
@@ -741,9 +679,7 @@ class CR1000XField:
         if hasattr(value, "__iter__"):
             return CR1000XField._get_avg_xsd_type(value)
 
-        raise TypeError(
-            f"Couldnt find XML datatype for value `{value}` and type: `{type(value)}`."
-        )
+        raise TypeError(f"Couldnt find XML datatype for value `{value}` and type: `{type(value)}`.")
 
     @staticmethod
     def _get_process(value: str) -> str:
