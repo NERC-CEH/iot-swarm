@@ -63,3 +63,17 @@ FETCH NEXT 1 ROWS ONLY"""
 
         SELECT UNQIUE(site_id) FROM <table>
     """
+
+    ORACLE_DATE_GREATER_THAN = """SELECT * FROM COSMOS.{table}
+WHERE site_id = :site_id
+AND date_time > :date_time"""
+
+    """Query for retreiving data from a given table in oracle format
+        that is greater than a given datetime.
+    
+    .. code-block:: sql
+
+        SELECT * FROM <table>
+        WHERE site_id = <site_id>
+        AND date_time > <date_time>
+    """

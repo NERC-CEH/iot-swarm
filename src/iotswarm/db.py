@@ -13,6 +13,7 @@ from pathlib import Path
 from math import nan
 import sqlite3
 from typing import List
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,33 @@ class Oracle(CosmosDB):
                 return None
 
             return dict(zip(columns, data))
+
+    async def query_datetime_gt_from_site(
+        self, site_id: str, date: datetime, table: CosmosTable
+    ):
+        """Returns a list of rows from a table for a specific site where the datetime is greater than
+            the value given
+
+        Args:
+            site_id: ID of the site to retrieve records from.
+            date: The date that results are filtered by
+            table: A valid table from the database
+
+        Returns:
+            List[dict] | None: A list of dicts containing the database columns as keys, and the values as values.
+                Returns `None` if no data retrieved.
+        """
+
+        query = self._fill_query(CosmosQuery.ORACLE_DATE_GREATER_THAN, table)
+
+        with self.connection.cursor() as cursor:
+            await cursor.execute(query, site_id=site_id, date_time=date)
+
+            columns = [i[0] for i in cursor.description]
+            data = await cursor.fetchall()
+
+        if data:
+            return [dict(zip(columns, data_row)) for data_row in data]
 
     async def query_site_ids(
         self, table: CosmosTable, max_sites: int | None = None
