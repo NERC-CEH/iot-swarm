@@ -165,7 +165,7 @@ def mqtt(
     client_id: str,
     sleep_time: int,
     max_cycles: int,
-    max_sites: int ,
+    max_sites: int,
     swarm_name: str,
     delay_start: bool,
     mqtt_prefix: str,
