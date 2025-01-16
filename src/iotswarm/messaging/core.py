@@ -1,6 +1,6 @@
-from abc import ABC
-from abc import abstractmethod
 import logging
+from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class MessagingBaseClass(ABC):
@@ -12,17 +12,19 @@ class MessagingBaseClass(ABC):
     _instance_logger: logging.Logger
     """Logger handle used by instance."""
 
-    def __eq__(self, obj) -> bool:
+    connection: Optional[object] = None
+    """The connection object that is used to send data"""
 
-        return (
-            self._instance_logger == obj._instance_logger
-            and self.connection == obj.connection
-        )
+    def __eq__(self, obj: object) -> bool:
+        """Checks for equality"""
+        if not isinstance(obj, MessagingBaseClass):
+            raise NotImplementedError
+        return self._instance_logger == obj._instance_logger and self.connection == obj.connection
 
     def __init__(
         self,
         inherit_logger: logging.Logger | None = None,
-    ):
+    ) -> None:
         """Initialises the class.
         Args:
             inherit_logger: Override for the module logger.
@@ -30,28 +32,18 @@ class MessagingBaseClass(ABC):
         if inherit_logger is not None:
             self._instance_logger = inherit_logger.getChild(self.__class__.__name__)
         else:
-            self._instance_logger = logging.getLogger(__name__).getChild(
-                self.__class__.__name__
-            )
-
-    @property
-    @abstractmethod
-    def connection(self):
-        """A property for the connection object where messages are sent."""
+            self._instance_logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     @abstractmethod
-    def send_message(self) -> bool:
+    def send_message(self, *args, **kwargs) -> bool:
         """Method for sending the message."""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
 
 class MockMessageConnection(MessagingBaseClass):
     """Mock implementation of base class. Consumes `send_message` calls but does no work."""
-
-    connection: None = None
-    """Connection object. Not needed in a mock but must be implemented"""
 
     def send_message(self, *_) -> bool:
         """Consumes requests to send a message but does nothing with it.

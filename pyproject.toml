@@ -50,7 +50,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:autosemver.*:",
     "ignore::DeprecationWarning:pkg_resources.*:",
 ]
-addopts = "--cov=iotswarm"
+addopts = "--cov=iotswarm --cov-report=term-missing"
 markers = [
     "asyncio: Tests asynchronous functions.",
     "oracle: Requires oracle connection and required config credentials",

@@ -1,9 +1,11 @@
 """Location for common CLI commands"""
 
+from typing import Callable
+
 import click
 
 
-def device_options(function):
+def device_options(function: Callable) -> Callable:
     click.option(
         "--sleep-time",
         type=click.INT,
@@ -35,21 +37,19 @@ def device_options(function):
         help="Adds a random delay before the first message from each site up to `--sleep-time`.",
     )(function)
 
-    click.option(
-        "--device-type", type=click.Choice(["basic", "cr1000x"]), default="basic"
-    )(function)
+    click.option("--device-type", type=click.Choice(["basic", "cr1000x"]), default="basic")(function)
 
     click.option(
         "--no-send-probability",
         type=click.IntRange(0, 100),
-        default = 0,
+        default=0,
         help="Probability of not sending a message, can be 0 - 100 where 0 is no skip and 100 is always skip",
     )(function)
 
     return function
 
 
-def iotcore_options(function):
+def iotcore_options(function: Callable) -> Callable:
     click.argument(
         "client-id",
         type=click.STRING,
@@ -69,7 +69,8 @@ def iotcore_options(function):
         type=click.Path(exists=True),
         required=True,
         envvar="IOT_SWARM_MQTT_CERT_PATH",
-        help="Path to public key certificate for the device. Must match key assigned to the `--client-id` in the cloud provider.",
+        help="Path to public key certificate for the device. \
+        Must match key assigned to the `--client-id` in the cloud provider.",
     )(function)
 
     click.option(
@@ -106,7 +107,7 @@ def iotcore_options(function):
 @click.command
 @click.pass_context
 @click.option("--max-sites", type=click.IntRange(min=0), default=0)
-def list_sites(ctx, max_sites):
+def list_sites(ctx: click.Context, max_sites: int) -> None:
     """Prints the sites present in database."""
 
     sites = ctx.obj["db"].query_site_ids(max_sites=max_sites)
@@ -115,6 +116,6 @@ def list_sites(ctx, max_sites):
 
 @click.command
 @click.pass_context
-def test(ctx: click.Context):
+def test(ctx: click.Context) -> None:
     """Enables testing of cosmos group arguments."""
     print(ctx.obj)

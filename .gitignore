@@ -6,6 +6,7 @@ dist/*
 *.egg*
 .coverage
 oracle.cfg
+config.cfg
 aws-auth
 *.log
 *.certs*

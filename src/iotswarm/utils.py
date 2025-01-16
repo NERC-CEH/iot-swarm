@@ -2,7 +2,8 @@
 
 from datetime import date, datetime
 
-def json_serial(obj: object):
+
+def json_serial(obj: object) -> str:
     """Serializes an unknown object into a json format."""
 
     if isinstance(obj, (datetime, date)):

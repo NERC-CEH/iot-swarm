@@ -1,30 +1,28 @@
 """This is the main module invocation for sending live COSMOS data to AWS"""
 
-from config import Config
-from pathlib import Path
-import sys
-from iotswarm.db import Oracle
-from iotswarm.queries import CosmosTable
-from iotswarm.devices import CR1000XDevice
-from iotswarm.messaging.core import MockMessageConnection
 import asyncio
-from typing import List
-from datetime import datetime, timedelta
 import logging
 import logging.config
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import List
 
-logging.config.fileConfig(
-    fname=Path(__file__).parents[1] / "__assets__" / "loggers.ini"
-)
+from config import Config
+
+from iotswarm.db import Oracle
+from iotswarm.devices import CR1000XDevice
+from iotswarm.messaging.core import MockMessageConnection
+from iotswarm.queries import CosmosTable
+
+logging.config.fileConfig(fname=Path(__file__).parents[1] / "__assets__" / "loggers.ini")
 
 logger = logging.getLogger(__name__)
 
 MOCK_CONNECTION = MockMessageConnection()
 
 
-async def get_latest_payloads_for_table(
-    oracle: Oracle, table: CosmosTable, datetime_gt: datetime
-) -> List[dict]:
+async def get_latest_payloads_for_table(oracle: Oracle, table: CosmosTable, datetime_gt: datetime) -> List[dict]:
     """Gets all payloads after the datetime for a given Oracle table
         Iterates through all sites found in the table and filters by datetimes
         after the specified timestamp.
@@ -42,12 +40,7 @@ async def get_latest_payloads_for_table(
 
     logger.debug(f"Found {len(sites)} sites IDs for table: {table}")
 
-    payloads = await asyncio.gather(
-        *[
-            get_latest_payloads_for_site(oracle, table, datetime_gt, site)
-            for site in sites
-        ]
-    )
+    payloads = await asyncio.gather(*[get_latest_payloads_for_site(oracle, table, datetime_gt, site) for site in sites])
 
     # Flatten lists and return
     return [item for row in payloads for item in row]
@@ -96,15 +89,11 @@ async def main(config_file: Path) -> List[dict]:
     """
     oracle_creds = Config(str(config_file))
 
-    oracle = await Oracle.create(
-        oracle_creds["dsn"], oracle_creds["user"], oracle_creds["pass"]
-    )
+    oracle = await Oracle.create(oracle_creds["dsn"], oracle_creds["user"], oracle_creds["pass"])
     tables = [CosmosTable.LEVEL_1_SOILMET_30MIN, CosmosTable.LEVEL_1_NMDB_1HOUR]
 
     date_gt = datetime.now() - timedelta(hours=3)
-    result = await asyncio.gather(
-        *[get_latest_payloads_for_table(oracle, table, date_gt) for table in tables]
-    )
+    result = await asyncio.gather(*[get_latest_payloads_for_table(oracle, table, date_gt) for table in tables])
 
     table_data = dict(zip(tables, result))
     print(table_data)

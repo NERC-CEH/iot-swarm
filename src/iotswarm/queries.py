@@ -24,32 +24,32 @@ WHERE site_id = :site_id
 LIMIT 1 OFFSET :offset"""
 
     """Query for retreiving data from a given table in sqlite format.
-    
+
     .. code-block:: sql
 
         SELECT * FROM <table>
-        WHERE site_id = :site_id 
+        WHERE site_id = :site_id
         LIMIT 1 OFFSET :offset
     """
 
     ORACLE_LATEST_DATA = """SELECT * FROM COSMOS.{table}
-WHERE site_id = :site_id 
-ORDER BY date_time DESC 
+WHERE site_id = :site_id
+ORDER BY date_time DESC
 FETCH NEXT 1 ROWS ONLY"""
 
     """Query for retreiving data from a given table in oracle format.
-    
+
     .. code-block:: sql
 
         SELECT * FROM <table>
-        ORDER BY date_time DESC 
+        ORDER BY date_time DESC
         FETCH NEXT 1 ROWS ONLY
     """
 
     SQLITE_SITE_IDS = "SELECT DISTINCT(site_id) FROM {table}"
 
     """Queries unique `site_id `s from a given table.
-    
+
     .. code-block:: sql
 
         SELECT DISTINCT(site_id) FROM <table>
@@ -58,7 +58,7 @@ FETCH NEXT 1 ROWS ONLY"""
     ORACLE_SITE_IDS = "SELECT UNIQUE(site_id) FROM COSMOS.{table}"
 
     """Queries unique `site_id `s from a given table.
-    
+
     .. code-block:: sql
 
         SELECT UNQIUE(site_id) FROM <table>
@@ -70,7 +70,7 @@ AND date_time > :date_time"""
 
     """Query for retreiving data from a given table in oracle format
         that is greater than a given datetime.
-    
+
     .. code-block:: sql
 
         SELECT * FROM <table>
