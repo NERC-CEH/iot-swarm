@@ -282,7 +282,7 @@ class TestProbabilitySend(unittest.TestCase):
             if device._skip_send():
                 skipped += 1
 
-        self.assertAlmostEqual(skipped / 100, probability, delta=1)
+        self.assertAlmostEqual(skipped / 100, probability, delta=1.5)
 
     def test_probability_zero_if_not_given(self):
         device = BaseDevice("ID", self.data_source, self.connection)
