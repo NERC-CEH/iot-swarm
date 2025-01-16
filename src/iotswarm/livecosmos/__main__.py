@@ -101,7 +101,7 @@ async def main(config_file: Path) -> List[dict]:
     )
     tables = [CosmosTable.LEVEL_1_SOILMET_30MIN, CosmosTable.LEVEL_1_NMDB_1HOUR]
 
-    date_gt = datetime.now() - timedelta(hours=1)
+    date_gt = datetime.now() - timedelta(hours=3)
     result = await asyncio.gather(
         *[get_latest_payloads_for_table(oracle, table, date_gt) for table in tables]
     )
