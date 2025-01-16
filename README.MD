@@ -9,9 +9,9 @@ This is a Python package intended to simulate a swarm of IoT device communicatio
 To use the live cosmos data tool you must create a config file in the format:
 
 ```yaml
-dsn=<dsn>
-user=<username>
-pass=<password>
+dsn='<dsn>'
+user='<username>'
+pass='<password>'
 ```
 The module script can then be triggered by running the module with an argument:
 `python -m iotswarm.livecosmos <config_src>`
