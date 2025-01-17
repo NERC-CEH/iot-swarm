@@ -21,6 +21,7 @@ from iotswarm.messaging.core import MessagingBaseClass, MockMessageConnection
 from iotswarm.queries import CosmosTable
 
 logger = logging.getLogger(__name__)
+logger.propagate = True
 
 
 class BaseDevice:

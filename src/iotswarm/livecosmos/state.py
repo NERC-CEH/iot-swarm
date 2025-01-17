@@ -1,15 +1,16 @@
 """This module is for tracking the state of file uploads"""
 
-import logging
+import os
 import pickle
 from datetime import datetime
-import os
 from pathlib import Path
 from typing import Dict, Optional, TypedDict
 
 from platformdirs import user_state_dir
 
-logger = logging.getLogger(__name__)
+from iotswarm.livecosmos.loggers import get_logger
+
+logger = get_logger(__name__)
 
 
 class FileStatus(TypedDict):
@@ -45,7 +46,7 @@ class StateTracker:
     state: State
     """The current state"""
 
-    def __init__(self, file: str, app_name: str="livecosmos"):
+    def __init__(self, file: str, app_name: str = "livecosmos"):
         """Initalize the class
 
         Args:
@@ -127,9 +128,12 @@ class StateTracker:
         if not self.state["last_run"] or self.state["last_run"] < site["last_data"]:
             self.state["last_run"] = site["last_data"]
             _changed = True
-        
-        if site["site_id"] not in self.state["sites"] or site["last_data"] > self.state["sites"][site["site_id"]]["last_data"]:
+
+        if (
+            site["site_id"] not in self.state["sites"]
+            or site["last_data"] > self.state["sites"][site["site_id"]]["last_data"]
+        ):
             self.state["sites"][site["site_id"]] = site
             _changed = True
-        
+
         return _changed

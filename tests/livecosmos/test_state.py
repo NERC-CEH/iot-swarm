@@ -7,6 +7,7 @@ from platformdirs import user_state_dir
 from pathlib import Path
 import shutil
 
+
 class TestStateManager(TestCase):
     """Test suite for the state manager"""
 
@@ -118,7 +119,7 @@ class TestStateManager(TestCase):
         obj.write_state()
 
         mock_makedirs.assert_called_once()
-    
+
     def test_site_added_to_state(self):
         """Test that a site can be sucessfully added to the state"""
         self.maxDiff = None
@@ -130,15 +131,7 @@ class TestStateManager(TestCase):
 
         obj.update_state(site)
 
-        expected = {
-            "last_run": now,
-            "sites": {
-                "ALIC1": {
-                    "site_id": "ALIC1",
-                    "last_data": now
-                }
-            }
-        }
+        expected = {"last_run": now, "sites": {"ALIC1": {"site_id": "ALIC1", "last_data": now}}}
         self.assertDictEqual(obj.state, expected)
 
         # Test second insertion
@@ -148,15 +141,9 @@ class TestStateManager(TestCase):
         expected2 = {
             "last_run": now2,
             "sites": {
-                "ALIC1": {
-                    "site_id": "ALIC1",
-                    "last_data": now
-                },
-                "MORLY": {
-                    "site_id": "MORLY",
-                    "last_data": now2
-                }
-            }
+                "ALIC1": {"site_id": "ALIC1", "last_data": now},
+                "MORLY": {"site_id": "MORLY", "last_data": now2},
+            },
         }
 
         obj.update_state(site2)

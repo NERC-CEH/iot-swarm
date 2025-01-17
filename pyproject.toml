@@ -99,4 +99,5 @@ omit = [
     "**/scripts/*.py",
     "**/build_database.py",
     "utils.py",
+    "src/iotswarm/livecosmos/__main__.py",
 ]
