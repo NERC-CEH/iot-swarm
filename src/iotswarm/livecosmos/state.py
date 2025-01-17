@@ -3,9 +3,9 @@
 import logging
 import pickle
 from datetime import datetime
-from os import PathLike
+import os
 from pathlib import Path
-from typing import List, TypedDict
+from typing import Dict, List, Optional, TypedDict
 
 from platformdirs import user_state_dir
 
@@ -19,7 +19,7 @@ class FileStatus(TypedDict):
     corrupted: bool
 
 
-class Sites(TypedDict):
+class Site(TypedDict):
     """Dictionary for the sites model"""
 
     site_id: str
@@ -29,30 +29,38 @@ class Sites(TypedDict):
 class State(TypedDict):
     """Dictionary for the state model"""
 
-    last_run: datetime
-    table: str
-    sites: List[Sites]
+    last_run: Optional[datetime]
+    sites: Dict[str, Site]
 
 
 class StateTracker:
     """Uses to write the upload state to file"""
 
-    _file: PathLike
+    _file: Path
     """The target file for writing"""
 
-    _backup: PathLike
+    _backup: Path
     """The backup file"""
 
-    state: dict
+    state: State
     """The current state"""
 
-    def __init__(self, file: str):
-        self._file = Path(user_state_dir()) / "iotswarm" / "livecosmos" / f"{file}.pickle"
+    def __init__(self, file: str, app_name: str="livecosmos"):
+        """Initalize the class
+
+        Args:
+            file: Name of key to name the file to be appended to the app directory
+            app_name: Name of the directory files are placed in
+"""
+        self._file = Path(user_state_dir(app_name)) / f"{file}.pickle"
         self._backup = self._file / ".backup"
         self.state = self.load_state()
 
     def write_state(self) -> None:
         """Writes the current state to file and backup file"""
+
+        if not self._file.parent.exists():
+            os.makedirs(self._file.parent)
 
         for file in [self._file, self._backup]:
             with open(file, "wb") as f:
@@ -60,7 +68,7 @@ class StateTracker:
 
             logger.debug(f"Wrote state to file: {file}")
 
-    def load_state(self) -> dict:
+    def load_state(self) -> State:
         """Loads the state from the main file or the backup"""
 
         file_status = FileStatus(missing=False, corrupted=False)
@@ -104,4 +112,14 @@ class StateTracker:
             raise RuntimeError(corruption_message)
 
         logger.warning("No state files found")
-        return dict()
+        return {"last_run": None, "sites": {}}
+
+    def update_state(self, site: Site) -> None:
+        """Updates the state with a new or existing site.
+
+        Args:
+            site: The site to update
+        """
+
+        self.state["last_run"] = site["last_data"]
+        self.state["sites"][site["site_id"]] = site

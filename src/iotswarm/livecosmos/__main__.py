@@ -15,7 +15,7 @@ from iotswarm.devices import CR1000XDevice
 from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.queries import CosmosTable
 
-logging.config.fileConfig(fname=Path(__file__).parents[1] / "__assets__" / "loggers.ini")
+logging.config.fileConfig(fname=Path(__file__).parent / "__assets__" / "logger.ini")
 
 logger = logging.getLogger(__name__)
 

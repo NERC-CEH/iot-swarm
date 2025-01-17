@@ -24,3 +24,21 @@ class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
             os.makedirs(logpath.parent)
 
         super().__init__(logpath, *args, **kwargs)
+
+class TimedRotatingFileHandlerPrefixed(logging.handlers.TimedRotatingFileHandler):
+    """TimedRotatingFileHandler Handler for rotating logs on a timed basis.
+
+    Extended this handler to ensure log file and directory are created
+    according to platform.
+    """
+
+    def __init__(self, prefix, *args, **kwargs):
+        logpath = Path(
+            platformdirs.user_log_dir(prefix),
+            "log.log",
+        )
+
+        if not os.path.exists(logpath.parent):
+            os.makedirs(logpath.parent)
+
+        super().__init__(logpath, *args, **kwargs)
