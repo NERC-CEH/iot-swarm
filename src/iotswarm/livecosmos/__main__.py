@@ -62,13 +62,15 @@ async def get_latest_payloads_for_table(oracle: Oracle, table: CosmosTable, site
 async def get_latest_payloads_for_site(
     oracle: Oracle, table: CosmosTable, site: str, state
 ) -> List[dict]:
-    """Gets all payloads after the datetime for a given site from an Oracle table.
+    """Gets all new payloads from the Oracle table for a given site. If the
+    site is present inside the `state` the latest data is taken from it, if not
+    the `FALLBACK_TIME` is used as a backup to prevent uploading the entire database.
 
     Args:
         oracle: The oracle database connection
         table: The database table to search
-        datetime_gt: The datetime that values must be greater than
         site: The name of the site
+        state: The persistent upload state
 
     Returns:
         A list dictionaries where each dictionary is a payload.
@@ -95,7 +97,17 @@ async def get_latest_payloads_for_site(
     return payloads
 
 def send_payload(payload: dict,  state: StateTracker) -> StateTracker:
-    """Sends the payload to AWS and writes the state to file"""
+    """Sends the payload to AWS and writes the state to file
+    
+    Args:
+        payload: The device formatted payload to upload
+        state: The persistent upload state
+    
+    Returns:
+        The updated state object.mro
+
+    # TODO: Implement upload logic. State should be updated on successful uploads
+    """
 
     site = Site(
         site_id=payload["head"]["environment"]["station_name"],
