@@ -5,7 +5,7 @@ import pickle
 from datetime import datetime
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, Optional, TypedDict
 
 from platformdirs import user_state_dir
 
@@ -51,9 +51,9 @@ class StateTracker:
         Args:
             file: Name of key to name the file to be appended to the app directory
             app_name: Name of the directory files are placed in
-"""
+        """
         self._file = Path(user_state_dir(app_name)) / f"{file}.pickle"
-        self._backup = self._file / ".backup"
+        self._backup = Path(f"{self._file}.backup")
         self.state = self.load_state()
 
     def write_state(self) -> None:
@@ -74,7 +74,7 @@ class StateTracker:
         file_status = FileStatus(missing=False, corrupted=False)
 
         try:
-            logger.debug(f"Loading main state file: {self._file}")
+            logger.info(f"Loading main state file: {self._file}")
             with open(self._file, "rb") as file:
                 return pickle.load(file)
         except FileNotFoundError:
@@ -114,12 +114,22 @@ class StateTracker:
         logger.warning("No state files found")
         return {"last_run": None, "sites": {}}
 
-    def update_state(self, site: Site) -> None:
+    def update_state(self, site: Site) -> bool:
         """Updates the state with a new or existing site.
 
         Args:
             site: The site to update
+        Retuns:
+            True if the state has changed, False otherwise
         """
+        _changed = False
 
-        self.state["last_run"] = site["last_data"]
-        self.state["sites"][site["site_id"]] = site
+        if not self.state["last_run"] or self.state["last_run"] < site["last_data"]:
+            self.state["last_run"] = site["last_data"]
+            _changed = True
+        
+        if site["site_id"] not in self.state["sites"] or site["last_data"] > self.state["sites"][site["site_id"]]["last_data"]:
+            self.state["sites"][site["site_id"]] = site
+            _changed = True
+        
+        return _changed
