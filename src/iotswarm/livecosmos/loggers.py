@@ -22,7 +22,7 @@ def get_logger(name: str, prefix: str = "livecosmos") -> logging.Logger:
 
         # Console handler
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.DEBUG)
 
         # File handler
         file_handler = TimedRotatingFileHandlerPrefixed(prefix, when="W0", interval=1, backupCount=7)

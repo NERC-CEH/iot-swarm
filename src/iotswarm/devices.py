@@ -4,8 +4,8 @@ import asyncio
 import enum
 import logging
 import random
-from datetime import datetime
-from typing import List
+from datetime import date, datetime
+from typing import Any, List, TypedDict
 
 from iotswarm import __version__ as package_version
 from iotswarm.db import (
@@ -345,157 +345,6 @@ class BaseDevice:
 
         return random.random() * 100 < self.no_send_probability
 
-
-class CR1000XDevice(BaseDevice):
-    "Represents a CR1000X datalogger."
-
-    device_type = "CR1000X"
-
-    serial_number: str = "00000"
-    """Serial number of the device instance."""
-
-    os_version: str = f"{device_type}.Std.07.02"
-    """Operating system installed on the device."""
-
-    program_name: str = f"CPU:iotswarm-{package_version}.CR1X"
-    """Name of logger program being run."""
-
-    table_name: str = "default"
-    """Name of table being submitted by logger."""
-
-    def __init__(
-        self,
-        *args,
-        serial_number: str | None = None,
-        os_version: str | None = None,
-        program_name: str | None = None,
-        table_name: str | None = None,
-        **kwargs,
-    ):
-        """Initialises the class.
-
-        Args:
-            serial_number: Serial number of the device instance.
-            os_version: Version of operating system used by device.
-            program_name: Name of the program running on the datalogger.
-            table_name: Name of the datalogger table being sent from datalogger.
-        """
-
-        super().__init__(*args, **kwargs)
-
-        if serial_number is not None:
-            self.serial_number = str(serial_number)
-        else:
-            self.serial_number = self._get_serial_number_from_site(self.device_id)
-
-        if os_version is not None:
-            self.os_version = str(os_version)
-
-        if program_name is not None:
-            self.program_name = str(program_name)
-
-        if table_name is not None:
-            self.table_name = str(table_name)
-
-    @staticmethod
-    def _steralize_payload(values: List[object] | object) -> List[dict]:
-        """Converts an object or list of objects into a list of payloads."""
-
-        if isinstance(values, dict):
-            return [values]
-
-        if not hasattr(values, "__iter__"):
-            values = [values]
-
-        if all([isinstance(x, dict) for x in values]):
-            return values
-
-        if any(not hasattr(v, "__iter__") for v in values):
-            values = [values]
-
-        values = [[v] if not hasattr(v, "__iter__") else v for v in values]
-
-        keys = [f"_{i}" for i in range(len(values[0]))]
-
-        dict_list = []
-        for row in values:
-            dict_list.append({k: v for k, v in zip(keys, row)})
-
-        return dict_list
-
-    def _format_payload(self, payload: dict) -> dict:
-        """Formats the payload into datalogger method. Currently only suppports
-        a single row of data.
-
-        Args:
-            payload: The payload object to format.
-
-        Returns:
-            dict: A dictionary of the formatted data.
-        """
-
-        f_payload = dict()
-
-        f_payload["head"] = {
-            "transaction": 0,
-            "signature": 111111,
-            "environment": {
-                "station_name": self.device_id,
-                "table_name": self.table_name,
-                "model": self.device_type,
-                "serial_no": self.serial_number,
-                "os_version": self.os_version,
-                "prog_name": self.program_name,
-            },
-        }
-
-        payload = self._steralize_payload(payload)
-
-        if len(set([len(p) for p in payload])) > 1:
-            raise ValueError("Each payload row must be equal in length.")
-
-        collected = dict()
-        for i, row in enumerate(payload):
-            for key in row.keys():
-                if key not in collected:
-                    collected[key] = [row[key]]
-                    continue
-                collected[key].append(row[key])
-
-        time = None
-        for i, k in enumerate(collected.keys()):
-            if k.lower() == "date_time":
-                time = collected.pop(k)
-                break
-
-        if time is None:
-            time = [datetime.now().isoformat()] * len(payload)
-
-        f_payload["data"] = []
-        keys = list(collected.keys())
-        vals = list(collected.values())
-        for i in range(len(payload)):
-            f_payload["data"].append({"time": time[i], "vals": [x[i] for x in vals]})
-
-        f_payload["head"]["fields"] = [CR1000XField(k, data_values=v) for k, v in zip(keys, vals)]
-
-        return f_payload
-
-    @staticmethod
-    def _get_serial_number_from_site(value: str) -> str:
-        """Generates a serial number from a string value.
-        Converts the characters into dash separated numbers.
-
-        Args:
-            value: The string value to generate the id from.
-
-        Returns: A string serial number"""
-
-        value = str(value)
-
-        return "-".join([str(ord(x)) for x in value])
-
-
 class XMLDataTypes(enum.Enum):
     """Enum class representing XML datatypes with rankings used for selecting
     maximum type needed for a range of values."""
@@ -710,3 +559,174 @@ class CR1000XField:
             return "Cov"
 
         return "Smp"  # Sample
+
+class CR1000XEnvironment(TypedDict):
+    station_name: str
+    table_name: str
+    model: str
+    serial_no: str
+    os_version: str
+    prog_name: str
+
+class CR1000XPayloadHead(TypedDict):
+    transaction: int
+    signature: int
+    environment: CR1000XEnvironment
+    fields: List[CR1000XField]
+
+class CR1000XPayloadData(TypedDict):
+    time: datetime
+    vals: List[Any]
+
+class CR1000XPayload(TypedDict):
+    head: CR1000XPayloadHead
+    data: List[CR1000XPayloadData]
+
+class CR1000XDevice(BaseDevice):
+    "Represents a CR1000X datalogger."
+
+    device_type = "CR1000X"
+
+    serial_number: str = "00000"
+    """Serial number of the device instance."""
+
+    os_version: str = f"{device_type}.Std.07.02"
+    """Operating system installed on the device."""
+
+    program_name: str = f"CPU:iotswarm-{package_version}.CR1X"
+    """Name of logger program being run."""
+
+    table_name: str = "default"
+    """Name of table being submitted by logger."""
+
+    def __init__(
+        self,
+        *args,
+        serial_number: str | None = None,
+        os_version: str | None = None,
+        program_name: str | None = None,
+        table_name: str | None = None,
+        **kwargs,
+    ):
+        """Initialises the class.
+
+        Args:
+            serial_number: Serial number of the device instance.
+            os_version: Version of operating system used by device.
+            program_name: Name of the program running on the datalogger.
+            table_name: Name of the datalogger table being sent from datalogger.
+        """
+
+        super().__init__(*args, **kwargs)
+
+        if serial_number is not None:
+            self.serial_number = str(serial_number)
+        else:
+            self.serial_number = self._get_serial_number_from_site(self.device_id)
+
+        if os_version is not None:
+            self.os_version = str(os_version)
+
+        if program_name is not None:
+            self.program_name = str(program_name)
+
+        if table_name is not None:
+            self.table_name = str(table_name)
+
+    @staticmethod
+    def _steralize_payload(values: List[object] | object) -> List[dict]:
+        """Converts an object or list of objects into a list of payloads."""
+
+        if isinstance(values, dict):
+            return [values]
+
+        if not hasattr(values, "__iter__"):
+            values = [values]
+
+        if all([isinstance(x, dict) for x in values]):
+            return values
+
+        if any(not hasattr(v, "__iter__") for v in values):
+            values = [values]
+
+        values = [[v] if not hasattr(v, "__iter__") else v for v in values]
+
+        keys = [f"_{i}" for i in range(len(values[0]))]
+
+        dict_list = []
+        for row in values:
+            dict_list.append({k: v for k, v in zip(keys, row)})
+
+        return dict_list
+
+    def _format_payload(self, payload: dict) -> CR1000XPayload:
+        """Formats the payload into datalogger method. Currently only suppports
+        a single row of data.
+
+        Args:
+            payload: The payload object to format.
+
+        Returns:
+            dict: A dictionary of the formatted data.
+        """
+
+        f_payload = dict()
+
+        f_payload["head"] = {
+            "transaction": 0,
+            "signature": 111111,
+            "environment": {
+                "station_name": self.device_id,
+                "table_name": self.table_name,
+                "model": self.device_type,
+                "serial_no": self.serial_number,
+                "os_version": self.os_version,
+                "prog_name": self.program_name,
+            },
+        }
+
+        payload = self._steralize_payload(payload)
+
+        if len(set([len(p) for p in payload])) > 1:
+            raise ValueError("Each payload row must be equal in length.")
+
+        collected = dict()
+        for i, row in enumerate(payload):
+            for key in row.keys():
+                if key not in collected:
+                    collected[key] = [row[key]]
+                    continue
+                collected[key].append(row[key])
+
+        time = None
+        for i, k in enumerate(collected.keys()):
+            if k.lower() == "date_time":
+                time = collected.pop(k)
+                break
+
+        if time is None:
+            time = [datetime.now().isoformat()] * len(payload)
+
+        f_payload["data"] = []
+        keys = list(collected.keys())
+        vals = list(collected.values())
+        for i in range(len(payload)):
+            f_payload["data"].append({"time": time[i], "vals": [x[i] for x in vals]})
+
+        f_payload["head"]["fields"] = [CR1000XField(k, data_values=v) for k, v in zip(keys, vals)]
+
+        return f_payload
+
+    @staticmethod
+    def _get_serial_number_from_site(value: str) -> str:
+        """Generates a serial number from a string value.
+        Converts the characters into dash separated numbers.
+
+        Args:
+            value: The string value to generate the id from.
+
+        Returns: A string serial number"""
+
+        value = str(value)
+
+        return "-".join([str(ord(x)) for x in value])

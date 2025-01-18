@@ -25,7 +25,7 @@ authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
 description = "Package for simulating a net of IoT devices for stress testing."
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized"]
+test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized", "typeguard"]
 lint = ["ruff"]
 docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 dev = ["iot-swarm[test,lint,docs]"]
