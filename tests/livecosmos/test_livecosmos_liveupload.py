@@ -31,7 +31,7 @@ class TestCosmosUploader(TestCase):
 class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
-    async def test_payload_retreived_from_site(self, mock_oracle_conn, mock_oracle):
+    async def test_payload_retrieved_from_site(self, mock_oracle_conn, mock_oracle):
         """Test that payloads are returned in the right format from the database"""
 
         oracle = Oracle()
@@ -46,7 +46,7 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
 
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
-    async def test_emtpty_payload_list_from_site_if_no_data(self, mock_oracle_conn, mock_oracle):
+    async def test_empty_payload_list_from_site_if_no_data(self, mock_oracle_conn, mock_oracle):
         """Tests that the payload list is empty if no data is returned"""
 
         oracle = Oracle()

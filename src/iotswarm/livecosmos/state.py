@@ -47,7 +47,7 @@ class StateTracker:
     """The current state"""
 
     def __init__(self, file: str, app_name: str = "livecosmos"):
-        """Initalize the class
+        """Initialize the class
 
         Args:
             file: Name of key to name the file to be appended to the app directory
@@ -79,10 +79,10 @@ class StateTracker:
             with open(self._file, "rb") as file:
                 return pickle.load(file)
         except FileNotFoundError:
-            logger.error(f"State not found at {self._file}")
+            logger.warning(f"State not found at {self._file}")
             file_status["missing"] = True
         except EOFError:
-            logger.error(f"State file is corrupted: {self._file}")
+            logger.warning(f"State file is corrupted: {self._file}")
             file_status["corrupted"] = True
 
         backup_status = FileStatus(missing=False, corrupted=False)
@@ -96,10 +96,10 @@ class StateTracker:
             logger.warning(f"Rescued state file: {self._file} with backup")
             return state
         except FileNotFoundError:
-            logger.error(f"State not found at {self._backup}")
+            logger.warning(f"State not found at {self._backup}")
             backup_status["missing"] = True
         except EOFError:
-            logger.error(f"State file is corrupted: {self._backup}")
+            logger.warning(f"State file is corrupted: {self._backup}")
             backup_status["corrupted"] = True
 
         if file_status["missing"] and backup_status["corrupted"]:
@@ -120,7 +120,7 @@ class StateTracker:
 
         Args:
             site: The site to update
-        Retuns:
+        Returns:
             True if the state has changed, False otherwise
         """
         _changed = False
