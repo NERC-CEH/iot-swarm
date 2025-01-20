@@ -18,8 +18,9 @@ MOCK_CONNECTION = MockMessageConnection()
 
 class LiveUploader:
     """Class for handling core logic for uploading live data from the COSMOS
-        database
+    database
     """
+
     _fallback_time: datetime = datetime.now() - timedelta(hours=3)
     """Backup time for retrieving database records"""
 
@@ -29,7 +30,7 @@ class LiveUploader:
     state: StateTracker
     """The current state of the uploaded files"""
 
-    def __init__(self, oracle: Oracle, table: CosmosTable, sites: List[str], app_prefix: str="livecosmos") -> None:
+    def __init__(self, oracle: Oracle, table: CosmosTable, sites: List[str], app_prefix: str = "livecosmos") -> None:
         """Initializes the instance
 
         Args:

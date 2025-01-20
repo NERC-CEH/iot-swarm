@@ -8,13 +8,12 @@ from iotswarm.devices import CR1000XPayload
 from datetime import datetime
 import typeguard
 
-class TestCosmosUploader(TestCase):
 
+class TestCosmosUploader(TestCase):
     def test_get_search_time_from_state(self):
         """Test that the time is retrieved from the state if it exists"""
 
-        uploader = LiveUploader(Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"],
-        app_prefix="livecosmos/tests")
+        uploader = LiveUploader(Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
         dt = datetime.now()
         site = Site(site_id="ALIC1", last_data=dt)
         uploader.state.update_state(site)
@@ -24,13 +23,12 @@ class TestCosmosUploader(TestCase):
     def test_fallback_time_used_if_not_in_state(self):
         """Tests that the fallback time is used"""
 
-        uploader = LiveUploader(Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"],
-        app_prefix="livecosmos/tests")
+        uploader = LiveUploader(Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
 
         self.assertEqual(uploader._fallback_time, uploader._get_search_time("ALIC1"))
 
-class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
 
+class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
     async def test_payload_retreived_from_site(self, mock_oracle_conn, mock_oracle):
@@ -39,8 +37,7 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
         mock_oracle.return_value = [{"DATE_TIME": datetime.now(), "data1": 2.4}]
-        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"],
-        app_prefix="livecosmos/tests")
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
 
         payloads = await uploader.get_latest_payloads()
 
@@ -55,8 +52,7 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
         mock_oracle.return_value = []
-        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"],
-        app_prefix="livecosmos/tests")
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
 
         with self.assertLogs(level="DEBUG") as logs:
             payloads = await uploader.get_latest_payloads()
@@ -69,14 +65,13 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
     @patch("oracledb.Connection")
     async def test_payload_upload(self, mock_oracle_conn, mock_oracle, mock_state):
         """Test that the payload is uploaded and that the state is written to file only
-            when the upload status is changed
+        when the upload status is changed
         """
 
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
         mock_oracle.return_value = [{"DATE_TIME": datetime.now(), "data1": 2.4}]
-        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"],
-        app_prefix="livecosmos/tests")
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
 
         payloads = await uploader.get_latest_payloads()
 
@@ -84,7 +79,7 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         uploader.send_payload(payloads[0])
 
         mock_state.assert_called()
-        
+
         # State should not be written if no state change
         mock_state.reset_mock()
         uploader.send_payload(payloads[0])
@@ -100,11 +95,10 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
 
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
-        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"],
-        app_prefix="livecosmos/tests")
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
 
         # Test with 3 payloads
-        mock_get_latest.return_value = [1,2,3]
+        mock_get_latest.return_value = [1, 2, 3]
         await uploader.send_latest_data()
         mock_get_latest.assert_called_once()
         self.assertEqual(mock_send_payload.call_count, len(mock_get_latest.return_value))

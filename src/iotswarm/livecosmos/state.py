@@ -12,6 +12,7 @@ from iotswarm.livecosmos.loggers import get_logger
 
 logger = get_logger(__name__)
 
+
 class FileStatus(TypedDict):
     """Dictionary for the file status"""
 

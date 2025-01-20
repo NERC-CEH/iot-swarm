@@ -4,7 +4,7 @@ import asyncio
 import enum
 import logging
 import random
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any, List, TypedDict
 
 from iotswarm import __version__ as package_version
@@ -345,6 +345,7 @@ class BaseDevice:
 
         return random.random() * 100 < self.no_send_probability
 
+
 class XMLDataTypes(enum.Enum):
     """Enum class representing XML datatypes with rankings used for selecting
     maximum type needed for a range of values."""
@@ -560,6 +561,7 @@ class CR1000XField:
 
         return "Smp"  # Sample
 
+
 class CR1000XEnvironment(TypedDict):
     station_name: str
     table_name: str
@@ -568,19 +570,23 @@ class CR1000XEnvironment(TypedDict):
     os_version: str
     prog_name: str
 
+
 class CR1000XPayloadHead(TypedDict):
     transaction: int
     signature: int
     environment: CR1000XEnvironment
     fields: List[CR1000XField]
 
+
 class CR1000XPayloadData(TypedDict):
     time: datetime
     vals: List[Any]
 
+
 class CR1000XPayload(TypedDict):
     head: CR1000XPayloadHead
     data: List[CR1000XPayloadData]
+
 
 class CR1000XDevice(BaseDevice):
     "Represents a CR1000X datalogger."
