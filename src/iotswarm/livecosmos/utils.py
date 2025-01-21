@@ -1,6 +1,8 @@
 import hashlib
 from datetime import datetime
 
+from config import Config
+import boto3
 
 def get_md5_hash(target: str) -> str:
     """Converts the object into an md5 hash
@@ -38,3 +40,18 @@ def build_aws_object_key(time: datetime, value: str) -> str:
     """
 
     return f"{get_unix_timestamp(time)}_{get_md5_hash(value)}"
+
+def _get_s3_client(config: Config) -> "boto3.client":
+    """Returns the S3 client object.
+
+    Args:
+        config: The loaded app config object
+    Returns:
+        A boto3.s3.client object
+    """
+
+    try:
+        endpoint = config["aws"]["endpoint_url"]
+        return boto3.client("s3", endpoint_url=endpoint)
+    except KeyError:
+        return boto3.client("s3")

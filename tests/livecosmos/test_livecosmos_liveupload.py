@@ -141,11 +141,12 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         mock_state.assert_not_called()
         mock_s3_writer.write.assert_called_once()
 
+    @patch("driutils.io.aws.S3Writer")
     @patch("iotswarm.livecosmos.liveupload.LiveUploader.send_payload")
     @patch("iotswarm.livecosmos.liveupload.LiveUploader.get_latest_payloads")
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
-    async def test_latest_payload_upload(self, mock_oracle_conn, mock_oracle, mock_get_latest, mock_send_payload):
+    async def test_latest_payload_upload(self, mock_oracle_conn, mock_oracle, mock_get_latest, mock_send_payload, mock_writer):
         """Test that the latest payloads method will upload all found payloads"""
 
         oracle = Oracle()
@@ -156,7 +157,7 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
 
         # Test with 3 payloads
         mock_get_latest.return_value = [1, 2, 3]
-        await uploader.send_latest_data()
+        await uploader.send_latest_data(mock_writer)
         mock_get_latest.assert_called_once()
         self.assertEqual(mock_send_payload.call_count, len(mock_get_latest.return_value))
 
@@ -164,6 +165,6 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         mock_get_latest.reset_mock()
         mock_send_payload.reset_mock()
         mock_get_latest.return_value = []
-        await uploader.send_latest_data()
+        await uploader.send_latest_data(mock_writer)
         mock_get_latest.assert_called_once()
         self.assertEqual(mock_send_payload.call_count, len(mock_get_latest.return_value))

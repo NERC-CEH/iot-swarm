@@ -4,30 +4,16 @@ import asyncio
 import sys
 from pathlib import Path
 
-from config import Config, KeyNotFoundError
+from config import Config
 
 from iotswarm.db import Oracle
 from iotswarm.livecosmos.liveupload import LiveUploader
 from iotswarm.livecosmos.loggers import get_logger
+from iotswarm.livecosmos.utils import _get_s3_client
 from iotswarm.queries import CosmosTable
 from driutils.io.aws import S3Writer
-import boto3
 logger = get_logger(__name__)
 
-def _get_s3_client(config: Config) -> "boto3.client":
-    """Returns the S3 client object.
-
-    Args:
-        config: The loaded app config object
-    Returns:
-        A boto3.s3.client object
-    """
-
-    try:
-        endpoint = config["aws"]["endpoint_url"]
-        return boto3.client("s3", endpoint_url=endpoint)
-    except KeyError:
-        return boto3.client("s3")
 
 async def main(config_file: Path, table_name: str) -> None:
     """The main invocation method.

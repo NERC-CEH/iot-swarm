@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from pathlib import Path
 from unittest import TestCase
+from config import Config
 from parameterized import parameterized
 
-from iotswarm.livecosmos.utils import build_aws_object_key, get_md5_hash, get_unix_timestamp
+from iotswarm.livecosmos.utils import build_aws_object_key, get_md5_hash, get_unix_timestamp, _get_s3_client
 from datetime import datetime
 
 
@@ -47,3 +49,21 @@ class TestUtils(TestCase):
         result = build_aws_object_key(datetime(year=2024, month=2, day=29), "Hello World!")
 
         self.assertEqual(expected, result)
+
+    def test_local_s3_client_loaded_from_config(self):
+        """If the aws::endpoint_url key exists in a config object, a local s3_client is returned"""
+
+        config_obj = {"aws": {"endpoint_url":"http://local"}}
+        
+        result = _get_s3_client(config_obj)
+
+        self.assertEqual(config_obj["aws"]["endpoint_url"], result._endpoint.host)
+
+    def test_normat_s3_client_loaded_from_config(self):
+        """If the aws::endpoint_url key not exists in a config object, a default s3_client is returned"""
+
+        config_obj = {"aws": {"not_endpoint_url":"http://local"}}
+        
+        result = _get_s3_client(config_obj)
+
+        self.assertNotEqual(config_obj["aws"]["not_endpoint_url"], result._endpoint.host)
