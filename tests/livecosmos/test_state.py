@@ -121,7 +121,7 @@ class TestStateManager(TestCase):
         mock_makedirs.assert_called_once()
 
     def test_site_added_to_state(self):
-        """Test that a site can be sucessfully added to the state"""
+        """Test that a site can be successfully added to the state"""
         self.maxDiff = None
         now = datetime.now()
         site = Site(site_id="ALIC1", last_data=now)
