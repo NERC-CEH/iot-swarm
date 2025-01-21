@@ -1,10 +1,10 @@
 """Module for handling the core logic of the liveuploader"""
 
 import asyncio
-from datetime import datetime, timedelta
-from io import BytesIO, StringIO
-from typing import List
 import json
+from datetime import datetime, timedelta
+from typing import List
+
 from driutils.io.aws import S3Writer
 
 from iotswarm.db import Oracle
@@ -151,7 +151,7 @@ class LiveUploader:
             payload: The device formatted payload to upload
             Args:
             s3_writer: Object used to write data to S3`
-        # 
+        #
         """
 
         site = Site(site_id=payload["head"]["environment"]["station_name"], last_data=payload["data"][0]["time"])
@@ -176,10 +176,9 @@ class LiveUploader:
             logger.info(f"Updated state file with site: {site}")
             self.state.write_state()
 
-
     async def send_latest_data(self, s3_writer: S3Writer) -> None:
         """Queries and sends the latest data for all sites
-        
+
         Args:
             s3_writer: Object used to write data to S3
         """

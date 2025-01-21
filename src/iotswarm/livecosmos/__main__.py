@@ -3,25 +3,27 @@
 import asyncio
 import sys
 from pathlib import Path
+from typing import List
 
 from config import Config
+from driutils.io.aws import S3Writer
 
 from iotswarm.db import Oracle
 from iotswarm.livecosmos.liveupload import LiveUploader
 from iotswarm.livecosmos.loggers import get_logger
 from iotswarm.livecosmos.utils import _get_s3_client
 from iotswarm.queries import CosmosTable
-from driutils.io.aws import S3Writer
+
 logger = get_logger(__name__)
 
 
-async def main(config_file: Path, table_name: str) -> None:
+async def main(config_file: Path, table: str, sites: List[str] = []) -> None:
     """The main invocation method.
         Initialises the Oracle connection and defines which data the query.
 
     Args:
         config_file: Path to the *.cfg file that contains oracle credentials.
-        table_name: Name of the cosmos table to submit
+        table: Name of the cosmos table to submit
     """
 
     app_config = Config(str(config_file))
@@ -30,9 +32,10 @@ async def main(config_file: Path, table_name: str) -> None:
 
     oracle = await Oracle.create(**app_config["oracle"])
 
-    sites = await oracle.list_all_sites()
+    if len(sites) == 0:
+        sites = await oracle.list_all_sites()
 
-    uploader = LiveUploader(oracle, CosmosTable[table_name], sites, app_config["aws"]["level_m1_bucket"])
+    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["level_m1_bucket"])
 
     await uploader.send_latest_data(s3_writer)
 

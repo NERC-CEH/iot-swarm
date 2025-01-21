@@ -53,8 +53,8 @@ class TestUtils(TestCase):
     def test_local_s3_client_loaded_from_config(self):
         """If the aws::endpoint_url key exists in a config object, a local s3_client is returned"""
 
-        config_obj = {"aws": {"endpoint_url":"http://local"}}
-        
+        config_obj = {"aws": {"endpoint_url": "http://local"}}
+
         result = _get_s3_client(config_obj)
 
         self.assertEqual(config_obj["aws"]["endpoint_url"], result._endpoint.host)
@@ -62,8 +62,8 @@ class TestUtils(TestCase):
     def test_normat_s3_client_loaded_from_config(self):
         """If the aws::endpoint_url key not exists in a config object, a default s3_client is returned"""
 
-        config_obj = {"aws": {"not_endpoint_url":"http://local"}}
-        
+        config_obj = {"aws": {"not_endpoint_url": "http://local"}}
+
         result = _get_s3_client(config_obj)
 
         self.assertNotEqual(config_obj["aws"]["not_endpoint_url"], result._endpoint.host)

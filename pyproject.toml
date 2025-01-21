@@ -33,6 +33,7 @@ dev = ["iot-swarm[test,lint,docs]"]
 
 [project.scripts]
 iot-swarm = "iotswarm.scripts.cli:main"
+live-cosmos = "iotswarm.livecosmos.scripts.cli:cli"
 
 [tool.setuptools.dynamic]
 version = { attr = "iotswarm.__version__" }

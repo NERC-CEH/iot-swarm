@@ -1,7 +1,7 @@
 """Module for handling commonly reused utility functions."""
 
 from datetime import date, datetime
-import json
+
 
 def json_serial(obj: object) -> str:
     """Serializes an unknown object into a json format."""

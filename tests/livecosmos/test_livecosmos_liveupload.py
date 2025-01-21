@@ -58,7 +58,7 @@ class TestCosmosUploader(TestCase):
                 CosmosTable.LEVEL_1_SOILMET_30MIN,
                 "aprefix",
                 "aprefix/ALIC1/LIVE_SOILMET_30MIN/payload_hash.json",
-            ]
+            ],
         ]
     )
     def test_get_s3_path(self, table: CosmosTable, prefix: str, expected: str):
@@ -146,7 +146,9 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
     @patch("iotswarm.livecosmos.liveupload.LiveUploader.get_latest_payloads")
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
-    async def test_latest_payload_upload(self, mock_oracle_conn, mock_oracle, mock_get_latest, mock_send_payload, mock_writer):
+    async def test_latest_payload_upload(
+        self, mock_oracle_conn, mock_oracle, mock_get_latest, mock_send_payload, mock_writer
+    ):
         """Test that the latest payloads method will upload all found payloads"""
 
         oracle = Oracle()
