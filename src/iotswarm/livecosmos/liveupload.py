@@ -120,6 +120,7 @@ class LiveUploader:
         state_changed = self.state.update_state(site)
 
         if state_changed:
+            logger.info(f"Updated state file with site: {site}")
             self.state.write_state()
 
     async def send_latest_data(self) -> None:
