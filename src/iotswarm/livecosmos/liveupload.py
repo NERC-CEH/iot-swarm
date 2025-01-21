@@ -2,14 +2,19 @@
 
 import asyncio
 from datetime import datetime, timedelta
+from io import BytesIO, StringIO
 from typing import List
+import json
+from driutils.io.aws import S3Writer
 
 from iotswarm.db import Oracle
 from iotswarm.devices import CR1000XDevice, CR1000XPayload
 from iotswarm.livecosmos.loggers import get_logger
 from iotswarm.livecosmos.state import Site, StateTracker
+from iotswarm.livecosmos.utils import build_aws_object_key
 from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.queries import CosmosTable
+from iotswarm.utils import json_serial
 
 logger = get_logger(__name__)
 
@@ -30,19 +35,40 @@ class LiveUploader:
     state: StateTracker
     """The current state of the uploaded files"""
 
-    def __init__(self, oracle: Oracle, table: CosmosTable, sites: List[str], app_prefix: str = "livecosmos") -> None:
+    bucket: str
+    """The S3 bucket name that is used for writing"""
+
+    bucket_prefix: str
+    """Prefix of the path used in the S3 bucket"""
+
+    _s3_manager: S3Writer
+    """Object for handling writes to S3"""
+
+    def __init__(
+        self,
+        oracle: Oracle,
+        table: CosmosTable,
+        sites: List[str],
+        bucket: str,
+        bucket_prefix: str = "fdri/cosmos_swarm",
+        app_prefix: str = "livecosmos",
+    ) -> None:
         """Initializes the instance
 
         Args:
             oracle: A connection to the oracle database
             table: The table to upload records from
             sites: A list of sites to search new records
+            bucket: Name of the S3 bucket that is written to
+            bucket_prefix: Prefix added to the bucket path
             app_prefix: Prefix added to the state files
         """
 
         self.table = table
         self.oracle = oracle
         self.sites = sites
+        self.bucket = bucket
+        self.bucket_prefix = bucket_prefix
         self._app_prefix = app_prefix
         self.state = StateTracker(str(table), app_name=app_prefix)
 
@@ -106,27 +132,59 @@ class LiveUploader:
 
         return payloads
 
-    def send_payload(self, payload: CR1000XPayload) -> None:
+    def _get_s3_key(self, site_id: str, object_name: str) -> str:
+        """Builds a fully qualified S3 path for a file upload
+
+        Args:
+            object_name: Name of the object to be uploaded
+        Returns:
+            A fully qualified S3 path
+        """
+
+        table_name = f"LIVE_{self.table.replace('LEVEL1_', '')}"
+        return f"{self.bucket_prefix}/{site_id}/{table_name}/{object_name}"
+
+    def send_payload(self, payload: CR1000XPayload, s3_writer: S3Writer) -> None:
         """Sends the payload to AWS and writes the state to file
 
         Args:
             payload: The device formatted payload to upload
-
-        # TODO: Implement upload logic. State should be updated on successful uploads
+            Args:
+            s3_writer: Object used to write data to S3`
+        # 
         """
 
         site = Site(site_id=payload["head"]["environment"]["station_name"], last_data=payload["data"][0]["time"])
 
         state_changed = self.state.update_state(site)
 
+        payload_json = json.dumps(payload, default=json_serial)
+        object_name = build_aws_object_key(datetime.now(), payload_json)
+
+        s3_key = self._get_s3_key(site["site_id"], object_name)
+        s3_url = f"s3://{self.bucket}/{s3_key}"
+
+        try:
+            s3_writer.write(self.bucket, s3_key, payload_json.encode())
+            logger.info(f"Wrote payload to {s3_url}")
+        except Exception as e:
+            logger.error(f"Unexpected error when uploading file: {e}")
+            logger.exception(e)
+            raise (e)
+
         if state_changed:
             logger.info(f"Updated state file with site: {site}")
             self.state.write_state()
 
-    async def send_latest_data(self) -> None:
-        """Queries and sends the latest data for all sites"""
+
+    async def send_latest_data(self, s3_writer: S3Writer) -> None:
+        """Queries and sends the latest data for all sites
+        
+        Args:
+            s3_writer: Object used to write data to S3
+        """
 
         payloads = await self.get_latest_payloads()
 
         for payload in payloads:
-            self.send_payload(payload)
+            self.send_payload(payload, s3_writer)

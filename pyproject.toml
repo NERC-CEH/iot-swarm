@@ -14,6 +14,7 @@ dependencies = [
     "config",
     "dill",
     "docutils<0.17",
+    "dri-utils[all] @ git+https://github.com/NERC-CEH/dri-utils.git",
     "oracledb",
     "pandas",
     "platformdirs",
