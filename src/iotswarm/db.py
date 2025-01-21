@@ -244,6 +244,16 @@ class Oracle(CosmosDB):
 
             return data
 
+    async def list_all_sites(self) -> List[str]:
+        """Returns a list of all sites, independent of tables"""
+
+        with self.connection.cursor() as cursor:
+            await cursor.execute(CosmosQuery.ORACLE_GET_ALL_SITES.value)
+
+            data = await cursor.fetchall()
+
+            return [x[0] for x in data]
+
 
 class LoopingCsvDB(BaseDatabase):
     """A database that reads from csv files and loops through items

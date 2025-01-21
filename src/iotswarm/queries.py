@@ -77,3 +77,5 @@ AND date_time > :date_time"""
         WHERE site_id = <site_id>
         AND date_time > <date_time>
     """
+
+    ORACLE_GET_ALL_SITES = "SELECT UNIQUE(SITE_ID) FROM COSMOS.SITES"
