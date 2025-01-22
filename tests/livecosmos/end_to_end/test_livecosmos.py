@@ -15,6 +15,12 @@ import pytest
 from click.testing import CliRunner
 from iotswarm.livecosmos.scripts.cli import cli, _ALLOWED_TABLES
 
+import os
+
+os.environ["AWS_ACCESS_KEY_ID"] = "test"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "fake"
+os.environ["AWS_DEFAULT_REGION"] = "eu-west-2"
+
 _APP_PREFIX = "tests"
 _ENDPOINT_URL = "http://localhost:4566"
 _BUCKET = "testbucket"
