@@ -7,16 +7,23 @@ from iotswarm.queries import CosmosTable
 from iotswarm.devices import CR1000XPayload
 from datetime import datetime
 import typeguard
+<<<<<<< HEAD
 from parameterized import parameterized
+=======
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
 
 
 class TestCosmosUploader(TestCase):
     def test_get_search_time_from_state(self):
         """Test that the time is retrieved from the state if it exists"""
 
+<<<<<<< HEAD
         uploader = LiveUploader(
             Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], "fakebucket", app_prefix="livecosmos/tests"
         )
+=======
+        uploader = LiveUploader(Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
         dt = datetime.now()
         site = Site(site_id="ALIC1", last_data=dt)
         uploader.state.update_state(site)
@@ -26,6 +33,7 @@ class TestCosmosUploader(TestCase):
     def test_fallback_time_used_if_not_in_state(self):
         """Tests that the fallback time is used"""
 
+<<<<<<< HEAD
         uploader = LiveUploader(
             Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], "fakebucket", app_prefix="livecosmos/tests"
         )
@@ -72,6 +80,12 @@ class TestCosmosUploader(TestCase):
 
         self.assertEqual(expected, result)
 
+=======
+        uploader = LiveUploader(Oracle(), CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
+
+        self.assertEqual(uploader._fallback_time, uploader._get_search_time("ALIC1"))
+
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
 
 class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
@@ -82,9 +96,13 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
         mock_oracle.return_value = [{"DATE_TIME": datetime.now(), "data1": 2.4}]
+<<<<<<< HEAD
         uploader = LiveUploader(
             oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], "fakebucket", app_prefix="livecosmos/tests"
         )
+=======
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
 
         payloads = await uploader.get_latest_payloads()
 
@@ -99,9 +117,13 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
         mock_oracle.return_value = []
+<<<<<<< HEAD
         uploader = LiveUploader(
             oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], "fakebucket", app_prefix="livecosmos/tests"
         )
+=======
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
 
         with self.assertLogs(level="DEBUG") as logs:
             payloads = await uploader.get_latest_payloads()
@@ -109,11 +131,18 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
             self.assertIn("Got 0 rows", logs.output[-1])
         self.assertListEqual(payloads, [])
 
+<<<<<<< HEAD
     @patch("driutils.io.aws.S3Writer")
     @patch("iotswarm.livecosmos.state.StateTracker.write_state")
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
     async def test_payload_upload(self, mock_oracle_conn, mock_oracle, mock_state, mock_s3_writer):
+=======
+    @patch("iotswarm.livecosmos.state.StateTracker.write_state")
+    @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
+    @patch("oracledb.Connection")
+    async def test_payload_upload(self, mock_oracle_conn, mock_oracle, mock_state):
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
         """Test that the payload is uploaded and that the state is written to file only
         when the upload status is changed
         """
@@ -121,13 +150,18 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
         mock_oracle.return_value = [{"DATE_TIME": datetime.now(), "data1": 2.4}]
+<<<<<<< HEAD
         uploader = LiveUploader(
             oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], "fakebucket", app_prefix="livecosmos/tests"
         )
+=======
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
 
         payloads = await uploader.get_latest_payloads()
 
         # State write to file should be called when state changes
+<<<<<<< HEAD
         uploader.send_payload(payloads[0], mock_s3_writer)
 
         mock_state.assert_called()
@@ -142,17 +176,34 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         mock_s3_writer.write.assert_called_once()
 
     @patch("driutils.io.aws.S3Writer")
+=======
+        uploader.send_payload(payloads[0])
+
+        mock_state.assert_called()
+
+        # State should not be written if no state change
+        mock_state.reset_mock()
+        uploader.send_payload(payloads[0])
+
+        mock_state.assert_not_called()
+
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
     @patch("iotswarm.livecosmos.liveupload.LiveUploader.send_payload")
     @patch("iotswarm.livecosmos.liveupload.LiveUploader.get_latest_payloads")
     @patch("iotswarm.db.Oracle.query_datetime_gt_from_site")
     @patch("oracledb.Connection")
+<<<<<<< HEAD
     async def test_latest_payload_upload(
         self, mock_oracle_conn, mock_oracle, mock_get_latest, mock_send_payload, mock_writer
     ):
+=======
+    async def test_latest_payload_upload(self, mock_oracle_conn, mock_oracle, mock_get_latest, mock_send_payload):
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
         """Test that the latest payloads method will upload all found payloads"""
 
         oracle = Oracle()
         oracle.connection = mock_oracle_conn
+<<<<<<< HEAD
         uploader = LiveUploader(
             oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], "fakebucket", app_prefix="livecosmos/tests"
         )
@@ -160,6 +211,13 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         # Test with 3 payloads
         mock_get_latest.return_value = [1, 2, 3]
         await uploader.send_latest_data(mock_writer)
+=======
+        uploader = LiveUploader(oracle, CosmosTable.COSMOS_STATUS_1HOUR, ["ALIC1"], app_prefix="livecosmos/tests")
+
+        # Test with 3 payloads
+        mock_get_latest.return_value = [1, 2, 3]
+        await uploader.send_latest_data()
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
         mock_get_latest.assert_called_once()
         self.assertEqual(mock_send_payload.call_count, len(mock_get_latest.return_value))
 
@@ -167,6 +225,10 @@ class TestCosmosUploaderAsync(IsolatedAsyncioTestCase):
         mock_get_latest.reset_mock()
         mock_send_payload.reset_mock()
         mock_get_latest.return_value = []
+<<<<<<< HEAD
         await uploader.send_latest_data(mock_writer)
+=======
+        await uploader.send_latest_data()
+>>>>>>> 447bd9caa788de5162ffe6c1e739383f9f62c82e
         mock_get_latest.assert_called_once()
         self.assertEqual(mock_send_payload.call_count, len(mock_get_latest.return_value))
