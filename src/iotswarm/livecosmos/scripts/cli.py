@@ -1,10 +1,15 @@
 import asyncio
 from pathlib import Path
 from typing import List, Tuple
+from config import Config
+from driutils.io.aws import S3Writer
+
+from iotswarm.db import Oracle
+from iotswarm.livecosmos.liveupload import LiveUploader
+from iotswarm.livecosmos.utils import _get_s3_client
+from iotswarm.queries import CosmosTable
 
 import click
-
-from iotswarm.livecosmos.__main__ import main
 from iotswarm.queries import CosmosTable
 
 _ALLOWED_TABLES = [
@@ -14,6 +19,28 @@ _ALLOWED_TABLES = [
     CosmosTable.LEVEL_1_SOILMET_30MIN.name,
 ]
 
+async def send_latest(config_file: Path, table: str, sites: List[str] = []) -> None:
+    """The main invocation method.
+        Initialises the Oracle connection and defines which data the query.
+
+    Args:
+        config_file: Path to the *.cfg file that contains oracle credentials.
+        table: Name of the cosmos table to submit
+    """
+
+    app_config = Config(str(config_file))
+
+    s3_writer = S3Writer(_get_s3_client(app_config))
+
+    oracle = await Oracle.create(**app_config["oracle"])
+
+    if len(sites) == 0:
+        sites = await oracle.list_all_sites()
+
+    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["level_m1_bucket"])
+
+    await uploader.send_latest_data(s3_writer)
+
 
 @click.group()
 def cli() -> None:
@@ -22,7 +49,7 @@ def cli() -> None:
 
 
 async def gather_upload_tasks(config_src: Path, tables: List[str], sites: List[str] = []) -> List:
-    return await asyncio.gather(*[main(config_src, table, sites) for table in tables])
+    return await asyncio.gather(*[send_latest(config_src, table, sites) for table in tables])
 
 
 @cli.command()
@@ -42,7 +69,7 @@ def send_live_data(config_src: Path, table: Tuple[str], site: Tuple[str]) -> Non
         table: A list of tables to upload from.
         site: A list of sites to upload from.
     """
-
+    
     if "all" in table:
         table = _ALLOWED_TABLES
 
