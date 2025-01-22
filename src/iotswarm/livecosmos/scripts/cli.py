@@ -26,6 +26,8 @@ async def send_latest(config_file: Path, table: str, sites: List[str] = []) -> N
     Args:
         config_file: Path to the *.cfg file that contains oracle credentials.
         table: Name of the cosmos table to submit
+        sites: A list of sites to upload from. Grabs sites from the Oracle database if
+            not provided.
     """
 
     app_config = Config(str(config_file))
@@ -49,6 +51,16 @@ def cli() -> None:
 
 
 async def gather_upload_tasks(config_src: Path, tables: List[str], sites: List[str] = []) -> List:
+    """Helper method to gather all async upload tasks
+    Args:
+        config_src: A path to the config.cfg file used.
+        tables: A list of tables to upload from.
+        site: A list of sites to upload from. Grabs sites from the Oracle database if
+            not provided.
+    Returns:
+        A list of async futures
+    """
+
     return await asyncio.gather(*[send_latest(config_src, table, sites) for table in tables])
 
 
@@ -67,9 +79,10 @@ def send_live_data(config_src: Path, table: Tuple[str], site: Tuple[str]) -> Non
     Args:
         config_src: A path to the config.cfg file used.
         table: A list of tables to upload from.
-        site: A list of sites to upload from.
+        site: A list of sites to upload from. Grabs sites from the Oracle database if
+            not provided.
     """
-    
+
     if "all" in table:
         table = _ALLOWED_TABLES
 
