@@ -1,6 +1,8 @@
 import asyncio
 from pathlib import Path
 from typing import List, Tuple
+
+import click
 from config import Config
 from driutils.io.aws import S3Writer
 
@@ -9,15 +11,13 @@ from iotswarm.livecosmos.liveupload import LiveUploader
 from iotswarm.livecosmos.utils import _get_s3_client
 from iotswarm.queries import CosmosTable
 
-import click
-from iotswarm.queries import CosmosTable
-
 _ALLOWED_TABLES = [
     CosmosTable.LEVEL_1_NMDB_1HOUR.name,
     CosmosTable.LEVEL_1_PRECIP_1MIN.name,
     CosmosTable.LEVEL_1_PRECIP_RAINE_1MIN.name,
     CosmosTable.LEVEL_1_SOILMET_30MIN.name,
 ]
+
 
 async def send_latest(config_file: Path, table: str, sites: List[str] = []) -> None:
     """The main invocation method.
