@@ -17,6 +17,7 @@ oracle: {
 aws: {
     endpoint_url: "<s3_endpoint_url>" #if running locally
     bucket: "<s3_bucket>"
+    bucket_prefix: "<s3_bucket_prefix>" # Write to a specific S3 folder
 }
 ```
 The module is invoked via the command line:

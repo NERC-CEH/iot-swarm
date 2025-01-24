@@ -3,7 +3,7 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 
 from driutils.io.aws import S3Writer
 
@@ -38,7 +38,7 @@ class LiveUploader:
     bucket: str
     """The S3 bucket name that is used for writing"""
 
-    bucket_prefix: str
+    bucket_prefix: Optional[str]
     """Prefix of the path used in the S3 bucket"""
 
     _s3_manager: S3Writer
@@ -50,7 +50,7 @@ class LiveUploader:
         table: CosmosTable,
         sites: List[str],
         bucket: str,
-        bucket_prefix: str = "fdri/cosmos_swarm",
+        bucket_prefix: Optional[str] = None,
         app_prefix: str = "livecosmos",
     ) -> None:
         """Initializes the instance
@@ -142,7 +142,12 @@ class LiveUploader:
         """
 
         table_name = f"LIVE_{self.table.replace('LEVEL1_', '')}"
-        return f"{self.bucket_prefix}/{site_id}/{table_name}/{object_name}"
+        key = f"{site_id}/{table_name}/{object_name}"
+
+        if self.bucket_prefix:
+            key = f"{self.bucket_prefix}/{key}"
+
+        return key
 
     def send_payload(self, payload: CR1000XPayload, s3_writer: S3Writer) -> None:
         """Sends the payload to AWS and writes the state to file

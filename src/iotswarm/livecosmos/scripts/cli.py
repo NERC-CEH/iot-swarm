@@ -39,7 +39,7 @@ async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] 
     if not sites or len(sites) == 0:
         sites = await oracle.list_all_sites()
 
-    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["bucket"])
+    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["bucket"], bucket_prefix=app_config["aws"]["bucket_prefix"])
 
     await uploader.send_latest_data(s3_writer)
 
