@@ -26,7 +26,7 @@ class LiveUploader:
     database
     """
 
-    _fallback_time: datetime = datetime.now() - timedelta(hours=3)
+    _fallback_time: datetime
     """Backup time for retrieving database records"""
 
     _app_prefix: str
@@ -52,6 +52,7 @@ class LiveUploader:
         bucket: str,
         bucket_prefix: Optional[str] = None,
         app_prefix: str = "livecosmos",
+        fallback_hours: int = 3,
     ) -> None:
         """Initializes the instance
 
@@ -62,6 +63,7 @@ class LiveUploader:
             bucket: Name of the S3 bucket that is written to
             bucket_prefix: Prefix added to the bucket path
             app_prefix: Prefix added to the state files
+            fallback_hours: The number of hours to fallback to if no state is found
         """
 
         self.table = table
@@ -71,6 +73,7 @@ class LiveUploader:
         self.bucket_prefix = bucket_prefix
         self._app_prefix = app_prefix
         self.state = StateTracker(str(table), app_name=app_prefix)
+        self._fallback_time = datetime.now() - timedelta(hours=fallback_hours)
 
     def _get_search_time(self, site: str) -> datetime:
         """Returns the latest sent data time or uses the fallback time

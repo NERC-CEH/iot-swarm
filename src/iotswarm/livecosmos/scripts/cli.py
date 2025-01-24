@@ -19,15 +19,16 @@ _ALLOWED_TABLES = [
 ]
 
 
-async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] = None) -> None:
+async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] = None, fallback_hours: int = 3) -> None:
     """The main invocation method.
         Initialises the Oracle connection and defines which data the query.
 
     Args:
         config_file: Path to the *.cfg file that contains oracle credentials.
-        table: Name of the cosmos table to submit
+        table: Name of the cosmos table to submit.
         sites: A list of sites to upload from. Grabs sites from the Oracle database if
             not provided.
+        fallback_hours: The number of hours to fallback to if no state is found.
     """
 
     app_config = Config(str(config_file))
@@ -39,7 +40,7 @@ async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] 
     if not sites or len(sites) == 0:
         sites = await oracle.list_all_sites()
 
-    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["bucket"], bucket_prefix=app_config["aws"]["bucket_prefix"])
+    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["bucket"], bucket_prefix=app_config["aws"]["bucket_prefix"], fallback_hours=fallback_hours)
 
     await uploader.send_latest_data(s3_writer)
 
@@ -50,18 +51,16 @@ def cli() -> None:
     pass
 
 
-async def gather_upload_tasks(config_src: Path, tables: List[str], sites: Optional[List[str]] = None) -> List:
+async def gather_upload_tasks(config_src: Path, tables: List[str], **kwargs) -> List:
     """Helper method to gather all async upload tasks
     Args:
         config_src: A path to the config.cfg file used.
         tables: A list of tables to upload from.
-        site: A list of sites to upload from. Grabs sites from the Oracle database if
-            not provided.
     Returns:
         A list of async futures
     """
 
-    return await asyncio.gather(*[send_latest(config_src, table, sites) for table in tables])
+    return await asyncio.gather(*[send_latest(config_src, table, **kwargs) for table in tables])
 
 
 @cli.command()
@@ -74,19 +73,21 @@ async def gather_upload_tasks(config_src: Path, tables: List[str], sites: Option
     help="A list of COSMOS-UK tables to upload from. Use `--table all` to select all tables.",
 )
 @click.option("--site", type=str, multiple=True, default=(), help="A list of sites to target")
-def send_live_data(config_src: Path, table: Tuple[str], site: Tuple[str]) -> None:
+@click.option("--fallback-hours", type=int, default=3, help="The number of hours to fallback to if no state is found.")
+def send_live_data(config_src: Path, table: Tuple[str], site: Tuple[str], fallback_hours: str) -> None:
     """Sends out all live data
     Args:
         config_src: A path to the config.cfg file used.
         table: A list of tables to upload from.
         site: A list of sites to upload from. Grabs sites from the Oracle database if
             not provided.
+        fallback_hours: The number of hours to fallback to if no state is found
     """
 
     if "all" in table:
         table = _ALLOWED_TABLES
 
-    asyncio.run(gather_upload_tasks(config_src, list(table), list(site)))
+    asyncio.run(gather_upload_tasks(config_src, list(table), sites=list(site), fallback_hours=fallback_hours))
 
 
 if __name__ == "__main__":
