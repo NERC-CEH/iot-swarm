@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import click
 from config import Config
@@ -19,7 +19,7 @@ _ALLOWED_TABLES = [
 ]
 
 
-async def send_latest(config_file: Path, table: str, sites: List[str] = []) -> None:
+async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] = None) -> None:
     """The main invocation method.
         Initialises the Oracle connection and defines which data the query.
 
@@ -36,7 +36,7 @@ async def send_latest(config_file: Path, table: str, sites: List[str] = []) -> N
 
     oracle = await Oracle.create(**app_config["oracle"])
 
-    if len(sites) == 0:
+    if not sites or len(sites) == 0:
         sites = await oracle.list_all_sites()
 
     uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["bucket"])
@@ -50,7 +50,7 @@ def cli() -> None:
     pass
 
 
-async def gather_upload_tasks(config_src: Path, tables: List[str], sites: List[str] = []) -> List:
+async def gather_upload_tasks(config_src: Path, tables: List[str], sites: Optional[List[str]] = None) -> List:
     """Helper method to gather all async upload tasks
     Args:
         config_src: A path to the config.cfg file used.

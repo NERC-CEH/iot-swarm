@@ -13,7 +13,7 @@ import json
 from iotswarm.queries import CosmosTable
 import pytest
 from click.testing import CliRunner
-from iotswarm.livecosmos.scripts.cli import cli, _ALLOWED_TABLES
+from iotswarm.livecosmos.scripts.cli import cli
 
 import os
 

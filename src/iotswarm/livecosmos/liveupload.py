@@ -149,9 +149,7 @@ class LiveUploader:
 
         Args:
             payload: The device formatted payload to upload
-            Args:
-            s3_writer: Object used to write data to S3`
-        #
+            s3_writer: Object used to write data to S3
         """
 
         site = Site(site_id=payload["head"]["environment"]["station_name"], last_data=payload["data"][0]["time"])
@@ -170,7 +168,7 @@ class LiveUploader:
         except Exception as e:
             logger.error(f"Unexpected error when uploading file: {e}")
             logger.exception(e)
-            raise (e)
+            raise e
 
         if state_changed:
             logger.info(f"Updated state file with site: {site}")

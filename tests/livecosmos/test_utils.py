@@ -1,7 +1,4 @@
-from dataclasses import dataclass
-from pathlib import Path
 from unittest import TestCase
-from config import Config
 from parameterized import parameterized
 
 from iotswarm.livecosmos.utils import build_aws_object_key, get_md5_hash, get_unix_timestamp, _get_s3_client
