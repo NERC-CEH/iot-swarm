@@ -2,6 +2,7 @@ services:
   # local stack container for local testing of AWS services
   # intialises with localscript-setup.sh
   localstack:
+    profiles: ["localstack"]
     container_name: "swarm_localstack"
     image: localstack/localstack:3.4
     ports:

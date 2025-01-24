@@ -13,6 +13,7 @@ aws-auth
 !.github/*
 docs/_*
 *.sh
+!bin/*.sh
 **/*.csv
 !ALIC1_4_ROWS.csv
 **/*.db

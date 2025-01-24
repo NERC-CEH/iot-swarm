@@ -14,6 +14,7 @@ dependencies = [
     "config",
     "dill",
     "docutils<0.17",
+    "dri-utils[all] @ git+https://github.com/NERC-CEH/dri-utils.git",
     "oracledb",
     "pandas",
     "platformdirs",
@@ -25,13 +26,21 @@ authors = [{ name = "Lewis Chambers", email = "lewcha@ceh.ac.uk" }]
 description = "Package for simulating a net of IoT devices for stress testing."
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "pytest-asyncio", "parameterized", "typeguard"]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "parameterized",
+    "typeguard",
+    "awscli-local",
+]
 lint = ["ruff"]
 docs = ["sphinx", "sphinx-copybutton", "sphinx-rtd-theme", "sphinx-click"]
 dev = ["iot-swarm[test,lint,docs]"]
 
 [project.scripts]
 iot-swarm = "iotswarm.scripts.cli:main"
+live-cosmos = "iotswarm.livecosmos.scripts.cli:cli"
 
 [tool.setuptools.dynamic]
 version = { attr = "iotswarm.__version__" }
@@ -96,8 +105,7 @@ omit = [
     "*__init__.py",
     "queries.py",
     "loggers.py",
-    "**/scripts/*.py",
+    "**/iotswarm/scripts/*.py",
     "**/build_database.py",
-    "utils.py",
-    "src/iotswarm/livecosmos/__main__.py",
+    "**/iotswarm/utils.py",
 ]

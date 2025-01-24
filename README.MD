@@ -9,12 +9,47 @@ This is a Python package intended to simulate a swarm of IoT device communicatio
 To use the live cosmos data tool you must create a config file in the format:
 
 ```yaml
-dsn='<dsn>'
-user='<username>'
-pass='<password>'
+oracle: {
+    dsn:"<dsn>"
+    user:"<username>"
+    password:"<password>"
+}
+aws: {
+    endpoint_url: "<s3_endpoint_url>" #if running locally
+    bucket: "<s3_bucket>"
+    bucket_prefix: "<s3_bucket_prefix>" # Write to a specific S3 folder
+}
 ```
-The module script can then be triggered by running the module with an argument:
-`python -m iotswarm.livecosmos <config_src> <cosmos_table>`
+The module is invoked via the command line:
+```bash
+live-cosmos send-live-data <config_src> --table <table_name>
+```
+
+The CLI command can be provided with 2 arguments: `--table` and `--site`.
+
+### --table
+There must be at least one table provided. This references the permitted tables in the COSMOS database. Providing multiple table arguments submits multiple tables:
+```
+live-cosmos send-live-data <config_src> --table <table_1> --table <table_2>
+```
+
+If all tables need to be sent:
+```
+live-cosmos send-live-data <config_src> --table all
+```
+
+### --site
+Providing one or more site arguements specifies which sites should be updated:
+```
+live-cosmos send-live-data <config_src> --table <table_name> --site <site_1> --site <site_2>
+```
+
+Omitting the `--site` argument defaults to requesting all sites for each table
+
+## Additional arguments:
+
+### ---fallback-hours
+If the site being searched is not contained within a state file it uses a 'Fallback time' that specifies how far back the data collection should start. The default is 3 hours in the past. This argument allows for the default time fallback to be adjusted in number of hours.
 
 ## How it Works
 When the main module is triggered, it received the oracle credentials path and COSMOS table via command line arguments. This then creates an "LiveUploader" object which works with a state object to know which what data line was the most recently uploaded. It then requests all data after that point, creates payload objects, and uploads them to S3. Currently it just pretends to upload them and update the state.

@@ -9,7 +9,13 @@ def json_serial(obj: object) -> str:
     if isinstance(obj, (datetime, date)):
         return obj.isoformat(timespec="microseconds")
 
+    # if obj.__class__.__module__ != "builtins" and hasattr(obj, "__json__"):
+    #     return obj.__json__()
+
     if obj.__class__.__module__ != "builtins":
         return obj.__json__()
+
+    # if hasattr(obj, "__dict__"):
+    #     return obj.__dict__()
 
     raise TypeError(f"Type {type(obj)} is not serializable.")
