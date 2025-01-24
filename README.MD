@@ -16,7 +16,7 @@ oracle: {
 }
 aws: {
     endpoint_url: "<s3_endpoint_url>" #if running locally
-    level_m1_bucket: "<s3_bucket>"
+    bucket: "<s3_bucket>"
 }
 ```
 The module is invoked via the command line:
@@ -27,7 +27,7 @@ live-cosmos send-live-data <config_src> --table <table_name>
 The CLI command can be provided with 2 arguments: `--table` and `--site`.
 
 ### --table
-There must be at least one table provided. This references the the permitted tables in the COSMOS database. Providing multiple table arguments submits multiple tables:
+There must be at least one table provided. This references the permitted tables in the COSMOS database. Providing multiple table arguments submits multiple tables:
 ```
 live-cosmos send-live-data <config_src> --table <table_1> --table <table_2>
 ```
