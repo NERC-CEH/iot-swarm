@@ -19,7 +19,9 @@ _ALLOWED_TABLES = [
 ]
 
 
-async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] = None, fallback_hours: int = 3) -> None:
+async def send_latest(
+    config_file: Path, table: str, sites: Optional[List[str]] = None, fallback_hours: int = 3
+) -> None:
     """The main invocation method.
         Initialises the Oracle connection and defines which data the query.
 
@@ -40,7 +42,14 @@ async def send_latest(config_file: Path, table: str, sites: Optional[List[str]] 
     if not sites or len(sites) == 0:
         sites = await oracle.list_all_sites()
 
-    uploader = LiveUploader(oracle, CosmosTable[table], sites, app_config["aws"]["bucket"], bucket_prefix=app_config["aws"]["bucket_prefix"], fallback_hours=fallback_hours)
+    uploader = LiveUploader(
+        oracle,
+        CosmosTable[table],
+        sites,
+        app_config["aws"]["bucket"],
+        bucket_prefix=app_config["aws"]["bucket_prefix"],
+        fallback_hours=fallback_hours,
+    )
 
     await uploader.send_latest_data(s3_writer)
 
