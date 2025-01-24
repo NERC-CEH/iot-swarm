@@ -40,7 +40,7 @@ def build_aws_object_key(time: datetime, value: str) -> str:
         A string of the filename in format <timestamp>_<md5_hash>
     """
 
-    return f"{get_unix_timestamp(time)}_{get_md5_hash(value)}"
+    return f"{get_unix_timestamp(time)}-{get_md5_hash(value)}"
 
 
 def _get_s3_client(config: Config) -> "boto3.client":

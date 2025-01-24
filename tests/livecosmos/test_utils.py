@@ -42,7 +42,7 @@ class TestUtils(TestCase):
     def test_aws_object_key_building(self):
         """Tests that an object key filename can be created"""
 
-        expected = "1709164800000_ed076287532e86365e841e92bfc50d8c"
+        expected = "1709164800000-ed076287532e86365e841e92bfc50d8c"
         result = build_aws_object_key(datetime(year=2024, month=2, day=29), "Hello World!")
 
         self.assertEqual(expected, result)
