@@ -5,6 +5,9 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+import backoff
+import oracledb
+from awscrt.exceptions import AwsCrtError
 from driutils.io.aws import S3Writer
 
 from iotswarm.db import Oracle
@@ -15,11 +18,6 @@ from iotswarm.livecosmos.utils import build_aws_object_key
 from iotswarm.messaging.core import MockMessageConnection
 from iotswarm.queries import CosmosTable
 from iotswarm.utils import json_serial
-
-import oracledb
-from awscrt.exceptions import AwsCrtError
-
-import backoff
 
 logger = get_logger(__name__)
 
