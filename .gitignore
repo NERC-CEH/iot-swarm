@@ -1,4 +1,5 @@
 .*/*
+!.githooks/*
 **/__pycache__/*
 *.docx
 build/*
