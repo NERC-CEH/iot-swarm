@@ -5,6 +5,9 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+import backoff
+import oracledb
+from awscrt.exceptions import AwsCrtError
 from driutils.io.aws import S3Writer
 
 from iotswarm.db import Oracle
@@ -103,6 +106,7 @@ class LiveUploader:
         # Flatten lists and return
         return [item for row in payloads for item in row]
 
+    @backoff.on_exception(backoff.expo, oracledb.Error, max_time=60, logger=logger)
     async def _get_latest_payloads_for_site(self, site: str) -> List[CR1000XPayload]:
         """Gets all new payloads from the Oracle table for a given site. If the
         site is present inside the `state` the latest data is taken from it, if not
@@ -152,6 +156,7 @@ class LiveUploader:
 
         return key
 
+    @backoff.on_exception(backoff.expo, AwsCrtError, max_time=60, logger=logger)
     def send_payload(self, payload: CR1000XPayload, s3_writer: S3Writer) -> None:
         """Sends the payload to AWS and writes the state to file
 
