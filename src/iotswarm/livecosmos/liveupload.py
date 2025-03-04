@@ -92,28 +92,33 @@ class LiveUploader:
 
         return self.state.state["sites"][site]["last_data"]
 
-    async def get_latest_payloads(self) -> List[CR1000XPayload]:
+    async def get_latest_payloads(self, batch_size: int = 1) -> List[CR1000XPayload]:
         """Gets all payloads after the datetime for a given Oracle table
             Iterates through all sites found in the table and filters by datetimes
             after the specified timestamp.
 
+        Args:
+            batch_size: Maximum number of data rows in each message
         Returns:
             A list dictionaries where each dictionary is a payload.
         """
 
-        payloads = await asyncio.gather(*[self._get_latest_payloads_for_site(site) for site in self.sites])
+        payloads = await asyncio.gather(
+            *[self._get_latest_payloads_for_site(site, batch_size=batch_size) for site in self.sites]
+        )
 
         # Flatten lists and return
         return [item for row in payloads for item in row]
 
     @backoff.on_exception(backoff.expo, oracledb.Error, max_time=60, logger=logger)
-    async def _get_latest_payloads_for_site(self, site: str) -> List[CR1000XPayload]:
+    async def _get_latest_payloads_for_site(self, site: str, batch_size: int = 1) -> List[CR1000XPayload]:
         """Gets all new payloads from the Oracle table for a given site. If the
         site is present inside the `state` the latest data is taken from it, if not
         the `_fallback_time` is used as a backup to prevent uploading the entire database.
 
         Args:
             site: The name of the site
+            batch_size: Maximum number of data rows in each message
 
         Returns:
             A list dictionaries where each dictionary is a payload.
@@ -135,7 +140,11 @@ class LiveUploader:
 
         logger.debug(f"Got {len(latest)} rows for site {site} in table: {self.table}")
 
-        payloads = [device._format_payload(x) for x in latest]
+        payloads = []
+
+        for i in range(0, len(latest), batch_size):
+            batch = latest[i : min(len(latest), i + batch_size)]
+            payloads.append(device._format_payload(batch))
 
         return payloads
 
@@ -165,7 +174,9 @@ class LiveUploader:
             s3_writer: Object used to write data to S3
         """
 
-        site = Site(site_id=payload["head"]["environment"]["station_name"], last_data=payload["data"][0]["time"])
+        newest_data = max([x["time"] for x in payload["data"]])
+
+        site = Site(site_id=payload["head"]["environment"]["station_name"], last_data=newest_data)
 
         state_changed = self.state.update_state(site)
 
@@ -187,14 +198,15 @@ class LiveUploader:
             logger.info(f"Updated state file with site: {site}")
             self.state.write_state()
 
-    async def send_latest_data(self, s3_writer: S3Writer) -> None:
+    async def send_latest_data(self, s3_writer: S3Writer, batch_size: int = 1) -> None:
         """Queries and sends the latest data for all sites
 
         Args:
             s3_writer: Object used to write data to S3
+            batch_size: Maximum number of data rows in each message
         """
 
-        payloads = await self.get_latest_payloads()
+        payloads = await self.get_latest_payloads(batch_size=batch_size)
 
         for payload in payloads:
             self.send_payload(payload, s3_writer)

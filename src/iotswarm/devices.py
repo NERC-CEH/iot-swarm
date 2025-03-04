@@ -579,7 +579,7 @@ class CR1000XPayloadHead(TypedDict):
 
 
 class CR1000XPayloadData(TypedDict):
-    time: datetime
+    time: datetime | str
     vals: List[Any]
 
 
@@ -676,28 +676,13 @@ class CR1000XDevice(BaseDevice):
             dict: A dictionary of the formatted data.
         """
 
-        f_payload = dict()
+        s_payload = self._steralize_payload(payload)
 
-        f_payload["head"] = {
-            "transaction": 0,
-            "signature": 111111,
-            "environment": {
-                "station_name": self.device_id,
-                "table_name": self.table_name,
-                "model": self.device_type,
-                "serial_no": self.serial_number,
-                "os_version": self.os_version,
-                "prog_name": self.program_name,
-            },
-        }
-
-        payload = self._steralize_payload(payload)
-
-        if len(set([len(p) for p in payload])) > 1:
+        if len(set([len(p) for p in s_payload])) > 1:
             raise ValueError("Each payload row must be equal in length.")
 
         collected = dict()
-        for i, row in enumerate(payload):
+        for i, row in enumerate(s_payload):
             for key in row.keys():
                 if key not in collected:
                     collected[key] = [row[key]]
@@ -711,17 +696,29 @@ class CR1000XDevice(BaseDevice):
                 break
 
         if time is None:
-            time = [datetime.now().isoformat()] * len(payload)
+            time = [datetime.now().isoformat()] * len(s_payload)
 
-        f_payload["data"] = []
         keys = list(collected.keys())
         vals = list(collected.values())
-        for i in range(len(payload)):
-            f_payload["data"].append({"time": time[i], "vals": [x[i] for x in vals]})
 
-        f_payload["head"]["fields"] = [CR1000XField(k, data_values=v) for k, v in zip(keys, vals)]
+        full_payload: CR1000XPayload = {
+            "head": {
+                "transaction": 0,
+                "signature": 111111,
+                "environment": {
+                    "station_name": self.device_id,
+                    "table_name": self.table_name,
+                    "model": self.device_type,
+                    "serial_no": self.serial_number,
+                    "os_version": self.os_version,
+                    "prog_name": self.program_name,
+                },
+                "fields": [CR1000XField(k, data_values=v) for k, v in zip(keys, vals)],
+            },
+            "data": [{"time": time[i], "vals": [x[i] for x in vals]} for i in range(len(s_payload))],
+        }
 
-        return f_payload
+        return full_payload
 
     @staticmethod
     def _get_serial_number_from_site(value: str) -> str:

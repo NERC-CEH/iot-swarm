@@ -20,7 +20,12 @@ _ALLOWED_TABLES = [
 
 
 async def send_latest(
-    config_file: Path, table: str, sites: Optional[List[str]] = None, fallback_hours: int = 3
+    config_file: Path,
+    table: str,
+    sites: Optional[List[str]] = None,
+    fallback_hours: int = 3,
+    dry: bool = False,
+    batch_size: int = 1,
 ) -> None:
     """The main invocation method.
         Initialises the Oracle connection and defines which data the query.
@@ -31,11 +36,11 @@ async def send_latest(
         sites: A list of sites to upload from. Grabs sites from the Oracle database if
             not provided.
         fallback_hours: The number of hours to fallback to if no state is found.
+        dry: Don't send data if true
+        batch_size: Maximum number of data rows in each message
     """
 
     app_config = Config(str(config_file))
-
-    s3_writer = S3Writer(_get_s3_client(app_config))
 
     oracle = await Oracle.create(**app_config["oracle"])
 
@@ -51,7 +56,16 @@ async def send_latest(
         fallback_hours=fallback_hours,
     )
 
-    await uploader.send_latest_data(s3_writer)
+    if dry:
+        payloads = await uploader.get_latest_payloads(batch_size=batch_size)
+        print(payloads[0])
+        print(len(payloads))
+        print([len(x["data"]) for x in payloads])
+        print(max([x["time"] for x in payloads[0]["data"]]))
+        return
+
+    s3_writer = S3Writer(_get_s3_client(app_config))
+    await uploader.send_latest_data(s3_writer, batch_size=batch_size)
 
 
 @click.group()
@@ -60,16 +74,22 @@ def cli() -> None:
     pass
 
 
-async def gather_upload_tasks(config_src: Path, tables: List[str], **kwargs) -> List:
+async def gather_upload_tasks(config_src: Path, tables: List[str], batch_size: Tuple[int], *args, **kwargs) -> List:
     """Helper method to gather all async upload tasks
     Args:
         config_src: A path to the config.cfg file used.
         tables: A list of tables to upload from.
+        batch_size: Maximum number of data rows in each message
     Returns:
         A list of async futures
     """
 
-    return await asyncio.gather(*[send_latest(config_src, table, **kwargs) for table in tables])
+    return await asyncio.gather(
+        *[
+            send_latest(config_src, table, *args, batch_size=batch_size, **kwargs)
+            for table, batch_size in zip(tables, batch_size)
+        ]
+    )
 
 
 @cli.command()
@@ -83,7 +103,11 @@ async def gather_upload_tasks(config_src: Path, tables: List[str], **kwargs) -> 
 )
 @click.option("--site", type=str, multiple=True, default=(), help="A list of sites to target")
 @click.option("--fallback-hours", type=int, default=3, help="The number of hours to fallback to if no state is found.")
-def send_live_data(config_src: Path, table: Tuple[str], site: Tuple[str], fallback_hours: str) -> None:
+@click.option("--dry", type=bool, is_flag=True)
+@click.option("--batch-size", type=int, multiple=True, default=(), help="Number of data rows per payload")
+def send_live_data(
+    config_src: Path, table: Tuple[str], site: Tuple[str], fallback_hours: int, dry: bool, batch_size: Tuple[int]
+) -> None:
     """Sends out all live data
     Args:
         config_src: A path to the config.cfg file used.
@@ -91,12 +115,29 @@ def send_live_data(config_src: Path, table: Tuple[str], site: Tuple[str], fallba
         site: A list of sites to upload from. Grabs sites from the Oracle database if
             not provided.
         fallback_hours: The number of hours to fallback to if no state is found
+        dry: Doesn't send data if provided
+        batch_size: Maximum number of data rows in each message
     """
 
     if "all" in table:
         table = _ALLOWED_TABLES
 
-    asyncio.run(gather_upload_tasks(config_src, list(table), sites=list(site), fallback_hours=fallback_hours))
+    if len(batch_size) == 0:
+        batch_size = (1,)
+
+    if len(table) > 1 and len(batch_size) == 1:
+        batch_size = batch_size * len(table)
+    if (len(table) > 1 or len(batch_size) > 1) and len(table) != len(batch_size):
+        raise click.exceptions.BadOptionUsage(
+            "batch_size",
+            "If multiple tables are defined, the batch size must be scalar or equal in length to the number of tables.",
+        )
+
+    asyncio.run(
+        gather_upload_tasks(
+            config_src, list(table), sites=list(site), fallback_hours=fallback_hours, dry=dry, batch_size=batch_size
+        )
+    )
 
 
 if __name__ == "__main__":
