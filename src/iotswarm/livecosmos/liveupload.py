@@ -44,6 +44,9 @@ class LiveUploader:
     bucket_prefix: Optional[str]
     """Prefix of the path used in the S3 bucket"""
 
+    topic_suffix: Optional[str]
+    """Suffix of the base path used in the S3 bucket"""
+
     _s3_manager: S3Writer
     """Object for handling writes to S3"""
 
@@ -53,7 +56,8 @@ class LiveUploader:
         table: CosmosTable,
         sites: List[str],
         bucket: str,
-        bucket_prefix: Optional[str] = None,
+        bucket_prefix: str = "",
+        topic_suffix: str = "",
         app_prefix: str = "livecosmos",
         fallback_hours: int = 3,
     ) -> None:
@@ -65,6 +69,7 @@ class LiveUploader:
             sites: A list of sites to search new records
             bucket: Name of the S3 bucket that is written to
             bucket_prefix: Prefix added to the bucket path
+            topic_suffix: Suffix added to the bucket path
             app_prefix: Prefix added to the state files
             fallback_hours: The number of hours to fallback to if no state is found
         """
@@ -74,6 +79,7 @@ class LiveUploader:
         self.sites = sites
         self.bucket = bucket
         self.bucket_prefix = bucket_prefix
+        self.topic_suffix = topic_suffix
         self._app_prefix = app_prefix
         self.state = StateTracker(str(table), app_name=app_prefix)
         self._fallback_time = datetime.now() - timedelta(hours=fallback_hours)
@@ -158,10 +164,11 @@ class LiveUploader:
         """
 
         table_name = f"LIVE_{self.table.replace('LEVEL1_', '')}"
-        key = f"{site_id}/{table_name}/{object_name}"
 
-        if self.bucket_prefix:
-            key = f"{self.bucket_prefix}/{key}"
+        key = (
+            f"{self.bucket_prefix}{'/' if self.bucket_prefix else ''}"
+            f"{site_id}/{table_name}{'/' if self.topic_suffix else ''}{self.topic_suffix}/{object_name}"
+        )
 
         return key
 

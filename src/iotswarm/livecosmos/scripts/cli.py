@@ -40,7 +40,15 @@ async def send_latest(
         batch_size: Maximum number of data rows in each message
     """
 
+    bucket_prefix = None
+    topic_suffix = None
+
     app_config = Config(str(config_file))
+
+    if "bucket_prefix" in app_config["aws"]:
+        bucket_prefix = app_config["aws"]["bucket_prefix"]
+    if "topic_suffix" in app_config["aws"]:
+        topic_suffix = app_config["aws"]["topic_suffix"]
 
     oracle = await Oracle.create(**app_config["oracle"])
 
@@ -52,7 +60,8 @@ async def send_latest(
         CosmosTable[table],
         sites,
         app_config["aws"]["bucket"],
-        bucket_prefix=app_config["aws"]["bucket_prefix"],
+        bucket_prefix=bucket_prefix,
+        topic_suffix=topic_suffix,
         fallback_hours=fallback_hours,
     )
 
