@@ -18,6 +18,7 @@ aws: {
     endpoint_url: "<s3_endpoint_url>" #if running locally
     bucket: "<s3_bucket>"
     bucket_prefix: "<s3_bucket_prefix>" # Write to a specific S3 folder
+    bucker_suffix: "<s3_bucket_suffix>" # Added to the end of the MQTT base topic
 }
 ```
 The module is invoked via the command line:

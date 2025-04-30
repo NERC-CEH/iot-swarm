@@ -205,7 +205,7 @@ class TestCLI(TestCase):
         ),
     )
     def test_all(self):
-        _BUCKET_PREFIX = "fdri/cosmos_swarm"
+        _BUCKET_PREFIX = "fdri/cosmos_swarm/data"
 
         sites = ["test_site1", "test_site2"]
         runner = CliRunner()
@@ -227,7 +227,8 @@ class TestCLI(TestCase):
                 for item in items:
                     # Test that the object key is correct
                     object_key = item["Key"]
-                    expected_key_start = f"{_BUCKET_PREFIX}/{site}/{table}/"
+
+                    expected_key_start = f"{_BUCKET_PREFIX}/{site}/{table}/json"
                     self.assertTrue(object_key.startswith(expected_key_start))
 
                     # Test site name is in the payload

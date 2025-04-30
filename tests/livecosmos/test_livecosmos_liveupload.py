@@ -56,7 +56,7 @@ class TestCosmosUploader(TestCase):
             ],
             [
                 CosmosTable.LEVEL_1_SOILMET_30MIN,
-                None,
+                "",
                 "ALIC1/LIVE_SOILMET_30MIN/payload_hash.json",
             ],
         ]
