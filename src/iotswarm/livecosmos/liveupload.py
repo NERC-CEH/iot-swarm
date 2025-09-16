@@ -194,7 +194,7 @@ class LiveUploader:
         s3_url = f"s3://{self.bucket}/{s3_key}"
 
         try:
-            s3_writer.write(self.bucket, s3_key, payload_json.encode())
+            s3_writer.write(self.bucket, s3_key, payload_json.encode(), {"backup": "false"})
             logger.info(f"Wrote payload to {s3_url}")
         except Exception as e:
             logger.error(f"Unexpected error when uploading file: {e}")
