@@ -17,7 +17,7 @@ from iotswarm.utils import json_serial
 logger = logging.getLogger(__name__)
 
 
-class IotCoreMQTTConnection(MessagingBaseClass):
+class IotCoreMQTTConnection(MessagingBaseClass):  # noqa: PLW1641
     """Handles MQTT communication to AWS IoT Core."""
 
     connection: mqtt.Connection

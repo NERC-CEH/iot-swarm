@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
-class MessagingBaseClass(ABC):
+class MessagingBaseClass(ABC):  # noqa: PLW1641
     """MessagingBaseClass Base class for messaging implementation
 
     All messaging classes implement this interface.
