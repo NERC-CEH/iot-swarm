@@ -46,7 +46,7 @@ FETCH NEXT 1 ROWS ONLY"""
         FETCH NEXT 1 ROWS ONLY
     """
 
-    SQLITE_SITE_IDS = "SELECT DISTINCT(site_id) FROM {table}"
+    SQLITE_SITE_IDS = "SELECT DISTINCT(site_id) FROM {table} WHERE SITE_ID <> 'TEST1' AND SITE_ID <> 'JUNG'"
 
     """Queries unique `site_id `s from a given table.
 
@@ -55,7 +55,7 @@ FETCH NEXT 1 ROWS ONLY"""
         SELECT DISTINCT(site_id) FROM <table>
     """
 
-    ORACLE_SITE_IDS = "SELECT UNIQUE(site_id) FROM COSMOS.{table}"
+    ORACLE_SITE_IDS = "SELECT UNIQUE(site_id) FROM COSMOS.{table} WHERE SITE_ID <> 'TEST1' AND SITE_ID <> 'JUNG'"
 
     """Queries unique `site_id `s from a given table.
 
@@ -78,4 +78,4 @@ AND date_time > :date_time"""
         AND date_time > <date_time>
     """
 
-    ORACLE_GET_ALL_SITES = "SELECT UNIQUE(SITE_ID) FROM COSMOS.SITES"
+    ORACLE_GET_ALL_SITES = "SELECT UNIQUE(SITE_ID) FROM COSMOS.SITES WHERE SITE_ID <> 'TEST1' AND SITE_ID <> 'JUNG'"
