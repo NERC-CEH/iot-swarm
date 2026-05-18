@@ -22,6 +22,7 @@ _ALLOWED_TABLES = [
 async def send_latest(
     config_file: Path,
     table: str,
+    app_prefix: str,
     sites: Optional[List[str]] = None,
     fallback_hours: int = 3,
     dry: bool = False,
@@ -38,6 +39,7 @@ async def send_latest(
         fallback_hours: The number of hours to fallback to if no state is found.
         dry: Don't send data if true
         batch_size: Maximum number of data rows in each message
+        app_prefix: Prefix to add to state management files
     """
 
     bucket_prefix = None
@@ -63,6 +65,7 @@ async def send_latest(
         bucket_prefix=bucket_prefix,
         topic_suffix=topic_suffix,
         fallback_hours=fallback_hours,
+        app_prefix=app_prefix
     )
 
     if dry:
@@ -114,8 +117,10 @@ async def gather_upload_tasks(config_src: Path, tables: List[str], batch_size: T
 @click.option("--fallback-hours", type=int, default=3, help="The number of hours to fallback to if no state is found.")
 @click.option("--dry", type=bool, is_flag=True)
 @click.option("--batch-size", type=int, multiple=True, default=(), help="Number of data rows per payload")
+@click.option("--prefix", type=str, required=True, help="A prefix to add to state management files")
 def send_live_data(
-    config_src: Path, table: Tuple[str], site: Tuple[str], fallback_hours: int, dry: bool, batch_size: Tuple[int]
+    config_src: Path, table: Tuple[str], site: Tuple[str], fallback_hours: int, dry: bool, batch_size: Tuple[int],
+    prefix: str
 ) -> None:
     """Sends out all live data
     Args:
@@ -126,6 +131,7 @@ def send_live_data(
         fallback_hours: The number of hours to fallback to if no state is found
         dry: Doesn't send data if provided
         batch_size: Maximum number of data rows in each message
+        prefix: A prefix to add to state management files
     """
 
     if "all" in table:
@@ -144,7 +150,8 @@ def send_live_data(
 
     asyncio.run(
         gather_upload_tasks(
-            config_src, list(table), sites=list(site), fallback_hours=fallback_hours, dry=dry, batch_size=batch_size
+            config_src, list(table), sites=list(site), fallback_hours=fallback_hours, dry=dry, batch_size=batch_size,
+            app_prefix=prefix
         )
     )
 
