@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 logger.propagate = True
 
 
-class BaseDevice:
+class BaseDevice:  # noqa: PLW1641
     """Base class for sensing devices."""
 
     device_type: str = "base-device"
@@ -367,7 +367,7 @@ class XMLDataTypes(enum.Enum):
         return self.value["schema"]
 
 
-class CR1000XField:
+class CR1000XField:  # noqa: PLW1641
     """Represents the field part of a CR1000X payload. Each sensor gets a field."""
 
     name: str = ""

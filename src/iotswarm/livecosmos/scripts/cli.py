@@ -65,7 +65,7 @@ async def send_latest(
         bucket_prefix=bucket_prefix,
         topic_suffix=topic_suffix,
         fallback_hours=fallback_hours,
-        app_prefix=app_prefix
+        app_prefix=app_prefix,
     )
 
     if dry:
@@ -119,8 +119,13 @@ async def gather_upload_tasks(config_src: Path, tables: List[str], batch_size: T
 @click.option("--batch-size", type=int, multiple=True, default=(), help="Number of data rows per payload")
 @click.option("--prefix", type=str, required=True, help="A prefix to add to state management files")
 def send_live_data(
-    config_src: Path, table: Tuple[str], site: Tuple[str], fallback_hours: int, dry: bool, batch_size: Tuple[int],
-    prefix: str
+    config_src: Path,
+    table: Tuple[str],
+    site: Tuple[str],
+    fallback_hours: int,
+    dry: bool,
+    batch_size: Tuple[int],
+    prefix: str,
 ) -> None:
     """Sends out all live data
     Args:
@@ -150,8 +155,13 @@ def send_live_data(
 
     asyncio.run(
         gather_upload_tasks(
-            config_src, list(table), sites=list(site), fallback_hours=fallback_hours, dry=dry, batch_size=batch_size,
-            app_prefix=prefix
+            config_src,
+            list(table),
+            sites=list(site),
+            fallback_hours=fallback_hours,
+            dry=dry,
+            batch_size=batch_size,
+            app_prefix=prefix,
         )
     )
 

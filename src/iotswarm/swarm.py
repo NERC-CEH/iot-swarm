@@ -16,7 +16,7 @@ from iotswarm.devices import BaseDevice
 logger = logging.getLogger(__name__)
 
 
-class Swarm:
+class Swarm:  # noqa: PLW1641
     """Manages a swarm of IoT devices and runs the main loop
     of all devices. Can receive any number or combination of devices.
     """
