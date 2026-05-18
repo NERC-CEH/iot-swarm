@@ -211,7 +211,19 @@ class TestCLI(TestCase):
         runner = CliRunner()
         with runner.isolated_filesystem():
             result = runner.invoke(
-                cli, ["send-live-data", str(_CONFIG_SRC), "--table", "all", "--site", sites[0], "--site", sites[1]]
+                cli,
+                [
+                    "send-live-data",
+                    str(_CONFIG_SRC),
+                    "--table",
+                    "all",
+                    "--site",
+                    sites[0],
+                    "--site",
+                    sites[1],
+                    "--prefix",
+                    "test_endtoend",
+                ],
             )
 
         assert result.exit_code == 0

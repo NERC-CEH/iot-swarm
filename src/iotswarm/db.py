@@ -20,7 +20,7 @@ from iotswarm.queries import (
 logger = logging.getLogger(__name__)
 
 
-class BaseDatabase(abc.ABC):
+class BaseDatabase(abc.ABC):  # noqa: PLW1641
     """Base class for implementing database objects
 
     Args:
@@ -57,7 +57,7 @@ class MockDB(BaseDatabase):
         return []
 
 
-class CosmosDB(BaseDatabase):
+class CosmosDB(BaseDatabase):  # noqa: PLW1641
     """Base class for databases using COSMOS_UK data."""
 
     connection: object
@@ -255,7 +255,7 @@ class Oracle(CosmosDB):
             return [x[0] for x in data]
 
 
-class LoopingCsvDB(BaseDatabase):
+class LoopingCsvDB(BaseDatabase):  # noqa: PLW1641
     """A database that reads from csv files and loops through items
     for a given table or site. The site and index is remembered via a
     dictionary key and incremented each time data is requested."""
@@ -333,7 +333,7 @@ class LoopingCsvDB(BaseDatabase):
         return sites
 
 
-class LoopingSQLite3(CosmosDB, LoopingCsvDB):
+class LoopingSQLite3(CosmosDB, LoopingCsvDB):  # noqa: PLW1641
     """A database that reads from .db files using sqlite3 and loops through
     entries in sequential order. There is a script that generates the .db file
     in the `__assets__/data` directory relative to this file. .csv datasets should
